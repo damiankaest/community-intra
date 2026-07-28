@@ -1,9 +1,6 @@
-import type {
-  InputHTMLAttributes,
-  ReactNode,
-  TextareaHTMLAttributes,
-} from 'react'
-import { useForm, type UseFormSetError } from 'react-hook-form'
+import type { InputHTMLAttributes, ReactNode } from 'react'
+import { useEffect } from 'react'
+import { useForm } from 'react-hook-form'
 import {
   useMutation,
   useQuery,
@@ -13,7 +10,6 @@ import {
 import {
   ArrowRight,
   Building2,
-  Factory,
   LogIn,
   LogOut,
   Plus,
@@ -29,7 +25,6 @@ import {
   useNavigate,
   useParams,
 } from 'react-router-dom'
-import { z } from 'zod'
 import {
   getCurrentUser,
   login,
@@ -41,12 +36,15 @@ import {
 } from './api/auth'
 import { ApiError } from './api/client'
 import {
-  createOrganization,
   getOrganization,
   listOrganizations,
-  type CreateOrganizationInput,
+  type OrganizationSummary,
 } from './api/organizations'
+import { getThemePack, listThemePacks, type ThemePack } from './api/themePacks'
+import { OrganizationWizard } from './components/OrganizationWizard'
 import { OrganizationSwitcher } from './components/OrganizationSwitcher'
+import { ThemeIcon } from './components/ThemeIcon'
+import { applyTheme, getThemeCssVariables, resetTheme } from './theme'
 
 const currentUserKey = ['current-user'] as const
 const organizationsKey = ['organizations'] as const
@@ -171,10 +169,10 @@ function LandingPage({ user }: { user?: CurrentUser }) {
           <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[var(--theme-surface)] shadow-2xl shadow-black/30">
             <div className="border-b border-white/10 p-6">
               <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
-                Phase 3
+                Phase 4
               </p>
               <h2 className="mt-2 text-2xl font-bold text-white">
-                Identität und Mandanten
+                Ein Kern, viele Welten
               </h2>
             </div>
             <div className="grid gap-3 p-6">
@@ -189,7 +187,7 @@ function LandingPage({ user }: { user?: CurrentUser }) {
               <Feature icon={<Users />} text="Owner-Rolle bei der Gründung" />
               <Feature
                 icon={<Sparkles />}
-                text="Theme Packs folgen in Phase 4"
+                text="Theme Packs mit eigenen Farben und Begriffen"
               />
             </div>
           </div>
@@ -208,7 +206,7 @@ function PublicHeader({ user }: { user?: CurrentUser }) {
           <div>
             <p className="text-sm font-semibold">Community Intranet</p>
             <p className="text-xs text-[var(--theme-muted)]">
-              Foundation · Phase 3
+              Theme Packs · Phase 4
             </p>
           </div>
         </a>
@@ -341,6 +339,13 @@ function OrganizationListPage({ user }: { user: CurrentUser }) {
     queryKey: organizationsKey,
     queryFn: listOrganizations,
   })
+  const themePacks = useQuery({
+    queryKey: ['theme-packs'],
+    queryFn: listThemePacks,
+  })
+  const themeByKey = new Map(
+    themePacks.data?.map((theme) => [theme.key, theme]) ?? [],
+  )
 
   return (
     <AppShell user={user}>
@@ -383,70 +388,68 @@ function OrganizationListPage({ user }: { user: CurrentUser }) {
 
       <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {organizations.data?.map((organization) => (
-          <a
+          <OrganizationCard
             key={organization.id}
-            href={`/organizations/${organization.id}`}
-            className="group rounded-2xl border border-white/10 bg-white/[0.035] p-6 transition hover:-translate-y-0.5 hover:border-[var(--theme-primary)]/35"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex size-11 items-center justify-center rounded-xl bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]">
-                <Building2 size={21} />
-              </div>
-              <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-[var(--theme-muted)]">
-                {organization.permissionRole}
-              </span>
-            </div>
-            <h2 className="mt-5 text-xl font-bold text-white group-hover:text-[var(--theme-primary)]">
-              {organization.name}
-            </h2>
-            <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--theme-muted)]">
-              {organization.description ??
-                'Noch keine Beschreibung hinterlegt.'}
-            </p>
-            {organization.visibleTitle && (
-              <p className="mt-5 text-xs font-semibold text-[var(--theme-primary)]">
-                {organization.visibleTitle}
-              </p>
-            )}
-          </a>
+            organization={organization}
+            theme={themeByKey.get(organization.themePackKey)}
+          />
         ))}
       </div>
     </AppShell>
   )
 }
 
+function OrganizationCard({
+  organization,
+  theme,
+}: {
+  organization: OrganizationSummary
+  theme?: ThemePack
+}) {
+  const visuals = theme?.configuration.visuals
+  const style = visuals ? getThemeCssVariables(visuals) : undefined
+
+  return (
+    <a
+      href={`/organizations/${organization.id}`}
+      style={style}
+      className="group rounded-2xl border border-white/10 bg-[var(--theme-surface)] p-6 transition hover:-translate-y-0.5 hover:border-[var(--theme-primary)]/35"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex size-11 items-center justify-center rounded-xl bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]">
+          <ThemeIcon name={visuals?.logoIcon ?? 'building-2'} />
+        </div>
+        <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-[var(--theme-muted)]">
+          {organization.permissionRole}
+        </span>
+      </div>
+      <h2 className="mt-5 text-xl font-bold text-white group-hover:text-[var(--theme-primary)]">
+        {organization.name}
+      </h2>
+      <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--theme-muted)]">
+        {organization.description ?? 'Noch keine Beschreibung hinterlegt.'}
+      </p>
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <span className="text-xs font-semibold text-[var(--theme-primary)]">
+          {organization.visibleTitle ??
+            theme?.name ??
+            organization.themePackKey}
+        </span>
+        <span className="text-xs text-[var(--theme-muted)]">
+          v{organization.themePackVersion}
+        </span>
+      </div>
+    </a>
+  )
+}
+
 function CreateOrganizationPage({ user }: { user: CurrentUser }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const form = useForm<CreateOrganizationInput>({
-    defaultValues: {
-      name: '',
-      description: '',
-      language: 'de',
-      timeZone: 'Europe/Berlin',
-      visibleTitle: '',
-    },
-  })
-  const mutation = useMutation({
-    mutationFn: createOrganization,
-    onSuccess: async (organization) => {
-      await queryClient.invalidateQueries({ queryKey: organizationsKey })
-      navigate(`/organizations/${organization.id}`, { replace: true })
-    },
-  })
-
-  const submit = form.handleSubmit((values) => {
-    const parsed = organizationSchema.safeParse(values)
-    if (!parsed.success) {
-      applyZodErrors(parsed.error, form.setError)
-      return
-    }
-    mutation.mutate(parsed.data)
-  })
 
   return (
     <AppShell user={user}>
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-5xl">
         <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
           Gründungsformular A-38
         </p>
@@ -454,62 +457,15 @@ function CreateOrganizationPage({ user }: { user: CurrentUser }) {
           Organisation erstellen
         </h1>
         <p className="mt-3 leading-7 text-[var(--theme-muted)]">
-          Du wirst automatisch Owner. Theme Pack, Standardabteilungen und
-          weitere kreative Bürokratie folgen in Phase 4.
+          Wähle Farben, Begriffe und den passenden Grad kreativer Bürokratie. Du
+          wirst automatisch Owner.
         </p>
-
-        <form
-          onSubmit={submit}
-          className="mt-9 space-y-5 rounded-2xl border border-white/10 bg-white/[0.035] p-6 sm:p-8"
-        >
-          <TextField
-            label="Name der Organisation"
-            placeholder="Rheinische FICSIT-Niederlassung"
-            error={form.formState.errors.name?.message}
-            {...form.register('name')}
-          />
-          <TextAreaField
-            label="Beschreibung"
-            placeholder="Wofür ist diese außerordentlich wichtige Organisation zuständig?"
-            error={form.formState.errors.description?.message}
-            {...form.register('description')}
-          />
-          <div className="grid gap-5 sm:grid-cols-2">
-            <TextField
-              label="Sprache"
-              placeholder="de"
-              error={form.formState.errors.language?.message}
-              {...form.register('language')}
-            />
-            <TextField
-              label="Zeitzone"
-              placeholder="Europe/Berlin"
-              error={form.formState.errors.timeZone?.message}
-              {...form.register('timeZone')}
-            />
-          </div>
-          <TextField
-            label="Dein sichtbarer Titel"
-            placeholder="Chief Spaghetti Officer"
-            hint="Nur sichtbar – technische Rechte kommen ausschließlich aus deiner Owner-Rolle."
-            error={form.formState.errors.visibleTitle?.message}
-            {...form.register('visibleTitle')}
-          />
-
-          {mutation.error && <ErrorNotice error={mutation.error} />}
-
-          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-            <SecondaryLink to="/organizations">Abbrechen</SecondaryLink>
-            <button
-              type="submit"
-              disabled={mutation.isPending}
-              className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--theme-primary)] px-5 font-bold text-black hover:bg-amber-400 disabled:opacity-60"
-            >
-              <Plus size={17} />
-              {mutation.isPending ? 'Wird gegründet …' : 'Organisation gründen'}
-            </button>
-          </div>
-        </form>
+        <OrganizationWizard
+          onCreated={async (organizationId) => {
+            await queryClient.invalidateQueries({ queryKey: organizationsKey })
+            navigate(`/organizations/${organizationId}`, { replace: true })
+          }}
+        />
       </div>
     </AppShell>
   )
@@ -527,13 +483,27 @@ function OrganizationDashboard({ user }: { user: CurrentUser }) {
     queryFn: () => getOrganization(organizationId),
     enabled: Boolean(organizationId),
   })
+  const themePack = useQuery({
+    queryKey: ['theme-pack', organization.data?.themePackKey],
+    queryFn: () => getThemePack(organization.data!.themePackKey),
+    enabled: Boolean(organization.data?.themePackKey),
+  })
+
+  useEffect(() => {
+    applyTheme(themePack.data)
+    return resetTheme
+  }, [themePack.data])
+
+  const terminology = themePack.data?.configuration.terminology
+  const messages = themePack.data?.configuration.messages
+  const visuals = themePack.data?.configuration.visuals
 
   return (
-    <AppShell user={user}>
+    <AppShell user={user} theme={themePack.data}>
       <div className="flex flex-col gap-5 border-b border-white/10 pb-8 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
-            Aktive Organisation
+            Aktive {terminology?.organization ?? 'Organisation'}
           </p>
           <h1 className="mt-2 text-4xl font-black tracking-tight text-white">
             {organization.data?.name ?? 'Organisation wird geladen …'}
@@ -553,6 +523,7 @@ function OrganizationDashboard({ user }: { user: CurrentUser }) {
       </div>
 
       {organization.error && <ErrorNotice error={organization.error} />}
+      {themePack.error && <ErrorNotice error={themePack.error} />}
       {organization.data && (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <InfoCard
@@ -571,23 +542,66 @@ function OrganizationDashboard({ user }: { user: CurrentUser }) {
       <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-7">
         <Sparkles className="text-[var(--theme-primary)]" size={24} />
         <h2 className="mt-4 text-xl font-bold text-white">
-          Der Mandant ist einsatzbereit
+          {messages?.welcome ?? 'Der Mandant ist einsatzbereit'}
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--theme-muted)]">
-          Authentifizierung, Organisationswechsel und Tenant-Prüfung sind aktiv.
-          In Phase 4 erhält die Organisation ihr Theme Pack, eigene Begriffe,
-          Farben und Standardabteilungen.
+          Theme: {themePack.data?.name ?? 'wird geladen'} · Stil:{' '}
+          {visuals?.style ?? 'wird geladen'} · Version:{' '}
+          {organization.data?.themePackVersion ?? 'wird geladen'}
         </p>
       </div>
+
+      {organization.data && terminology && messages && (
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            {
+              key: 'projects',
+              label: terminology.project,
+              message: messages.emptyProjects,
+            },
+            {
+              key: 'tasks',
+              label: terminology.task,
+              message: messages.emptyTasks,
+            },
+            {
+              key: 'incidents',
+              label: terminology.incident,
+              message: messages.emptyIncidents,
+            },
+            {
+              key: 'activity-feed',
+              label: terminology.activityFeed,
+              message: messages.emptyActivityFeed,
+            },
+          ]
+            .filter((module) =>
+              organization.data.enabledModules.includes(module.key),
+            )
+            .map((module) => (
+              <div
+                key={module.key}
+                className="rounded-2xl border border-white/10 bg-[var(--theme-surface)] p-5"
+              >
+                <p className="font-bold text-white">{module.label}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--theme-muted)]">
+                  {module.message}
+                </p>
+              </div>
+            ))}
+        </div>
+      )}
     </AppShell>
   )
 }
 
 function AppShell({
   user,
+  theme,
   children,
 }: {
   user: CurrentUser
+  theme?: ThemePack
   children: ReactNode
 }) {
   const navigate = useNavigate()
@@ -606,7 +620,7 @@ function AppShell({
       <header className="relative border-b border-white/10 bg-black/25 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
           <a href="/organizations" className="flex items-center gap-3">
-            <Logo />
+            <Logo icon={theme?.configuration.visuals.logoIcon} />
             <span className="hidden text-sm font-semibold text-white sm:inline">
               Community Intranet
             </span>
@@ -670,35 +684,6 @@ function TextField({
   )
 }
 
-function TextAreaField({
-  label,
-  error,
-  ...inputProps
-}: TextareaHTMLAttributes<HTMLTextAreaElement> & {
-  label: string
-  error?: string
-}) {
-  const fieldId = inputProps.name ?? label
-  return (
-    <label className="block" htmlFor={fieldId}>
-      <span className="mb-2 block text-sm font-semibold text-white">
-        {label}
-      </span>
-      <textarea
-        id={fieldId}
-        rows={4}
-        {...inputProps}
-        className="w-full resize-y rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-[var(--theme-primary)]"
-      />
-      {error && (
-        <span className="mt-1.5 block text-xs text-[var(--theme-danger)]">
-          {error}
-        </span>
-      )}
-    </label>
-  )
-}
-
 function ErrorNotice({ error }: { error: Error }) {
   const message =
     error instanceof ApiError && error.status === 401
@@ -714,10 +699,10 @@ function ErrorNotice({ error }: { error: Error }) {
   )
 }
 
-function Logo() {
+function Logo({ icon = 'factory' }: { icon?: string }) {
   return (
     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--theme-primary)] text-black">
-      <Factory size={21} />
+      <ThemeIcon name={icon} />
     </span>
   )
 }
@@ -785,32 +770,6 @@ function SecondaryLink({ to, children }: { to: string; children: ReactNode }) {
       {children}
     </a>
   )
-}
-
-const organizationSchema = z.object({
-  name: z.string().trim().min(2, 'Mindestens 2 Zeichen.').max(120),
-  description: z.string().trim().max(1000).optional(),
-  language: z
-    .string()
-    .trim()
-    .regex(/^[a-z]{2}(-[A-Z]{2})?$/, 'Zum Beispiel de oder de-DE.'),
-  timeZone: z.string().trim().min(1, 'Bitte gib eine Zeitzone an.').max(100),
-  visibleTitle: z.string().trim().max(100).optional(),
-})
-
-function applyZodErrors(
-  error: z.ZodError<CreateOrganizationInput>,
-  setError: UseFormSetError<CreateOrganizationInput>,
-) {
-  for (const issue of error.issues) {
-    const field = issue.path[0]
-    if (typeof field === 'string') {
-      setError(field as keyof CreateOrganizationInput, {
-        type: 'validation',
-        message: issue.message,
-      })
-    }
-  }
 }
 
 export default App

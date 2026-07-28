@@ -24,6 +24,9 @@ public sealed class OrganizationConfiguration : IEntityTypeConfiguration<Organiz
         builder.Property(organization => organization.TimeZone)
             .HasMaxLength(100)
             .IsRequired();
+        builder.Property(organization => organization.EnabledModules)
+            .HasColumnType("text[]")
+            .IsRequired();
         builder.HasIndex(organization => organization.Slug).IsUnique();
         builder.HasIndex(organization => organization.OwnerUserId);
     }

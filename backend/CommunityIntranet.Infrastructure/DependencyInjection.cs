@@ -2,6 +2,7 @@ using CommunityIntranet.Infrastructure.Persistence;
 using CommunityIntranet.Modules.Identity.Persistence;
 using CommunityIntranet.Modules.Members.Persistence;
 using CommunityIntranet.Modules.Organizations.Persistence;
+using CommunityIntranet.Modules.ThemePacks.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,8 @@ public static class DependencyInjection
         services.AddScoped<IOrganizationDbContext>(
             provider => provider.GetRequiredService<CommunityIntranetDbContext>());
         services.AddScoped<IMemberDbContext>(
+            provider => provider.GetRequiredService<CommunityIntranetDbContext>());
+        services.AddScoped<IThemePackDbContext>(
             provider => provider.GetRequiredService<CommunityIntranetDbContext>());
 
         return services;

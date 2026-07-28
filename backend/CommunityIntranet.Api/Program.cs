@@ -10,6 +10,8 @@ using CommunityIntranet.Modules.Identity.Endpoints;
 using CommunityIntranet.Modules.Members;
 using CommunityIntranet.Modules.Organizations;
 using CommunityIntranet.Modules.Organizations.Endpoints;
+using CommunityIntranet.Modules.ThemePacks;
+using CommunityIntranet.Modules.ThemePacks.Endpoints;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
@@ -90,6 +92,7 @@ try
         builder.Configuration);
     builder.Services.AddOrganizationsModule();
     builder.Services.AddMembersModule();
+    builder.Services.AddThemePacksModule();
     builder.Services.AddScoped<DatabaseInitializer>();
     builder.Services.AddRateLimiter(options =>
     {
@@ -155,12 +158,13 @@ try
     {
         await using var scope = app.Services.CreateAsyncScope();
         var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
-        await initializer.ApplyMigrationsAsync(CancellationToken.None);
+        await initializer.InitializeAsync(CancellationToken.None);
     }
 
     app.MapSystemEndpoints();
     app.MapIdentityEndpoints();
     app.MapOrganizationEndpoints();
+    app.MapThemePackEndpoints();
 
     await app.RunAsync();
 }

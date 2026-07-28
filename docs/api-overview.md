@@ -57,6 +57,21 @@ Browser gespeichert.
 | PUT | `/api/organizations/{organizationId}` | `organization.manage` |
 | DELETE | `/api/organizations/{organizationId}` | Owner oder Administrator |
 
+Beim Erstellen kann `themePackKey` sowie die Liste `enabledModules` angegeben
+werden. Ohne Theme-Angabe wird `generic-corporate` verwendet. Antworten
+enthalten Theme-Key und konkrete Version.
+
+## Theme Packs (Phase 4)
+
+```text
+GET /api/theme-packs
+GET /api/theme-packs/{key}
+```
+
+Beide Endpunkte erfordern Authentifizierung. Sie geben ausschließlich
+serverseitig validierte, fest typisierte Konfiguration zurück. Theme Packs
+enthalten keine Scripts, kein HTML und kein frei ausführbares CSS.
+
 ## Members und Invitations (Phase 5)
 
 | Methode | Route | Permission |

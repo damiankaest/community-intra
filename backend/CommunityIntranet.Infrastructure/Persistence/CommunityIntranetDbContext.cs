@@ -4,6 +4,8 @@ using CommunityIntranet.Modules.Members.Domain;
 using CommunityIntranet.Modules.Members.Persistence;
 using CommunityIntranet.Modules.Organizations.Domain;
 using CommunityIntranet.Modules.Organizations.Persistence;
+using CommunityIntranet.Modules.ThemePacks.Domain;
+using CommunityIntranet.Modules.ThemePacks.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +17,8 @@ public sealed class CommunityIntranetDbContext(
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options),
         IIdentityDbContext,
         IOrganizationDbContext,
-        IMemberDbContext
+        IMemberDbContext,
+        IThemePackDbContext
 {
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
@@ -24,6 +27,8 @@ public sealed class CommunityIntranetDbContext(
     public DbSet<OrganizationMember> OrganizationMembers =>
         Set<OrganizationMember>();
 
+    public DbSet<ThemePack> ThemePacks => Set<ThemePack>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -31,6 +36,7 @@ public sealed class CommunityIntranetDbContext(
         builder.ApplyConfigurationsFromAssembly(typeof(ApplicationUser).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(Organization).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(OrganizationMember).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(ThemePack).Assembly);
 
         builder.Entity<IdentityRole<Guid>>().ToTable("roles", "identity");
         builder.Entity<IdentityUserClaim<Guid>>()
@@ -54,5 +60,10 @@ public sealed class CommunityIntranetDbContext(
             .WithMany()
             .HasForeignKey(member => member.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<Organization>()
+            .HasOne<ThemePack>()
+            .WithMany()
+            .HasForeignKey(organization => organization.ThemePackId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
