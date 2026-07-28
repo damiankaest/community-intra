@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../CommunityIntranet.BuildingBlocks/CommunityIntranet.BuildingBlocks.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Infrastructure/CommunityIntranet.Infrastructure.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Identity/CommunityIntranet.Modules.Identity.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Organizations/CommunityIntranet.Modules.Organizations.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Members/CommunityIntranet.Modules.Members.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.ThemePacks/CommunityIntranet.Modules.ThemePacks.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Projects/CommunityIntranet.Modules.Projects.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Tasks/CommunityIntranet.Modules.Tasks.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Incidents/CommunityIntranet.Modules.Incidents.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Awards/CommunityIntranet.Modules.Awards.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.ActivityFeed/CommunityIntranet.Modules.ActivityFeed.csproj" />
+  </ItemGroup>
+</Project>

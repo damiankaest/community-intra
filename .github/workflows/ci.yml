@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: community_intranet
+          POSTGRES_USER: community_intranet
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U community_intranet -d community_intranet"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__PostgreSql: Host=127.0.0.1;Port=5432;Database=community_intranet;Username=community_intranet;Password=ci-only-password
+      Cors__AllowedOrigins__0: http://127.0.0.1:5173
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Validate Docker Compose
+        run: docker compose --env-file .env.example config --quiet
+
+      - name: Validate PowerShell scripts
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem dev -Filter *.ps1 | ForEach-Object {
+              $tokens = $null
+              $errors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile(
+                  $_.FullName,
+                  [ref] $tokens,
+                  [ref] $errors
+              ) | Out-Null
+
+              if ($errors.Count -gt 0) {
+                  $failed = $true
+                  $errors | ForEach-Object {
+                      Write-Error "$($_.Extent.File):$($_.Extent.StartLineNumber) $($_.Message)"
+                  }
+              }
+          }
+
+          if ($failed) {
+              exit 1
+          }
+
+      - name: Restore backend
+        run: dotnet restore CommunityIntranet.sln
+
+      - name: Build backend
+        run: dotnet build CommunityIntranet.sln --configuration Release --no-restore
+
+      - name: Test backend
+        run: dotnet test CommunityIntranet.sln --configuration Release --no-build
+
+      - name: Install frontend
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Test frontend
+        working-directory: frontend
+        run: npm run test
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Smoke-test running applications
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          dotnet run \
+            --project backend/CommunityIntranet.Api/CommunityIntranet.Api.csproj \
+            --configuration Release \
+            --no-build \
+            --no-launch-profile \
+            --urls http://127.0.0.1:5080 \
+            > /tmp/community-intranet-backend.log 2>&1 &
+          backend_pid=$!
+
+          npm --prefix frontend run dev -- --host 127.0.0.1 \
+            > /tmp/community-intranet-frontend.log 2>&1 &
+          frontend_pid=$!
+
+          cleanup() {
+            kill "$frontend_pid" "$backend_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:5080/api/system/info > /tmp/system-info.json; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl --fail --silent http://127.0.0.1:5080/api/health > /tmp/health.json
+          curl --fail --silent http://127.0.0.1:5080/swagger/index.html > /dev/null
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:5173 > /tmp/frontend.html; then
+              break
+            fi
+            sleep 1
+          done
+
+          grep --quiet "Community Intranet" /tmp/frontend.html
+          grep --quiet '"status":"Operational"' /tmp/system-info.json
+          grep --quiet '"status":"Healthy"' /tmp/health.json
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-logs
+          path: |
+            /tmp/community-intranet-backend.log
+            /tmp/community-intranet-frontend.log
+          if-no-files-found: ignore
