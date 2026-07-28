@@ -40,6 +40,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Create ephemeral JWT signing key
+        shell: bash
+        run: echo "Jwt__SigningKey=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -53,7 +57,12 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Validate Docker Compose
-        run: docker compose --env-file .env.example config --quiet
+        run: |
+          docker compose --env-file .env.example config --quiet
+          docker compose \
+            --env-file deploy/.env.production.example \
+            -f deploy/docker-compose.production.yml \
+            config --quiet
 
       - name: Validate PowerShell scripts
         shell: pwsh
@@ -137,6 +146,53 @@ jobs:
 
           curl --fail --silent http://127.0.0.1:5080/api/health > /tmp/health.json
           curl --fail --silent http://127.0.0.1:5080/swagger/index.html > /dev/null
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --cookie-jar /tmp/user-a.cookies \
+            --data '{"email":"owner-a@example.test","password":"SecurePassword123","displayName":"Owner A"}' \
+            http://127.0.0.1:5080/api/auth/register \
+            > /tmp/register-a.json
+          user_a_token=$(jq --raw-output ".accessToken" /tmp/register-a.json)
+          test -n "$user_a_token"
+          test "$user_a_token" != "null"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_a_token" \
+            --data '{"name":"CI Organization","description":"Tenant isolation smoke test","language":"de","timeZone":"Europe/Berlin","visibleTitle":"Chief CI Officer"}' \
+            http://127.0.0.1:5080/api/organizations \
+            > /tmp/organization.json
+          organization_id=$(jq --raw-output ".id" /tmp/organization.json)
+          test -n "$organization_id"
+          test "$organization_id" != "null"
+
+          curl --fail --silent \
+            --request POST \
+            --cookie /tmp/user-a.cookies \
+            --cookie-jar /tmp/user-a-rotated.cookies \
+            http://127.0.0.1:5080/api/auth/refresh \
+            > /tmp/refresh-a.json
+          rotated_token=$(jq --raw-output ".accessToken" /tmp/refresh-a.json)
+          test -n "$rotated_token"
+          test "$rotated_token" != "null"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --data '{"email":"member-b@example.test","password":"SecurePassword123","displayName":"Member B"}' \
+            http://127.0.0.1:5080/api/auth/register \
+            > /tmp/register-b.json
+          user_b_token=$(jq --raw-output ".accessToken" /tmp/register-b.json)
+
+          tenant_status=$(curl --silent \
+            --output /tmp/tenant-isolation.json \
+            --write-out "%{http_code}" \
+            --header "Authorization: Bearer $user_b_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id")
+          test "$tenant_status" = "404"
 
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:5173 > /tmp/frontend.html; then

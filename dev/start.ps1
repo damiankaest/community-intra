@@ -22,6 +22,13 @@ if (-not (Test-Path $environmentFile)) {
 }
 
 Import-DotEnv -Path $environmentFile
+
+if ([string]::IsNullOrWhiteSpace($env:Jwt__SigningKey)) {
+    $jwtKeyBytes = New-Object byte[] 48
+    [Security.Cryptography.RandomNumberGenerator]::Fill($jwtKeyBytes)
+    $env:Jwt__SigningKey = [Convert]::ToBase64String($jwtKeyBytes)
+}
+
 New-Item -ItemType Directory -Force -Path $runtimeDirectory, $logsDirectory | Out-Null
 
 if (Test-Path $processFile) {

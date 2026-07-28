@@ -1,9 +1,18 @@
 using System.Globalization;
+using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using CommunityIntranet.Api.Endpoints;
 using CommunityIntranet.Api.Infrastructure;
 using CommunityIntranet.Infrastructure;
 using CommunityIntranet.Infrastructure.Persistence;
+using CommunityIntranet.Modules.Identity;
+using CommunityIntranet.Modules.Identity.Endpoints;
+using CommunityIntranet.Modules.Members;
+using CommunityIntranet.Modules.Organizations;
+using CommunityIntranet.Modules.Organizations.Endpoints;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -36,6 +45,8 @@ try
     });
 
     builder.Services.AddEndpointsApiExplorer();
+    builder.Services.ConfigureHttpJsonOptions(options =>
+        options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
     builder.Services.AddSwaggerGen(options =>
     {
         options.SwaggerDoc(
@@ -46,12 +57,55 @@ try
                 Version = "v1",
                 Description = "API for the generic, multi-tenant Community Intranet platform."
             });
+        options.AddSecurityDefinition(
+            JwtBearerDefaults.AuthenticationScheme,
+            new OpenApiSecurityScheme
+            {
+                Name = "Authorization",
+                Type = SecuritySchemeType.Http,
+                Scheme = JwtBearerDefaults.AuthenticationScheme,
+                BearerFormat = "JWT",
+                In = ParameterLocation.Header
+            });
+        options.AddSecurityRequirement(
+            new OpenApiSecurityRequirement
+            {
+                [
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = JwtBearerDefaults.AuthenticationScheme
+                        }
+                    }
+                ] = []
+            });
     });
 
     builder.Services.AddValidatorsFromAssemblyContaining<Program>();
     builder.Services.AddSingleton(TimeProvider.System);
     builder.Services.AddCommunityIntranetInfrastructure(builder.Configuration);
+    builder.Services.AddIdentityModule<CommunityIntranetDbContext>(
+        builder.Configuration);
+    builder.Services.AddOrganizationsModule();
+    builder.Services.AddMembersModule();
     builder.Services.AddScoped<DatabaseInitializer>();
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.AddPolicy(
+            "authentication",
+            httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                }));
+    });
 
     builder.Services
         .AddHealthChecks()
@@ -78,7 +132,7 @@ try
                     policy.SetIsOriginAllowed(_ => false);
                 }
 
-                policy.AllowAnyHeader().AllowAnyMethod();
+                policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
             });
     });
 
@@ -87,21 +141,26 @@ try
     app.UseExceptionHandler();
     app.UseSerilogRequestLogging();
     app.UseCors(CorsPolicies.Frontend);
+    app.UseAuthentication();
+    app.UseAuthorization();
+    app.UseRateLimiter();
 
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
         app.UseSwaggerUI();
+    }
 
-        if (app.Configuration.GetValue("Database:ApplyMigrations", true))
-        {
-            await using var scope = app.Services.CreateAsyncScope();
-            var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
-            await initializer.ApplyMigrationsAsync(CancellationToken.None);
-        }
+    if (app.Configuration.GetValue("Database:ApplyMigrations", false))
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
+        await initializer.ApplyMigrationsAsync(CancellationToken.None);
     }
 
     app.MapSystemEndpoints();
+    app.MapIdentityEndpoints();
+    app.MapOrganizationEndpoints();
 
     await app.RunAsync();
 }
