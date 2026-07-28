@@ -8,6 +8,7 @@ using CommunityIntranet.Infrastructure.Persistence;
 using CommunityIntranet.Modules.Identity;
 using CommunityIntranet.Modules.Identity.Endpoints;
 using CommunityIntranet.Modules.Members;
+using CommunityIntranet.Modules.Members.Endpoints;
 using CommunityIntranet.Modules.Organizations;
 using CommunityIntranet.Modules.Organizations.Endpoints;
 using CommunityIntranet.Modules.ThemePacks;
@@ -108,6 +109,17 @@ try
                     QueueLimit = 0,
                     AutoReplenishment = true
                 }));
+        options.AddPolicy(
+            "invitations",
+            httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 20,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                }));
     });
 
     builder.Services
@@ -164,6 +176,7 @@ try
     app.MapSystemEndpoints();
     app.MapIdentityEndpoints();
     app.MapOrganizationEndpoints();
+    app.MapMemberEndpoints();
     app.MapThemePackEndpoints();
 
     await app.RunAsync();

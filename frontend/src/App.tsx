@@ -1,5 +1,5 @@
 import type { InputHTMLAttributes, ReactNode } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import {
   useMutation,
@@ -10,11 +10,18 @@ import {
 import {
   ArrowRight,
   Building2,
+  Check,
+  Clipboard,
+  Copy,
+  FolderTree,
   LogIn,
   LogOut,
   Plus,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
+  UserMinus,
+  UserPlus,
   Users,
 } from 'lucide-react'
 import {
@@ -36,8 +43,26 @@ import {
 } from './api/auth'
 import { ApiError } from './api/client'
 import {
+  acceptInvitation,
+  archiveDepartment,
+  createDepartment,
+  createInvitation,
+  listDepartments,
+  listInvitations,
+  listMembers,
+  resolveInvitation,
+  revokeInvitation,
+  updateMember,
+  type CreateInvitationInput,
+  type Department,
+  type Invitation,
+  type Member,
+  type UpdateMemberInput,
+} from './api/members'
+import {
   getOrganization,
   listOrganizations,
+  type PermissionRole,
   type OrganizationSummary,
 } from './api/organizations'
 import { getThemePack, listThemePacks, type ThemePack } from './api/themePacks'
@@ -48,6 +73,7 @@ import { applyTheme, getThemeCssVariables, resetTheme } from './theme'
 
 const currentUserKey = ['current-user'] as const
 const organizationsKey = ['organizations'] as const
+const pendingInvitationKey = 'community-pending-invitation'
 
 function App() {
   const currentUser = useQuery({
@@ -80,6 +106,15 @@ function App() {
         }
       />
       <Route
+        path="/invite"
+        element={
+          <InvitationPage
+            user={currentUser.data}
+            isCheckingSession={currentUser.isPending}
+          />
+        }
+      />
+      <Route
         path="/organizations"
         element={
           <ProtectedRoute query={currentUser}>
@@ -100,6 +135,14 @@ function App() {
         element={
           <ProtectedRoute query={currentUser}>
             <OrganizationDashboard user={currentUser.data!} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/organizations/:organizationId/members"
+        element={
+          <ProtectedRoute query={currentUser}>
+            <MembersPage user={currentUser.data!} />
           </ProtectedRoute>
         }
       />
@@ -169,7 +212,7 @@ function LandingPage({ user }: { user?: CurrentUser }) {
           <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[var(--theme-surface)] shadow-2xl shadow-black/30">
             <div className="border-b border-white/10 p-6">
               <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
-                Phase 4
+                Phase 5
               </p>
               <h2 className="mt-2 text-2xl font-bold text-white">
                 Ein Kern, viele Welten
@@ -185,6 +228,10 @@ function LandingPage({ user }: { user?: CurrentUser }) {
                 text="Mehrere getrennte Organisationen"
               />
               <Feature icon={<Users />} text="Owner-Rolle bei der Gründung" />
+              <Feature
+                icon={<UserPlus />}
+                text="Sichere Einladungslinks für eure Freunde"
+              />
               <Feature
                 icon={<Sparkles />}
                 text="Theme Packs mit eigenen Farben und Begriffen"
@@ -206,7 +253,7 @@ function PublicHeader({ user }: { user?: CurrentUser }) {
           <div>
             <p className="text-sm font-semibold">Community Intranet</p>
             <p className="text-xs text-[var(--theme-muted)]">
-              Theme Packs · Phase 4
+              Mitglieder & Einladungen · Phase 5
             </p>
           </div>
         </a>
@@ -237,7 +284,12 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       isRegister ? register(values) : login(values satisfies LoginInput),
     onSuccess: (response) => {
       queryClient.setQueryData(currentUserKey, response.user)
-      navigate('/organizations', { replace: true })
+      navigate(
+        sessionStorage.getItem(pendingInvitationKey)
+          ? '/invite'
+          : '/organizations',
+        { replace: true },
+      )
     },
   })
 
@@ -330,6 +382,126 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           {isRegister ? 'Anmelden' : 'Jetzt registrieren'}
         </a>
       </p>
+    </CenteredPanel>
+  )
+}
+
+function InvitationPage({
+  user,
+  isCheckingSession,
+}: {
+  user?: CurrentUser
+  isCheckingSession: boolean
+}) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [token] = useState(() => {
+    const hashToken = window.location.hash.replace(/^#/, '').trim()
+    return hashToken || sessionStorage.getItem(pendingInvitationKey) || ''
+  })
+  const invitation = useQuery({
+    queryKey: ['invitation-preview', token],
+    queryFn: () => resolveInvitation(token),
+    enabled: Boolean(token),
+    retry: false,
+  })
+  const themePack = useQuery({
+    queryKey: ['theme-pack', invitation.data?.themePackKey],
+    queryFn: () => getThemePack(invitation.data!.themePackKey),
+    enabled: Boolean(user && invitation.data?.themePackKey),
+  })
+  const acceptMutation = useMutation({
+    mutationFn: () => acceptInvitation(token),
+    onSuccess: async (result) => {
+      sessionStorage.removeItem(pendingInvitationKey)
+      await queryClient.invalidateQueries({ queryKey: organizationsKey })
+      navigate(`/organizations/${result.organizationId}`, { replace: true })
+    },
+  })
+
+  useEffect(() => {
+    if (token) {
+      sessionStorage.setItem(pendingInvitationKey, token)
+    }
+  }, [token])
+
+  useEffect(() => {
+    applyTheme(themePack.data)
+    return resetTheme
+  }, [themePack.data])
+
+  return (
+    <CenteredPanel>
+      <div className="mb-8 flex items-center gap-3">
+        <Logo icon={themePack.data?.configuration.visuals.logoIcon} />
+        <div>
+          <p className="font-semibold text-white">Community Intranet</p>
+          <p className="text-sm text-[var(--theme-muted)]">
+            Offizielle Einladung
+          </p>
+        </div>
+      </div>
+
+      {!token && (
+        <ErrorNotice
+          error={new Error('Der Einladungslink ist unvollständig.')}
+        />
+      )}
+      {invitation.isPending && token && (
+        <InlineMessage message="Einladung wird geprüft …" />
+      )}
+      {invitation.error && <ErrorNotice error={invitation.error} />}
+      {invitation.data && (
+        <>
+          <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
+            Personalzugang genehmigt
+          </p>
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-white">
+            {invitation.data.organizationName}
+          </h1>
+          <p className="mt-4 text-sm leading-6 text-[var(--theme-muted)]">
+            Du wurdest als{' '}
+            <strong className="text-white">
+              {invitation.data.defaultPermissionRole}
+            </strong>{' '}
+            eingeladen. Der Link kann noch{' '}
+            {invitation.data.remainingUses === 1
+              ? 'einmal'
+              : `${invitation.data.remainingUses}-mal`}{' '}
+            verwendet werden.
+          </p>
+          <p className="mt-2 text-xs text-[var(--theme-muted)]">
+            Gültig bis{' '}
+            {new Date(invitation.data.expiresAt).toLocaleString('de-DE')}.
+          </p>
+
+          {isCheckingSession ? (
+            <InlineMessage message="Sitzung wird geprüft …" />
+          ) : user ? (
+            <div className="mt-8">
+              {acceptMutation.error && (
+                <ErrorNotice error={acceptMutation.error} />
+              )}
+              <button
+                type="button"
+                onClick={() => acceptMutation.mutate()}
+                disabled={acceptMutation.isPending}
+                className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--theme-primary)] px-5 font-bold text-black transition hover:brightness-110 disabled:opacity-60"
+              >
+                <UserPlus size={18} />
+                {acceptMutation.isPending
+                  ? 'Beitritt wird verbucht …'
+                  : `Als ${user.displayName} beitreten`}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              <PrimaryLink to="/register">Konto erstellen</PrimaryLink>
+              <SecondaryLink to="/login">Anmelden</SecondaryLink>
+            </div>
+          )}
+        </>
+      )}
     </CenteredPanel>
   )
 }
@@ -514,11 +686,17 @@ function OrganizationDashboard({ user }: { user: CurrentUser }) {
           </p>
         </div>
         {organizations.data && (
-          <OrganizationSwitcher
-            organizations={organizations.data}
-            selectedId={organizationId}
-            onSelect={(id) => navigate(`/organizations/${id}`)}
-          />
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <OrganizationSwitcher
+              organizations={organizations.data}
+              selectedId={organizationId}
+              onSelect={(id) => navigate(`/organizations/${id}`)}
+            />
+            <PrimaryLink to={`/organizations/${organizationId}/members`}>
+              <Users size={17} />
+              {terminology?.members ?? 'Mitglieder'}
+            </PrimaryLink>
+          </div>
         )}
       </div>
 
@@ -592,6 +770,602 @@ function OrganizationDashboard({ user }: { user: CurrentUser }) {
         </div>
       )}
     </AppShell>
+  )
+}
+
+function MembersPage({ user }: { user: CurrentUser }) {
+  const { organizationId = '' } = useParams()
+  const queryClient = useQueryClient()
+  const organization = useQuery({
+    queryKey: ['organization', organizationId],
+    queryFn: () => getOrganization(organizationId),
+    enabled: Boolean(organizationId),
+  })
+  const themePack = useQuery({
+    queryKey: ['theme-pack', organization.data?.themePackKey],
+    queryFn: () => getThemePack(organization.data!.themePackKey),
+    enabled: Boolean(organization.data?.themePackKey),
+  })
+  const members = useQuery({
+    queryKey: ['members', organizationId],
+    queryFn: () => listMembers(organizationId),
+    enabled: Boolean(organizationId),
+  })
+  const departments = useQuery({
+    queryKey: ['departments', organizationId],
+    queryFn: () => listDepartments(organizationId),
+    enabled: Boolean(organizationId),
+  })
+  const canManage =
+    organization.data?.permissionRole === 'Owner' ||
+    organization.data?.permissionRole === 'Administrator'
+  const invitations = useQuery({
+    queryKey: ['invitations', organizationId],
+    queryFn: () => listInvitations(organizationId),
+    enabled: Boolean(organizationId) && canManage,
+  })
+  const invitationForm = useForm<CreateInvitationInput>({
+    defaultValues: {
+      defaultPermissionRole: 'Member',
+      expiresInDays: 7,
+      maximumUses: 1,
+    },
+  })
+  const departmentForm = useForm<{
+    name: string
+    description: string
+    icon: string
+  }>({
+    defaultValues: { name: '', description: '', icon: 'users' },
+  })
+  const [createdLink, setCreatedLink] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    applyTheme(themePack.data)
+    return resetTheme
+  }, [themePack.data])
+
+  const invitationMutation = useMutation({
+    mutationFn: (input: CreateInvitationInput) =>
+      createInvitation(organizationId, input),
+    onSuccess: async (created) => {
+      setCreatedLink(`${window.location.origin}/invite#${created.token}`)
+      setCopied(false)
+      await queryClient.invalidateQueries({
+        queryKey: ['invitations', organizationId],
+      })
+    },
+  })
+  const departmentMutation = useMutation({
+    mutationFn: (values: { name: string; description: string; icon: string }) =>
+      createDepartment(organizationId, {
+        name: values.name,
+        description: values.description || undefined,
+        icon: values.icon,
+      }),
+    onSuccess: async () => {
+      departmentForm.reset()
+      await queryClient.invalidateQueries({
+        queryKey: ['departments', organizationId],
+      })
+    },
+  })
+  const archiveDepartmentMutation = useMutation({
+    mutationFn: (departmentId: string) =>
+      archiveDepartment(organizationId, departmentId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['departments', organizationId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['members', organizationId],
+        }),
+      ])
+    },
+  })
+  const revokeInvitationMutation = useMutation({
+    mutationFn: (invitationId: string) =>
+      revokeInvitation(organizationId, invitationId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['invitations', organizationId],
+      })
+    },
+  })
+
+  const terminology = themePack.data?.configuration.terminology
+
+  return (
+    <AppShell user={user} theme={themePack.data}>
+      <a
+        href={`/organizations/${organizationId}`}
+        className="text-sm font-semibold text-[var(--theme-primary)] hover:underline"
+      >
+        ← Zurück zum Dashboard
+      </a>
+      <div className="mt-5 flex flex-col gap-5 border-b border-white/10 pb-8 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
+            Personalverwaltung
+          </p>
+          <h1 className="mt-2 text-4xl font-black tracking-tight text-white">
+            {terminology?.members ?? 'Mitglieder'}
+          </h1>
+          <p className="mt-3 text-[var(--theme-muted)]">
+            {organization.data?.name ?? 'Organisation wird geladen …'} ·{' '}
+            technische Rollen und kreative Jobtitel sauber getrennt.
+          </p>
+        </div>
+        {canManage && (
+          <a
+            href="#einladungen"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--theme-primary)] px-5 text-sm font-bold text-black"
+          >
+            <UserPlus size={17} />
+            Person einladen
+          </a>
+        )}
+      </div>
+
+      {organization.error && <ErrorNotice error={organization.error} />}
+      {members.error && <ErrorNotice error={members.error} />}
+      {departments.error && <ErrorNotice error={departments.error} />}
+
+      <section className="mt-8">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-xl font-bold text-white">Mitgliederliste</h2>
+          <span className="text-sm text-[var(--theme-muted)]">
+            {members.data?.filter((member) => member.isActive).length ?? 0}{' '}
+            aktiv
+          </span>
+        </div>
+        {members.isPending && (
+          <InlineMessage message="Mitglieder werden geladen …" />
+        )}
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          {members.data?.map((member) => (
+            <MemberCard
+              key={member.id}
+              member={member}
+              departments={departments.data ?? []}
+              organizationId={organizationId}
+              canManage={canManage}
+              managerRole={organization.data?.permissionRole}
+              currentUserId={user.id}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-12">
+        <div className="flex items-center gap-3">
+          <FolderTree className="text-[var(--theme-primary)]" size={22} />
+          <h2 className="text-xl font-bold text-white">
+            {terminology?.department ?? 'Abteilungen'}
+          </h2>
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_360px]">
+          <div className="grid content-start gap-3 sm:grid-cols-2">
+            {departments.data?.map((department) => (
+              <div
+                key={department.id}
+                className="rounded-2xl border border-white/10 bg-[var(--theme-surface)] p-5"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-bold text-white">{department.name}</p>
+                    <p className="mt-1 text-xs text-[var(--theme-muted)]">
+                      Icon: {department.icon}
+                    </p>
+                  </div>
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        archiveDepartmentMutation.mutate(department.id)
+                      }
+                      className="text-xs font-semibold text-rose-300 hover:underline"
+                    >
+                      Archivieren
+                    </button>
+                  )}
+                </div>
+                {department.description && (
+                  <p className="mt-3 text-sm leading-6 text-[var(--theme-muted)]">
+                    {department.description}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+          {canManage && (
+            <form
+              onSubmit={departmentForm.handleSubmit((values) =>
+                departmentMutation.mutate(values),
+              )}
+              className="rounded-2xl border border-white/10 bg-white/[0.035] p-5"
+            >
+              <h3 className="font-bold text-white">Abteilung ergänzen</h3>
+              <div className="mt-4 space-y-4">
+                <TextField
+                  label="Name"
+                  error={departmentForm.formState.errors.name?.message}
+                  {...departmentForm.register('name', {
+                    required: 'Bitte gib einen Namen ein.',
+                    maxLength: { value: 100, message: 'Maximal 100 Zeichen.' },
+                  })}
+                />
+                <TextField
+                  label="Beschreibung"
+                  {...departmentForm.register('description')}
+                />
+                <TextField
+                  label="Lucide-Icon"
+                  {...departmentForm.register('icon', {
+                    required: 'Bitte gib ein Icon ein.',
+                  })}
+                />
+              </div>
+              {departmentMutation.error && (
+                <div className="mt-4">
+                  <ErrorNotice error={departmentMutation.error} />
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={departmentMutation.isPending}
+                className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white/10 text-sm font-bold text-white hover:bg-white/15 disabled:opacity-60"
+              >
+                <Plus size={16} />
+                Anlegen
+              </button>
+            </form>
+          )}
+        </div>
+      </section>
+
+      {canManage && (
+        <section id="einladungen" className="mt-12 scroll-mt-6">
+          <div className="flex items-center gap-3">
+            <UserPlus className="text-[var(--theme-primary)]" size={22} />
+            <h2 className="text-xl font-bold text-white">Einladungen</h2>
+          </div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-[380px_1fr]">
+            <form
+              onSubmit={invitationForm.handleSubmit((values) =>
+                invitationMutation.mutate({
+                  ...values,
+                  expiresInDays: Number(values.expiresInDays),
+                  maximumUses: Number(values.maximumUses),
+                }),
+              )}
+              className="rounded-2xl border border-[var(--theme-primary)]/25 bg-[var(--theme-primary)]/[0.06] p-6"
+            >
+              <h3 className="font-bold text-white">Neuen Link erstellen</h3>
+              <label className="mt-5 block">
+                <span className="mb-2 block text-sm font-semibold text-white">
+                  Technische Rolle
+                </span>
+                <select
+                  {...invitationForm.register('defaultPermissionRole')}
+                  className="h-12 w-full rounded-xl border border-white/10 bg-[var(--theme-background)] px-4 text-white outline-none"
+                >
+                  <option value="Guest">Guest</option>
+                  <option value="Member">Member</option>
+                  <option value="Moderator">Moderator</option>
+                  {organization.data?.permissionRole === 'Owner' && (
+                    <option value="Administrator">Administrator</option>
+                  )}
+                </select>
+              </label>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <TextField
+                  label="Gültig (Tage)"
+                  type="number"
+                  min={1}
+                  max={30}
+                  {...invitationForm.register('expiresInDays', {
+                    valueAsNumber: true,
+                  })}
+                />
+                <TextField
+                  label="Nutzungen"
+                  type="number"
+                  min={1}
+                  max={100}
+                  {...invitationForm.register('maximumUses', {
+                    valueAsNumber: true,
+                  })}
+                />
+              </div>
+              {invitationMutation.error && (
+                <div className="mt-4">
+                  <ErrorNotice error={invitationMutation.error} />
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={invitationMutation.isPending}
+                className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--theme-primary)] font-bold text-black disabled:opacity-60"
+              >
+                <UserPlus size={17} />
+                Einladungslink erstellen
+              </button>
+            </form>
+
+            <div>
+              {createdLink && (
+                <div className="mb-4 rounded-2xl border border-emerald-400/25 bg-emerald-400/10 p-5">
+                  <div className="flex items-center gap-2 font-bold text-emerald-200">
+                    <Check size={18} />
+                    Link bereit zum Teilen
+                  </div>
+                  <p className="mt-2 text-sm break-all text-emerald-100/80">
+                    {createdLink}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(createdLink)
+                      setCopied(true)
+                    }}
+                    className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-300 px-4 text-sm font-bold text-emerald-950"
+                  >
+                    {copied ? <Check size={16} /> : <Copy size={16} />}
+                    {copied ? 'Kopiert' : 'Link kopieren'}
+                  </button>
+                  <p className="mt-3 text-xs text-emerald-100/65">
+                    Der vollständige Link wird aus Sicherheitsgründen nur jetzt
+                    angezeigt.
+                  </p>
+                </div>
+              )}
+              {invitations.error && <ErrorNotice error={invitations.error} />}
+              <div className="space-y-3">
+                {invitations.data?.map((invitation) => (
+                  <InvitationCard
+                    key={invitation.id}
+                    invitation={invitation}
+                    onRevoke={() =>
+                      revokeInvitationMutation.mutate(invitation.id)
+                    }
+                  />
+                ))}
+                {invitations.data?.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-sm text-[var(--theme-muted)]">
+                    Noch keine Einladungen erstellt.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+    </AppShell>
+  )
+}
+
+function MemberCard({
+  member,
+  departments,
+  organizationId,
+  canManage,
+  managerRole,
+  currentUserId,
+}: {
+  member: Member
+  departments: Department[]
+  organizationId: string
+  canManage: boolean
+  managerRole?: PermissionRole
+  currentUserId: string
+}) {
+  const queryClient = useQueryClient()
+  const form = useForm<UpdateMemberInput>({
+    defaultValues: {
+      permissionRole: member.permissionRole,
+      visibleTitle: member.visibleTitle ?? '',
+      departmentId: member.departmentId ?? '',
+      statusMessage: member.statusMessage ?? '',
+      isActive: member.isActive,
+    },
+  })
+  const mutation = useMutation({
+    mutationFn: (input: UpdateMemberInput) =>
+      updateMember(organizationId, member.id, {
+        ...input,
+        visibleTitle: input.visibleTitle || undefined,
+        departmentId: input.departmentId || undefined,
+        statusMessage: input.statusMessage || undefined,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['members', organizationId],
+      })
+    },
+  })
+  const isOwner = member.permissionRole === 'Owner'
+  const canEdit =
+    canManage &&
+    (managerRole === 'Owner' ||
+      !['Owner', 'Administrator'].includes(member.permissionRole))
+  const editableRoles: PermissionRole[] =
+    managerRole === 'Owner'
+      ? ['Guest', 'Member', 'Moderator', 'Administrator']
+      : ['Guest', 'Member', 'Moderator']
+  if (isOwner) {
+    editableRoles.push('Owner')
+  }
+
+  return (
+    <article
+      className={`rounded-2xl border p-5 ${
+        member.isActive
+          ? 'border-white/10 bg-[var(--theme-surface)]'
+          : 'border-white/[0.06] bg-white/[0.02] opacity-65'
+      }`}
+    >
+      <div className="flex items-start gap-4">
+        <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--theme-primary)]/15 font-black text-[var(--theme-primary)]">
+          {member.displayName.slice(0, 1).toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-bold text-white">{member.displayName}</h3>
+            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-[var(--theme-muted)]">
+              {member.permissionRole}
+            </span>
+          </div>
+          <p className="truncate text-xs text-[var(--theme-muted)]">
+            {member.email}
+          </p>
+          {!canEdit && (
+            <div className="mt-3 text-sm text-[var(--theme-muted)]">
+              <p>{member.visibleTitle ?? 'Kein sichtbarer Titel'}</p>
+              <p>{member.departmentName ?? 'Keine Abteilung'}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {canEdit && (
+        <form
+          onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
+          className="mt-5 grid gap-3 border-t border-white/10 pt-5 sm:grid-cols-2"
+        >
+          <label>
+            <span className="mb-1.5 block text-xs font-semibold text-[var(--theme-muted)]">
+              Rolle
+            </span>
+            <select
+              {...form.register('permissionRole')}
+              disabled={isOwner}
+              className="h-10 w-full rounded-xl border border-white/10 bg-[var(--theme-background)] px-3 text-sm text-white disabled:opacity-60"
+            >
+              {editableRoles.map((role) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className="mb-1.5 block text-xs font-semibold text-[var(--theme-muted)]">
+              Abteilung
+            </span>
+            <select
+              {...form.register('departmentId')}
+              className="h-10 w-full rounded-xl border border-white/10 bg-[var(--theme-background)] px-3 text-sm text-white"
+            >
+              <option value="">Keine Abteilung</option>
+              {departments.map((department) => (
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sm:col-span-2">
+            <span className="mb-1.5 block text-xs font-semibold text-[var(--theme-muted)]">
+              Sichtbarer Titel
+            </span>
+            <input
+              {...form.register('visibleTitle')}
+              maxLength={100}
+              className="h-10 w-full rounded-xl border border-white/10 bg-black/15 px-3 text-sm text-white outline-none focus:border-[var(--theme-primary)]"
+              placeholder="Chief Spaghetti Officer"
+            />
+          </label>
+          <label className="sm:col-span-2">
+            <span className="mb-1.5 block text-xs font-semibold text-[var(--theme-muted)]">
+              Statusmeldung
+            </span>
+            <input
+              {...form.register('statusMessage')}
+              maxLength={280}
+              className="h-10 w-full rounded-xl border border-white/10 bg-black/15 px-3 text-sm text-white outline-none focus:border-[var(--theme-primary)]"
+              placeholder="Derzeit mit Förderbandangelegenheiten befasst"
+            />
+          </label>
+          <div className="flex items-center gap-3 sm:col-span-2">
+            <label className="flex flex-1 items-center gap-2 text-sm text-[var(--theme-muted)]">
+              <input
+                type="checkbox"
+                {...form.register('isActive')}
+                disabled={isOwner || member.userId === currentUserId}
+                className="size-4 accent-[var(--theme-primary)]"
+              />
+              Mitglied aktiv
+            </label>
+            <button
+              type="submit"
+              disabled={mutation.isPending}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-bold text-white hover:bg-white/15 disabled:opacity-60"
+            >
+              <Clipboard size={15} />
+              Speichern
+            </button>
+          </div>
+          {mutation.error && (
+            <div className="sm:col-span-2">
+              <ErrorNotice error={mutation.error} />
+            </div>
+          )}
+        </form>
+      )}
+    </article>
+  )
+}
+
+function InvitationCard({
+  invitation,
+  onRevoke,
+}: {
+  invitation: Invitation
+  onRevoke: () => void
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[var(--theme-surface)] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`size-2 rounded-full ${
+                invitation.isUsable ? 'bg-emerald-400' : 'bg-slate-500'
+              }`}
+            />
+            <p className="font-bold text-white">
+              {invitation.defaultPermissionRole}
+            </p>
+          </div>
+          <p className="mt-1 text-xs text-[var(--theme-muted)]">
+            Erstellt von {invitation.createdByDisplayName} ·{' '}
+            {invitation.currentUses}/{invitation.maximumUses} genutzt
+          </p>
+          <p className="mt-1 text-xs text-[var(--theme-muted)]">
+            Gültig bis {new Date(invitation.expiresAt).toLocaleString('de-DE')}
+          </p>
+        </div>
+        {invitation.isUsable && (
+          <button
+            type="button"
+            onClick={onRevoke}
+            className="inline-flex items-center gap-2 text-xs font-semibold text-rose-300 hover:underline"
+          >
+            <UserMinus size={14} />
+            Widerrufen
+          </button>
+        )}
+        {!invitation.isUsable && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-[var(--theme-muted)]">
+            <RotateCcw size={13} />
+            Abgelaufen oder verbraucht
+          </span>
+        )}
+      </div>
+    </div>
   )
 }
 

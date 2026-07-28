@@ -26,6 +26,25 @@ public sealed class OrganizationAccessService(
         });
     }
 
+    public void AddDepartments(
+        Guid organizationId,
+        IReadOnlyList<OrganizationDepartmentTemplate> departments)
+    {
+        var sortOrder = 0;
+        foreach (var department in departments)
+        {
+            dbContext.Departments.Add(new Department
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = organizationId,
+                Name = department.Name.Trim(),
+                Icon = department.Icon.Trim(),
+                SortOrder = sortOrder++,
+                IsArchived = false
+            });
+        }
+    }
+
     public Task<OrganizationMembership?> GetActiveMembershipAsync(
         Guid organizationId,
         Guid userId,

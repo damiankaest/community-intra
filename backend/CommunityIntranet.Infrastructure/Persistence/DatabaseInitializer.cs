@@ -1,4 +1,6 @@
+using CommunityIntranet.Modules.Members.Domain;
 using CommunityIntranet.Modules.Organizations.Contracts;
+using CommunityIntranet.Modules.ThemePacks.Configuration;
 using CommunityIntranet.Modules.ThemePacks.Seeding;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -9,15 +11,18 @@ public sealed partial class DatabaseInitializer
 {
     private readonly CommunityIntranetDbContext _dbContext;
     private readonly ThemePackSeeder _themePackSeeder;
+    private readonly ThemePackSerializer _themePackSerializer;
     private readonly ILogger<DatabaseInitializer> _logger;
 
     public DatabaseInitializer(
         CommunityIntranetDbContext dbContext,
         ThemePackSeeder themePackSeeder,
+        ThemePackSerializer themePackSerializer,
         ILogger<DatabaseInitializer> logger)
     {
         _dbContext = dbContext;
         _themePackSeeder = themePackSeeder;
+        _themePackSerializer = themePackSerializer;
         _logger = logger;
     }
 
@@ -63,6 +68,74 @@ public sealed partial class DatabaseInitializer
             await _dbContext.SaveChangesAsync(cancellationToken);
             LogOrganizationsUpdated(organizations.Count);
         }
+
+        await SeedMissingDepartmentsAsync(cancellationToken);
+    }
+
+    private async Task SeedMissingDepartmentsAsync(
+        CancellationToken cancellationToken)
+    {
+        var organizationIdsWithDepartments = await _dbContext.Departments
+            .Select(department => department.OrganizationId)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
+        var organizations = await _dbContext.Organizations
+            .AsNoTracking()
+            .Where(organization =>
+                !organization.IsArchived
+                && organization.ThemePackId != null
+                && !organizationIdsWithDepartments.Contains(organization.Id))
+            .ToArrayAsync(cancellationToken);
+        if (organizations.Length == 0)
+        {
+            return;
+        }
+
+        var themePackIds = organizations
+            .Select(organization => organization.ThemePackId!.Value)
+            .Distinct()
+            .ToArray();
+        var themePacks = await _dbContext.ThemePacks
+            .AsNoTracking()
+            .Where(themePack => themePackIds.Contains(themePack.Id))
+            .ToDictionaryAsync(themePack => themePack.Id, cancellationToken);
+
+        var departmentCount = 0;
+        foreach (var organization in organizations)
+        {
+            if (!themePacks.TryGetValue(
+                    organization.ThemePackId!.Value,
+                    out var themePack))
+            {
+                continue;
+            }
+
+            var configuration = _themePackSerializer.Deserialize(
+                themePack.ConfigurationJson);
+            for (var index = 0;
+                 index < configuration.SuggestedDepartments.Count;
+                 index++)
+            {
+                var suggestedDepartment =
+                    configuration.SuggestedDepartments[index];
+                _dbContext.Departments.Add(new Department
+                {
+                    Id = Guid.NewGuid(),
+                    OrganizationId = organization.Id,
+                    Name = suggestedDepartment.Name,
+                    Icon = suggestedDepartment.Icon,
+                    SortOrder = index,
+                    IsArchived = false
+                });
+                departmentCount++;
+            }
+        }
+
+        if (departmentCount > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            LogDepartmentsAdded(departmentCount);
+        }
     }
 
     [LoggerMessage(
@@ -82,4 +155,10 @@ public sealed partial class DatabaseInitializer
         Level = LogLevel.Information,
         Message = "Assigned Phase 4 defaults to {OrganizationCount} organization(s)")]
     private partial void LogOrganizationsUpdated(int organizationCount);
+
+    [LoggerMessage(
+        EventId = 1003,
+        Level = LogLevel.Information,
+        Message = "Added {DepartmentCount} Phase 5 department(s)")]
+    private partial void LogDepartmentsAdded(int departmentCount);
 }

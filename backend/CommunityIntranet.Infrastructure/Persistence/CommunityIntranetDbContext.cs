@@ -27,6 +27,11 @@ public sealed class CommunityIntranetDbContext(
     public DbSet<OrganizationMember> OrganizationMembers =>
         Set<OrganizationMember>();
 
+    public DbSet<Department> Departments => Set<Department>();
+
+    public DbSet<OrganizationInvitation> OrganizationInvitations =>
+        Set<OrganizationInvitation>();
+
     public DbSet<ThemePack> ThemePacks => Set<ThemePack>();
 
     protected override void OnModelCreating(ModelBuilder builder)

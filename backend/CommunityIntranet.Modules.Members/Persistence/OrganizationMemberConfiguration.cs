@@ -21,6 +21,10 @@ public sealed class OrganizationMemberConfiguration
         builder.HasIndex(member => new { member.OrganizationId, member.UserId })
             .IsUnique();
         builder.HasIndex(member => new { member.UserId, member.IsActive });
+        builder.HasOne<Department>()
+            .WithMany()
+            .HasForeignKey(member => member.DepartmentId)
+            .OnDelete(DeleteBehavior.SetNull);
         builder.HasOne<Organization>()
             .WithMany()
             .HasForeignKey(member => member.OrganizationId)
