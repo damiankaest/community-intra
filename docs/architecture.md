@@ -58,16 +58,19 @@ CommunityIntranet.Api
 
 Module.*
   -> BuildingBlocks
+  -> kleine öffentliche Verträge anderer Module, wenn fachlich nötig
 
 Infrastructure
   -> BuildingBlocks
+  -> Identity, Organizations und Members für EF-Konfigurationen
 ```
 
 - `Api` ist Composition Root und besitzt keine Fachlogik.
 - `BuildingBlocks` enthält nur kleine, fachübergreifend stabile Typen.
 - Fachmodule besitzen Endpunkte, Anwendungsfälle, Domain-Typen und ihre
   EF-Core-Konfigurationen.
-- `Infrastructure` enthält den gemeinsamen DbContext und technische Adapter.
+- `Infrastructure` enthält den gemeinsamen DbContext, Identity-Stores und
+  technische Adapter. Es lädt die EF-Konfigurationen der Fachmodule.
 - Es gibt kein generisches Repository; Anwendungsfälle verwenden EF Core direkt.
 - API-DTOs, Domain-Modelle und Persistenzkonfigurationen bleiben getrennt.
 
@@ -83,9 +86,10 @@ wo nötig zusammen mit `organization_id` definiert. Globale Ausnahmen sind unter
 anderem Benutzer-E-Mail, Organisations-Slug sowie Theme-Pack-Key und -Version.
 
 Migrationen liegen zentral im Infrastructure-Projekt, enthalten aber
-Konfigurationen aus den jeweiligen Modulen. Im Development werden vorhandene
-Migrationen beim Start automatisch angewendet. Produktion verwendet einen
-expliziten Deployment-Schritt.
+Konfigurationen aus den jeweiligen Modulen. Lokal und im dokumentierten
+Produktions-Compose werden vorhandene Migrationen beim Start automatisch
+angewendet. Für größere Installationen kann dieser Schritt später in einen
+separaten Deployment-Job verschoben werden.
 
 ## Mandantenauflösung
 

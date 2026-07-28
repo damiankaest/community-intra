@@ -9,14 +9,15 @@ validiert. PostgreSQL ist nicht direkt aus dem Internet erreichbar.
 ## Authentifizierung
 
 ASP.NET Core Identity übernimmt Passwort-Hashing, Normalisierung, Lockout und
-Sicherheitsstempel. Geplant sind:
+Sicherheitsstempel. Implementiert sind:
 
 - Access Token als signiertes JWT mit kurzer Laufzeit
 - Refresh Token mit hoher Entropie und längerer, begrenzter Laufzeit
-- nur der SHA-256-/HMAC-Hash des Refresh Tokens wird persistiert
-- atomare Rotation bei jeder Verwendung
+- nur der SHA-256-Hash des Refresh Tokens wird persistiert
+- konkurrenzsichere Rotation bei jeder Verwendung
 - Token-Familie zur Erkennung wiederverwendeter Vorgänger
-- Widerruf der Familie bei Reuse-Verdacht, Logout oder Passwortänderung
+- Widerruf der Familie bei Reuse-Verdacht sowie Widerruf des aktuellen Tokens
+  beim Logout
 - keine Tokens, Passwörter oder Authorization-Header in Logs
 
 Der JWT enthält Benutzer-ID und minimale globale Claims. Organisationsrollen
@@ -116,3 +117,7 @@ Dauer, aber filtert sensible Header und Request-Bodies.
 lediglich `.env.example` mit nicht produktiven Platzhaltern. Produktion liefert
 Connection String, Token-Schlüssel und andere Secrets über den jeweiligen
 Secret Store beziehungsweise sichere Umgebungsvariablen.
+
+Die lokale Entwicklungsroutine und GitHub Actions erzeugen flüchtige
+JWT-Schlüssel zur Laufzeit. Im Repository liegt kein verwendbarer
+JWT-Signaturschlüssel.

@@ -7,19 +7,22 @@ bleibt aber vollständig spielunabhängig.
 
 ## Aktueller Stand
 
-Phase 1 und 2 liefern die dokumentierte Zielarchitektur und ein startbares
-Full-Stack-Grundgerüst:
+Phase 1 bis 3 liefern die dokumentierte Zielarchitektur, ein startbares
+Full-Stack-System sowie die ersten echten Benutzer- und Mandantendaten:
 
 - modularer ASP.NET-Core-8-Monolith mit Minimal APIs
-- PostgreSQL über Docker Compose und EF-Core-Grundkonfiguration
+- ASP.NET Core Identity mit Registrierung, Login und Lockout
+- kurzlebige JWT Access Tokens und gehashte Refresh-Token-Rotation
+- Organisationen mit Owner-Mitgliedschaft und serverseitiger Tenant-Prüfung
+- PostgreSQL über Docker Compose und eine initiale EF-Core-Migration
 - Serilog, ProblemDetails, Swagger und Health Checks
-- React 19, TypeScript, Vite, Tailwind CSS 4 und PWA-Basis
+- React-PWA mit Authentifizierung, Organisationsanlage und -auswahl
 - Entwicklungs-Proxy von `/api` auf das Backend
 - PowerShell-Skripte für Start, Stop, Status und Logs
 - CI-Prüfungen für Backend, Frontend und HTTP-Smoke-Tests
 
-Authentifizierung, Organisationen und echte Fachdaten beginnen in Phase 3. Die
-Landingpage zeigt deshalb bewusst nur Systemstatus und Roadmap.
+Theme Packs, Standardabteilungen und thematische Terminologie folgen in
+Phase 4.
 
 ## Architektur in Kürze
 
@@ -61,6 +64,20 @@ Danach sind verfügbar:
 
 `start.ps1` installiert fehlende Frontend-Abhängigkeiten, startet PostgreSQL,
 Backend und Frontend und schreibt Prozess-IDs nach `.runtime/processes.json`.
+Für jede lokale Laufzeit wird ein temporärer JWT-Schlüssel erzeugt, sofern
+keiner über eine Umgebungsvariable gesetzt wurde.
+
+## Deployment auf einer Hetzner-VM
+
+Der Produktions-Stack enthält PostgreSQL, Backend, Frontend und Caddy. Nur
+Caddy veröffentlicht Ports `80/443`; PostgreSQL bleibt im internen
+Docker-Netz. Die vollständige Anleitung steht unter
+[`docs/deployment-hetzner.md`](docs/deployment-hetzner.md).
+
+Firebase ist dafür nicht erforderlich. Identity, Sitzungen und Organisationen
+laufen vollständig selbst gehostet über ASP.NET Core und PostgreSQL. Firebase
+kann später optional für Push-Nachrichten oder externe Login-Anbieter ergänzt
+werden.
 
 ## Entwicklungsbefehle
 
@@ -92,17 +109,16 @@ npm run build
 ## Datenbank und Migrationen
 
 Die lokale Verbindung wird ausschließlich aus `.env` geladen. `.env` ist
-ignoriert und darf nicht committed werden. Neue Migrationen werden ab Phase 3
-erzeugt:
+ignoriert und darf nicht committed werden. Neue Migrationen werden so erzeugt:
 
 ```powershell
-dotnet ef migrations add InitialIdentityAndOrganizations `
+dotnet ef migrations add NameDerMigration `
   --project backend/CommunityIntranet.Infrastructure `
   --startup-project backend/CommunityIntranet.Api
 ```
 
-Migrationen werden im Development-Modus beim Start automatisch angewendet,
-sobald die erste Migration vorhanden ist.
+Migrationen werden lokal und im dokumentierten Produktions-Stack beim Start
+automatisch angewendet.
 
 ## Projektstruktur
 
@@ -126,22 +142,14 @@ fest typisierte Konfiguration sowie die Seed-Packs `generic-corporate` und
 `satisfactory-ficsit` folgen in Phase 4. Offizielle Spiel-Assets werden nicht
 verwendet.
 
-## Seed-Daten
-
-Noch nicht aktiv. Die Demo-Organisation „Rheinische FICSIT-Niederlassung“ und
-lokale Seed-Benutzer werden erst zusammen mit Identity und Organisationsdaten in
-Phase 3/4 eingeführt, damit keine provisorische Authentifizierung entsteht.
-
 ## Bekannte Einschränkungen
 
-- noch keine Registrierung oder Anmeldung
-- noch keine Organisations- oder Tenant-Daten
 - noch keine Theme-Pack-Persistenz
-- PostgreSQL-Schema noch ohne Fachmigrationen
-- die Modulprojekte definieren in Phase 2 nur die Kompilierungsgrenzen
+- noch keine Einladungen, Abteilungen oder Mitgliederverwaltung
+- noch keine Seed-Benutzer oder Demo-Organisation
+- noch keine Passwort-Zurücksetzen- und E-Mail-Bestätigungsstrecke
 
 ## Nächster Schritt
 
-Phase 3 implementiert ASP.NET Core Identity, JWT Access Tokens, gehashte und
-rotierende Refresh Tokens, Registrierung/Login sowie Organisationsanlage und
-Tenant-Zugriffsprüfung.
+Phase 4 implementiert das fest typisierte Theme-Pack-Modell, Validierung,
+Seed-Themes, Terminologie und die Theme-Anwendung im Frontend.

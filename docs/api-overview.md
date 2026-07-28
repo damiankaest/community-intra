@@ -39,7 +39,7 @@ Beispiel einer Liste:
 | POST | `/api/auth/register` | nein |
 | POST | `/api/auth/login` | nein |
 | POST | `/api/auth/refresh` | Refresh Token |
-| POST | `/api/auth/logout` | ja |
+| POST | `/api/auth/logout` | optionale Sitzung |
 | GET | `/api/auth/me` | ja |
 
 Login, Registrierung und Refresh erhalten eigene Rate-Limit-Policies. Der
@@ -55,7 +55,7 @@ Browser gespeichert.
 | POST | `/api/organizations` | authentifiziert |
 | GET | `/api/organizations/{organizationId}` | `organization.read` |
 | PUT | `/api/organizations/{organizationId}` | `organization.manage` |
-| DELETE | `/api/organizations/{organizationId}` | Owner |
+| DELETE | `/api/organizations/{organizationId}` | Owner oder Administrator |
 
 ## Members und Invitations (Phase 5)
 
