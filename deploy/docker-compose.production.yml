@@ -20,6 +20,7 @@ services:
       - internal
 
   backend:
+    image: ${BACKEND_IMAGE:-community-intranet-backend:local}
     build:
       context: ..
       dockerfile: backend/CommunityIntranet.Api/Dockerfile
@@ -27,6 +28,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      AllowedHosts: ${APP_DOMAIN}
       ConnectionStrings__PostgreSql: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
       Cors__AllowedOrigins__0: https://${APP_DOMAIN}
       Database__ApplyMigrations: "true"
@@ -36,16 +38,38 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "--silent",
+          "http://127.0.0.1:8080/api/health",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     expose:
       - "8080"
+    volumes:
+      - backend-logs:/app/logs
     networks:
       - internal
 
   frontend:
+    image: ${FRONTEND_IMAGE:-community-intranet-frontend:local}
     build:
       context: ..
       dockerfile: frontend/Dockerfile
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     expose:
       - "80"
     networks:
@@ -65,8 +89,10 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
     networks:
       - internal
 
@@ -76,5 +102,6 @@ networks:
 
 volumes:
   postgres-data:
+  backend-logs:
   caddy-data:
   caddy-config:

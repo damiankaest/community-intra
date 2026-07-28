@@ -57,12 +57,12 @@ Copy-Item .env.example .env
 
 Danach sind verfügbar:
 
-| Dienst | URL |
-|---|---|
-| Frontend | http://localhost:5173 |
-| Backend | http://localhost:5080 |
-| Swagger | http://localhost:5080/swagger |
-| Health | http://localhost:5080/api/health |
+| Dienst     | URL                                   |
+| ---------- | ------------------------------------- |
+| Frontend   | http://localhost:5173                 |
+| Backend    | http://localhost:5080                 |
+| Swagger    | http://localhost:5080/swagger         |
+| Health     | http://localhost:5080/api/health      |
 | Systeminfo | http://localhost:5080/api/system/info |
 
 `start.ps1` installiert fehlende Frontend-Abhängigkeiten, startet PostgreSQL,
@@ -74,7 +74,13 @@ keiner über eine Umgebungsvariable gesetzt wurde.
 
 Der Produktions-Stack enthält PostgreSQL, Backend, Frontend und Caddy. Nur
 Caddy veröffentlicht Ports `80/443`; PostgreSQL bleibt im internen
-Docker-Netz. Die vollständige Anleitung steht unter
+Docker-Netz. Der manuell gestartete GitHub-Workflow baut versionierte Images,
+überträgt die Laufzeitkonfiguration per SSH und prüft anschließend die
+öffentliche HTTPS-URL. Die VM benötigt keinen GitHub-Repository-Zugriff.
+
+Nach der einmaligen Einrichtung von Docker, DNS und SSH müssen nur noch die
+Secrets im GitHub-Environment `production` hinterlegt werden. Die vollständige
+Anleitung und Secret-Liste stehen unter
 [`docs/deployment-hetzner.md`](docs/deployment-hetzner.md).
 
 Firebase ist dafür nicht erforderlich. Identity, Sitzungen und Organisationen
