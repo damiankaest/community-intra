@@ -1,5 +1,6 @@
 using CommunityIntranet.Modules.ThemePacks.Configuration;
 using CommunityIntranet.Modules.ThemePacks.Seeding;
+using Xunit;
 
 namespace CommunityIntranet.Api.Tests.ThemePacks;
 
