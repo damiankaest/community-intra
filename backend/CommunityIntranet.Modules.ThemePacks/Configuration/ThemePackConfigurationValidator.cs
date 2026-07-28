@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace CommunityIntranet.Modules.ThemePacks.Configuration;
 
-public sealed partial class ThemePackConfigurationValidator
+public static partial class ThemePackConfigurationValidator
 {
     private const int MaximumSerializedBytes = 128 * 1024;
     private const int MaximumListItems = 50;
@@ -35,7 +35,7 @@ public sealed partial class ThemePackConfigurationValidator
             "industrial-corporate"
         };
 
-    public ThemePackValidationResult Validate(
+    public static ThemePackValidationResult Validate(
         ThemePackConfiguration configuration,
         int? serializedByteCount = null)
     {
@@ -102,7 +102,7 @@ public sealed partial class ThemePackConfigurationValidator
     }
 
     private static void ValidateVisuals(
-        ICollection<string> errors,
+        List<string> errors,
         ThemeVisuals? visuals)
     {
         if (visuals is null)
@@ -134,7 +134,7 @@ public sealed partial class ThemePackConfigurationValidator
     }
 
     private static void ValidateTerminology(
-        ICollection<string> errors,
+        List<string> errors,
         ThemeTerminology? terminology)
     {
         if (terminology is null)
@@ -155,7 +155,7 @@ public sealed partial class ThemePackConfigurationValidator
     }
 
     private static void ValidateDepartments(
-        ICollection<string> errors,
+        List<string> errors,
         IReadOnlyList<SuggestedDepartment>? departments)
     {
         if (!ValidateListCount(errors, nameof(ThemePackConfiguration.SuggestedDepartments), departments))
@@ -180,7 +180,7 @@ public sealed partial class ThemePackConfigurationValidator
     }
 
     private static void ValidateAwardTemplates(
-        ICollection<string> errors,
+        List<string> errors,
         IReadOnlyList<AwardTemplate>? templates)
     {
         if (!ValidateListCount(errors, nameof(ThemePackConfiguration.AwardTemplates), templates))
@@ -206,7 +206,7 @@ public sealed partial class ThemePackConfigurationValidator
     }
 
     private static void ValidateMessages(
-        ICollection<string> errors,
+        List<string> errors,
         ThemeMessages? messages)
     {
         if (messages is null)
@@ -223,7 +223,7 @@ public sealed partial class ThemePackConfigurationValidator
     }
 
     private static void ValidateStringList(
-        ICollection<string> errors,
+        List<string> errors,
         string field,
         IReadOnlyList<string>? values,
         int maximumItemLength)
@@ -240,7 +240,7 @@ public sealed partial class ThemePackConfigurationValidator
     }
 
     private static bool ValidateListCount<T>(
-        ICollection<string> errors,
+        List<string> errors,
         string field,
         IReadOnlyCollection<T>? values)
     {
@@ -259,7 +259,7 @@ public sealed partial class ThemePackConfigurationValidator
     }
 
     private static void ValidateColor(
-        ICollection<string> errors,
+        List<string> errors,
         string field,
         string value)
     {
@@ -270,7 +270,7 @@ public sealed partial class ThemePackConfigurationValidator
     }
 
     private static void ValidateRequired(
-        ICollection<string> errors,
+        List<string> errors,
         string field,
         string? value,
         int maximumLength,

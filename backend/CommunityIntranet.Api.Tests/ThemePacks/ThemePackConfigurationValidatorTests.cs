@@ -5,14 +5,12 @@ namespace CommunityIntranet.Api.Tests.ThemePacks;
 
 public sealed class ThemePackConfigurationValidatorTests
 {
-    private readonly ThemePackConfigurationValidator _validator = new();
-
     [Fact]
     public void Validate_AcceptsBothSystemThemes()
     {
         foreach (var themePack in ThemePackSeeds.All)
         {
-            var result = _validator.Validate(themePack);
+            var result = ThemePackConfigurationValidator.Validate(themePack);
 
             Assert.True(
                 result.IsValid,
@@ -30,7 +28,7 @@ public sealed class ThemePackConfigurationValidatorTests
             Visuals = source.Visuals with { LogoIcon = "custom-svg" }
         };
 
-        var result = _validator.Validate(invalid);
+        var result = ThemePackConfigurationValidator.Validate(invalid);
 
         Assert.False(result.IsValid);
         Assert.Contains(
@@ -55,7 +53,7 @@ public sealed class ThemePackConfigurationValidatorTests
             Visuals = source.Visuals with { PrimaryColor = "amber" }
         };
 
-        var result = _validator.Validate(invalid);
+        var result = ThemePackConfigurationValidator.Validate(invalid);
 
         Assert.False(result.IsValid);
         Assert.Contains(

@@ -10,7 +10,6 @@ public static class DependencyInjection
     public static IServiceCollection AddThemePacksModule(
         this IServiceCollection services)
     {
-        services.AddSingleton<ThemePackConfigurationValidator>();
         services.AddSingleton<ThemePackSerializer>();
         services.AddScoped<IThemePackCatalog, ThemePackCatalog>();
         services.AddScoped<ThemePackSeeder>();

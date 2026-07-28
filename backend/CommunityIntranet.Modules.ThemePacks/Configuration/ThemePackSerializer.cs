@@ -4,8 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace CommunityIntranet.Modules.ThemePacks.Configuration;
 
-public sealed class ThemePackSerializer(
-    ThemePackConfigurationValidator validator)
+public sealed class ThemePackSerializer
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -51,7 +50,9 @@ public sealed class ThemePackSerializer(
         ThemePackConfiguration configuration,
         int serializedByteCount)
     {
-        var result = validator.Validate(configuration, serializedByteCount);
+        var result = ThemePackConfigurationValidator.Validate(
+            configuration,
+            serializedByteCount);
         if (!result.IsValid)
         {
             throw new InvalidDataException(
