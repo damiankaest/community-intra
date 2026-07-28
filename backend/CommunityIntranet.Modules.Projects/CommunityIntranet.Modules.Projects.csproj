@@ -1,5 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <!-- Added provider so relational extension methods like ToTable() become available -->
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.3" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../CommunityIntranet.BuildingBlocks/CommunityIntranet.BuildingBlocks.csproj" />
   </ItemGroup>
 </Project>
