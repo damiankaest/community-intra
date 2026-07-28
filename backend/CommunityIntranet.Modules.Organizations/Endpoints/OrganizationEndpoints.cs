@@ -384,7 +384,7 @@ public static class OrganizationEndpoints
 
     private static ThemePackDefinition ResolveTheme(
         Guid? themePackId,
-        IReadOnlyDictionary<Guid, ThemePackDefinition> themePackById,
+        Dictionary<Guid, ThemePackDefinition> themePackById,
         ThemePackDefinition fallbackTheme) =>
         themePackId is not null
         && themePackById.TryGetValue(themePackId.Value, out var selectedTheme)
