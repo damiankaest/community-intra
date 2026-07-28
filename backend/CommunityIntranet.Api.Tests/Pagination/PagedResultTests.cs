@@ -1,4 +1,5 @@
 using CommunityIntranet.BuildingBlocks.Pagination;
+using Xunit;
 
 namespace CommunityIntranet.Api.Tests.Pagination;
 
