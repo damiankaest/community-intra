@@ -7,7 +7,7 @@ namespace CommunityIntranet.Api.Tests.ThemePacks;
 public sealed class ThemePackConfigurationValidatorTests
 {
     [Fact]
-    public void Validate_AcceptsBothSystemThemes()
+    public void ValidateAcceptsBothSystemThemes()
     {
         foreach (var themePack in ThemePackSeeds.All)
         {
@@ -20,7 +20,7 @@ public sealed class ThemePackConfigurationValidatorTests
     }
 
     [Fact]
-    public void Validate_RejectsUnsafeMarkupAndUnknownIcon()
+    public void ValidateRejectsUnsafeMarkupAndUnknownIcon()
     {
         var source = ThemePackSeeds.All[0];
         var invalid = source with
@@ -45,7 +45,7 @@ public sealed class ThemePackConfigurationValidatorTests
     }
 
     [Fact]
-    public void Validate_RejectsInvalidColorsAndVersion()
+    public void ValidateRejectsInvalidColorsAndVersion()
     {
         var source = ThemePackSeeds.All[0];
         var invalid = source with
