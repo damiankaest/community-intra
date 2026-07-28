@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityIntranet.Api.Endpoints;
 using CommunityIntranet.Api.Infrastructure;
 using CommunityIntranet.Infrastructure;
@@ -8,7 +9,7 @@ using Microsoft.OpenApi.Models;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
+    .WriteTo.Console(formatProvider: CultureInfo.InvariantCulture)
     .CreateBootstrapLogger();
 
 try
