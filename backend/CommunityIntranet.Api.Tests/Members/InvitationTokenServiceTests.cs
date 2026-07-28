@@ -7,10 +7,8 @@ public sealed class InvitationTokenServiceTests
     [Fact]
     public void Create_ReturnsUniqueOpaqueTokensAndHashes()
     {
-        var service = new InvitationTokenService();
-
-        var first = service.Create();
-        var second = service.Create();
+        var first = InvitationTokenService.Create();
+        var second = InvitationTokenService.Create();
 
         Assert.NotEqual(first.RawToken, second.RawToken);
         Assert.NotEqual(first.TokenHash, second.TokenHash);

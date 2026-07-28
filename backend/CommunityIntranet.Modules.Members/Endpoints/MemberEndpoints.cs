@@ -527,7 +527,6 @@ public static class MemberEndpoints
         ClaimsPrincipal principal,
         IMemberDbContext dbContext,
         IOrganizationAccessService accessService,
-        InvitationTokenService tokenService,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -554,7 +553,7 @@ public static class MemberEndpoints
         }
 
         var now = timeProvider.GetUtcNow();
-        var token = tokenService.Create();
+        var token = InvitationTokenService.Create();
         var invitation = new OrganizationInvitation
         {
             Id = Guid.NewGuid(),

@@ -15,7 +15,6 @@ public static class DependencyInjection
             provider => provider.GetRequiredService<OrganizationAccessService>());
         services.AddScoped<IOrganizationOwnerProvisioner>(
             provider => provider.GetRequiredService<OrganizationAccessService>());
-        services.AddSingleton<InvitationTokenService>();
 
         return services;
     }

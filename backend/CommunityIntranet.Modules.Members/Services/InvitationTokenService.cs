@@ -6,7 +6,7 @@ namespace CommunityIntranet.Modules.Members.Services;
 
 public sealed class InvitationTokenService
 {
-    public InvitationToken Create()
+    public static InvitationToken Create()
     {
         var rawToken = WebEncoders.Base64UrlEncode(
             RandomNumberGenerator.GetBytes(32));
