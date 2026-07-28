@@ -1,57 +1,130 @@
 # Deployment auf einer Hetzner-VM
 
-Die Anwendung läuft als Docker-Compose-Stack hinter Caddy. Caddy terminiert
-HTTPS und erneuert das TLS-Zertifikat automatisch. Frontend, Backend und
-PostgreSQL teilen sich ein internes Docker-Netz; nur Caddy veröffentlicht
-Ports auf der VM.
+Die Anwendung läuft als Docker-Compose-Stack hinter Caddy. Caddy stellt
+automatisch HTTPS bereit. Backend und Frontend werden in GitHub Actions gebaut
+und unter der jeweiligen Commit-ID in der GitHub Container Registry
+veröffentlicht. Die VM benötigt deshalb keinen Zugriff auf das Repository und
+das Deployment funktioniert auch nach einer Umstellung auf ein privates Repo.
 
-## Voraussetzungen
+PostgreSQL, Backend und Frontend sind nur im internen Docker-Netz erreichbar.
+Lediglich Caddy veröffentlicht die Ports `80/443`.
 
-- eine Linux-VM mit Docker Engine und Docker Compose Plugin
-- eine Domain oder Subdomain
-- ein `A`-Record auf die öffentliche IPv4-Adresse der VM
-- optional ein `AAAA`-Record, wenn IPv6 auf der VM korrekt konfiguriert ist
-- eingehend freigegebene TCP-Ports `22`, `80` und `443`
-- optional UDP `443` für HTTP/3
+## Einmalige Vorbereitung
 
-PostgreSQL-Port `5432` darf in der Hetzner-Firewall nicht öffentlich
-freigegeben werden.
+Vor dem ersten GitHub-Deployment sind auf der VM und im DNS vier Schritte nötig:
 
-## Erster Start
+1. Docker Engine mit aktuellem Docker-Compose-Plugin nach der
+   [offiziellen Docker-Anleitung](https://docs.docker.com/engine/install/)
+   installieren.
+2. Einen SSH-Benutzer für das Deployment vorbereiten. Er muss Docker ohne
+   interaktive `sudo`-Abfrage ausführen dürfen.
+3. Das Verzeichnis `/opt/community-intra` für diesen Benutzer anlegen.
+4. Einen `A`-Record der gewünschten Domain auf die öffentliche IPv4-Adresse der
+   VM setzen.
 
-Repository auf die VM klonen und in das Projekt wechseln:
+Beispiel für einen bereits vorhandenen Benutzer `deploy`:
 
 ```bash
-git clone https://github.com/damiankaest/community-intra.git
-cd community-intra
-cp deploy/.env.production.example deploy/.env.production
+sudo usermod -aG docker deploy
+sudo install -d -m 700 -o deploy -g deploy /opt/community-intra
 ```
 
-In `deploy/.env.production` müssen Domain, Datenbankpasswort und JWT-Schlüssel
-ersetzt werden. Ein geeigneter Schlüssel lässt sich auf der VM erzeugen:
+Nach der Gruppenänderung muss sich der Benutzer einmal neu anmelden. Folgender
+Befehl muss danach ohne `sudo` funktionieren:
 
 ```bash
+docker info
+docker compose version
+```
+
+In der Hetzner-Firewall müssen TCP `22`, `80` und `443` freigegeben werden.
+UDP `443` ist optional für HTTP/3. PostgreSQL `5432` darf nicht öffentlich
+freigegeben werden.
+
+## Eigener SSH-Schlüssel für GitHub Actions
+
+Auf dem eigenen Rechner einen separaten Schlüssel ohne Passphrase erzeugen:
+
+```bash
+ssh-keygen \
+  -t ed25519 \
+  -C "community-intra-github-deploy" \
+  -f community-intra-deploy
+```
+
+Den öffentlichen Schlüssel `community-intra-deploy.pub` beim Deployment-
+Benutzer der VM in `~/.ssh/authorized_keys` eintragen. Der private Schlüssel
+`community-intra-deploy` wird später als GitHub Secret gespeichert.
+
+Den Host-Key der VM erfassen:
+
+```bash
+ssh-keyscan -H <VM-IP>
+```
+
+Der ausgegebene Fingerabdruck sollte einmal direkt auf der VM mit dem
+Fingerabdruck unter `/etc/ssh/ssh_host_ed25519_key.pub` verglichen werden. Erst
+danach gehört die vollständige `ssh-keyscan`-Zeile in GitHub.
+
+## GitHub-Environment und Secrets
+
+Unter `Settings → Environments` ein Environment namens `production` erstellen
+und dort diese Secrets hinterlegen. GitHub beschreibt Environment-Secrets in
+der
+[offiziellen Anleitung](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment).
+
+| Secret                    | Inhalt                                                  |
+| ------------------------- | ------------------------------------------------------- |
+| `APP_DOMAIN`              | Domain ohne Protokoll, zum Beispiel `intra.example.com` |
+| `HETZNER_HOST`            | öffentliche IPv4-Adresse oder SSH-Hostname              |
+| `HETZNER_USER`            | SSH-Benutzer, zum Beispiel `deploy`                     |
+| `HETZNER_SSH_PRIVATE_KEY` | vollständiger privater Deployment-Schlüssel             |
+| `HETZNER_KNOWN_HOSTS`     | verifizierte vollständige `ssh-keyscan`-Ausgabe         |
+| `POSTGRES_PASSWORD`       | langes zufälliges Datenbankpasswort                     |
+| `JWT_SIGNING_KEY`         | zufälliger Schlüssel mit mindestens 32 Zeichen          |
+
+Geeignete zufällige Werte:
+
+```bash
+openssl rand -base64 36
 openssl rand -base64 48
 ```
 
-`APP_DOMAIN` und `JWT_ISSUER` müssen dieselbe öffentliche HTTPS-Domain
-verwenden. Danach:
+Bei einem abweichenden SSH-Port kann zusätzlich unter
+`Settings → Secrets and variables → Actions → Variables` die Variable
+`HETZNER_SSH_PORT` gesetzt werden. Ohne Variable wird Port `22` verwendet.
+
+Das Datenbankpasswort darf nach dem ersten Start nicht einfach im GitHub Secret
+geändert werden: Bei einem bestehenden PostgreSQL-Volume muss das Kennwort
+zusätzlich in PostgreSQL rotiert werden. Ein neuer JWT-Schlüssel meldet alle
+aktiven Sitzungen ab.
+
+## Deployment starten
+
+Unter `Actions → Deploy production → Run workflow` den Workflow auf `main`
+starten. Der Workflow:
+
+1. prüft, ob alle Secrets vorhanden sind,
+2. baut Backend und Frontend,
+3. veröffentlicht beide Images mit der aktuellen Commit-ID in GHCR,
+4. überträgt Caddy-, Compose- und Laufzeitkonfiguration per SSH,
+5. lädt auf der VM exakt diese Images,
+6. startet den Stack inklusive Migrationen,
+7. wartet auf die Container-Healthchecks und
+8. prüft Frontend und `/api/health` über die öffentliche HTTPS-Domain.
+
+Das Deployment ist zunächst absichtlich manuell. So führt nicht jeder Merge
+sofort eine Produktionsänderung aus. Nach erfolgreicher Validierung kann der
+Workflow später zusätzlich bei jedem erfolgreichen Merge auf `main` gestartet
+werden.
+
+## Betrieb und Diagnose
+
+Auf der VM:
 
 ```bash
-docker compose \
-  --env-file deploy/.env.production \
-  -f deploy/docker-compose.production.yml \
-  up -d --build
-```
+cd /opt/community-intra
 
-Die Anwendung ist nach DNS-Auflösung und Zertifikatsausstellung unter
-`https://<APP_DOMAIN>` erreichbar.
-
-## Betrieb
-
-Status und Logs:
-
-```bash
 docker compose \
   --env-file deploy/.env.production \
   -f deploy/docker-compose.production.yml \
@@ -63,19 +136,15 @@ docker compose \
   logs -f --tail=200
 ```
 
-Aktualisieren:
+Die Datei `deploy/.env.production` enthält Secrets, ist nur für den
+Deployment-Benutzer lesbar und darf nicht aus der VM kopiert oder committed
+werden.
+
+## Datenbank sichern
 
 ```bash
-git pull --ff-only
-docker compose \
-  --env-file deploy/.env.production \
-  -f deploy/docker-compose.production.yml \
-  up -d --build
-```
+cd /opt/community-intra
 
-Datenbank sichern:
-
-```bash
 docker compose \
   --env-file deploy/.env.production \
   -f deploy/docker-compose.production.yml \
@@ -85,19 +154,29 @@ docker compose \
   -Fc > community-intranet-$(date +%F).dump
 ```
 
-Wenn `POSTGRES_USER` oder `POSTGRES_DB` geändert wurden, müssen die beiden
-Werte im Backup-Befehl entsprechend angepasst werden. Backups sollten
-regelmäßig von der VM auf ein getrenntes Ziel kopiert und testweise
-wiederhergestellt werden.
+Backups müssen regelmäßig auf ein getrenntes Ziel kopiert und testweise
+wiederhergestellt werden. Das benannte Docker-Volume `postgres-data` bleibt
+bei neuen Deployments erhalten.
 
-## Secrets und Firebase
+## Manuelles Deployment als Rückfalloption
 
-`deploy/.env.production` bleibt ausschließlich auf der VM und wird von Git
-ignoriert. Firebase ist für diesen Stack nicht erforderlich: Benutzer,
-Organisationen und Sitzungen werden durch ASP.NET Core Identity, JWT und
-PostgreSQL verwaltet.
+Wenn GitHub Actions nicht verfügbar ist, kann das öffentliche Repository auf
+der VM geklont und dort gebaut werden:
 
+```bash
+git clone https://github.com/damiankaest/community-intra.git
+cd community-intra
+cp deploy/.env.production.example deploy/.env.production
+
+docker compose \
+  --env-file deploy/.env.production \
+  -f deploy/docker-compose.production.yml \
+  up -d --build --wait
+```
+
+## Firebase
+
+Firebase ist für diesen Stack nicht erforderlich. Benutzer, Organisationen und
+Sitzungen werden durch ASP.NET Core Identity, JWT und PostgreSQL verwaltet.
 Firebase kann später optional für Push-Benachrichtigungen oder externe
-Anmeldeanbieter ergänzt werden. Das Firebase-Projekt und seine Credentials
-werden dann manuell im Firebase-Dashboard erstellt und als Secrets auf der VM
-hinterlegt; Credentials gehören niemals in das Repository.
+Anmeldeanbieter ergänzt werden.

@@ -1,0 +1,271 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: community-intranet-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/community-intra-backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/community-intra-frontend
+  REMOTE_DIRECTORY: /opt/community-intra
+  SSH_PORT: ${{ vars.HETZNER_SSH_PORT || '22' }}
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+
+    steps:
+      - name: Validate deployment source
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Production may only be deployed from main."
+            exit 1
+          fi
+
+      - name: Validate deployment secrets
+        shell: bash
+        env:
+          APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+          HETZNER_SSH_PRIVATE_KEY: ${{ secrets.HETZNER_SSH_PRIVATE_KEY }}
+          HETZNER_KNOWN_HOSTS: ${{ secrets.HETZNER_KNOWN_HOSTS }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+
+          required=(
+            APP_DOMAIN
+            HETZNER_HOST
+            HETZNER_USER
+            HETZNER_SSH_PRIVATE_KEY
+            HETZNER_KNOWN_HOSTS
+            POSTGRES_PASSWORD
+            JWT_SIGNING_KEY
+          )
+
+          missing=false
+          for name in "${required[@]}"; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing production secret: ${name}"
+              missing=true
+            fi
+          done
+
+          if [[ "$missing" == "true" ]]; then
+            exit 1
+          fi
+
+          if [[ ${#JWT_SIGNING_KEY} -lt 32 ]]; then
+            echo "::error::JWT_SIGNING_KEY must contain at least 32 characters."
+            exit 1
+          fi
+
+          if [[ ${#POSTGRES_PASSWORD} -lt 24 ]]; then
+            echo "::error::POSTGRES_PASSWORD must contain at least 24 characters."
+            exit 1
+          fi
+
+          if [[ "$APP_DOMAIN" == *"://"* || "$APP_DOMAIN" == */* ]] \
+            || [[ "$APP_DOMAIN" =~ [[:space:]] ]]; then
+            echo "::error::APP_DOMAIN must be a hostname without protocol or path."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@371161bbe7024a29a25c5e19bfcbc0804fe9ad2c # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish backend
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: backend/CommunityIntranet.Api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+            ${{ env.BACKEND_IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build and publish frontend
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+            ${{ env.FRONTEND_IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Configure SSH
+        id: configure-ssh
+        shell: bash
+        env:
+          HETZNER_SSH_PRIVATE_KEY: ${{ secrets.HETZNER_SSH_PRIVATE_KEY }}
+          HETZNER_KNOWN_HOSTS: ${{ secrets.HETZNER_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$HETZNER_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_deploy"
+          printf '%s\n' "$HETZNER_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_deploy"
+          chmod 644 "$HOME/.ssh/known_hosts"
+
+      - name: Prepare deployment package
+        shell: bash
+        env:
+          APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          install -d .deployment/deploy
+          cp deploy/Caddyfile .deployment/deploy/Caddyfile
+          cp deploy/docker-compose.production.yml \
+            .deployment/deploy/docker-compose.production.yml
+
+          {
+            printf 'APP_DOMAIN=%s\n' "$APP_DOMAIN"
+            printf 'BACKEND_IMAGE=%s:%s\n' "$BACKEND_IMAGE" "$GITHUB_SHA"
+            printf 'FRONTEND_IMAGE=%s:%s\n' "$FRONTEND_IMAGE" "$GITHUB_SHA"
+            printf 'POSTGRES_DB=community_intranet\n'
+            printf 'POSTGRES_USER=community_intranet\n'
+            printf 'POSTGRES_PASSWORD=%s\n' "$POSTGRES_PASSWORD"
+            printf 'JWT_ISSUER=https://%s\n' "$APP_DOMAIN"
+            printf 'JWT_AUDIENCE=community-intranet\n'
+            printf 'JWT_SIGNING_KEY=%s\n' "$JWT_SIGNING_KEY"
+          } > .deployment/deploy/.env.production
+
+      - name: Upload deployment package
+        shell: bash
+        env:
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+        run: |
+          set -euo pipefail
+          ssh_options=(
+            -i "$HOME/.ssh/id_deploy"
+            -p "$SSH_PORT"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+          )
+
+          ssh "${ssh_options[@]}" \
+            "$HETZNER_USER@$HETZNER_HOST" \
+            "install -d -m 700 '$REMOTE_DIRECTORY'"
+
+          tar -C .deployment -czf - . \
+            | ssh "${ssh_options[@]}" \
+                "$HETZNER_USER@$HETZNER_HOST" \
+                "tar -xzf - -C '$REMOTE_DIRECTORY'"
+
+      - name: Pull and start production stack
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+        run: |
+          set -euo pipefail
+          ssh_options=(
+            -i "$HOME/.ssh/id_deploy"
+            -p "$SSH_PORT"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+          )
+          remote="$HETZNER_USER@$HETZNER_HOST"
+
+          printf '%s' "$GHCR_TOKEN" \
+            | ssh "${ssh_options[@]}" "$remote" \
+                "docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin"
+
+          ssh "${ssh_options[@]}" "$remote" \
+            "cd '$REMOTE_DIRECTORY' \
+              && docker compose \
+                --env-file deploy/.env.production \
+                -f deploy/docker-compose.production.yml \
+                pull backend frontend postgres caddy \
+              && docker compose \
+                --env-file deploy/.env.production \
+                -f deploy/docker-compose.production.yml \
+                up -d --no-build --remove-orphans --wait --wait-timeout 180"
+
+      - name: Verify public deployment
+        shell: bash
+        env:
+          APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+        run: |
+          set -euo pipefail
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 24 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --max-time 15 \
+            "https://${APP_DOMAIN}/api/health" \
+            | tee /tmp/community-intranet-health.json
+
+          jq --exit-status '.status == "Healthy"' \
+            /tmp/community-intranet-health.json > /dev/null
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 6 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --max-time 15 \
+            "https://${APP_DOMAIN}/" \
+            | grep --quiet "Community Intranet"
+
+      - name: Log out from GHCR on the VM
+        if: ${{ always() && steps.configure-ssh.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+        run: |
+          ssh \
+            -i "$HOME/.ssh/id_deploy" \
+            -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            "$HETZNER_USER@$HETZNER_HOST" \
+            "docker logout ghcr.io"
