@@ -40,6 +40,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Create ephemeral JWT signing key
+        shell: bash
+        run: echo "Jwt__SigningKey=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -53,7 +57,12 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Validate Docker Compose
-        run: docker compose --env-file .env.example config --quiet
+        run: |
+          docker compose --env-file .env.example config --quiet
+          docker compose \
+            --env-file deploy/.env.production.example \
+            -f deploy/docker-compose.production.yml \
+            config --quiet
 
       - name: Validate PowerShell scripts
         shell: pwsh
@@ -82,6 +91,20 @@ jobs:
 
       - name: Restore backend
         run: dotnet restore CommunityIntranet.sln
+
+      - name: Generate phase 3 migration
+        run: |
+          dotnet tool install --global dotnet-ef --version 8.0.19
+          dotnet ef migrations add Phase3IdentityOrganizations \
+            --project backend/CommunityIntranet.Infrastructure/CommunityIntranet.Infrastructure.csproj \
+            --startup-project backend/CommunityIntranet.Api/CommunityIntranet.Api.csproj \
+            --output-dir Persistence/Migrations
+
+      - name: Upload generated migration
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3-migration
+          path: backend/CommunityIntranet.Infrastructure/Persistence/Migrations
 
       - name: Build backend
         run: dotnet build CommunityIntranet.sln --configuration Release --no-restore
