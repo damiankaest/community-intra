@@ -9,6 +9,15 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
     /// <inheritdoc />
     public partial class Phase3IdentityOrganizations : Migration
     {
+        private static readonly string[] OrganizationMemberIdentityColumns =
+            ["OrganizationId", "UserId"];
+
+        private static readonly string[] ActiveMembershipLookupColumns =
+            ["UserId", "IsActive"];
+
+        private static readonly string[] RefreshTokenFamilyColumns =
+            ["UserId", "FamilyId"];
+
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -279,14 +288,14 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                 name: "IX_organization_members_OrganizationId_UserId",
                 schema: "members",
                 table: "organization_members",
-                columns: new[] { "OrganizationId", "UserId" },
+                columns: OrganizationMemberIdentityColumns,
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_organization_members_UserId_IsActive",
                 schema: "members",
                 table: "organization_members",
-                columns: new[] { "UserId", "IsActive" });
+                columns: ActiveMembershipLookupColumns);
 
             migrationBuilder.CreateIndex(
                 name: "IX_organizations_OwnerUserId",
@@ -312,7 +321,7 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                 name: "IX_refresh_tokens_UserId_FamilyId",
                 schema: "identity",
                 table: "refresh_tokens",
-                columns: new[] { "UserId", "FamilyId" });
+                columns: RefreshTokenFamilyColumns);
 
             migrationBuilder.CreateIndex(
                 name: "IX_role_claims_RoleId",
