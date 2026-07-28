@@ -24,32 +24,32 @@ public sealed class CommunityIntranetDbContext(
     public DbSet<OrganizationMember> OrganizationMembers =>
         Set<OrganizationMember>();
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    protected override void OnModelCreating(ModelBuilder builder)
     {
-        base.OnModelCreating(modelBuilder);
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(CommunityIntranetDbContext).Assembly);
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationUser).Assembly);
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Organization).Assembly);
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrganizationMember).Assembly);
+        base.OnModelCreating(builder);
+        builder.ApplyConfigurationsFromAssembly(typeof(CommunityIntranetDbContext).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(ApplicationUser).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(Organization).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(OrganizationMember).Assembly);
 
-        modelBuilder.Entity<IdentityRole<Guid>>().ToTable("roles", "identity");
-        modelBuilder.Entity<IdentityUserClaim<Guid>>()
+        builder.Entity<IdentityRole<Guid>>().ToTable("roles", "identity");
+        builder.Entity<IdentityUserClaim<Guid>>()
             .ToTable("user_claims", "identity");
-        modelBuilder.Entity<IdentityUserLogin<Guid>>()
+        builder.Entity<IdentityUserLogin<Guid>>()
             .ToTable("user_logins", "identity");
-        modelBuilder.Entity<IdentityUserRole<Guid>>()
+        builder.Entity<IdentityUserRole<Guid>>()
             .ToTable("user_roles", "identity");
-        modelBuilder.Entity<IdentityRoleClaim<Guid>>()
+        builder.Entity<IdentityRoleClaim<Guid>>()
             .ToTable("role_claims", "identity");
-        modelBuilder.Entity<IdentityUserToken<Guid>>()
+        builder.Entity<IdentityUserToken<Guid>>()
             .ToTable("user_tokens", "identity");
 
-        modelBuilder.Entity<Organization>()
+        builder.Entity<Organization>()
             .HasOne<ApplicationUser>()
             .WithMany()
             .HasForeignKey(organization => organization.OwnerUserId)
             .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<OrganizationMember>()
+        builder.Entity<OrganizationMember>()
             .HasOne<ApplicationUser>()
             .WithMany()
             .HasForeignKey(member => member.UserId)
