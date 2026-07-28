@@ -6,7 +6,7 @@ namespace CommunityIntranet.Modules.ThemePacks.Configuration;
 
 public sealed class ThemePackSerializer
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
+    private readonly JsonSerializerOptions _serializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = false,
@@ -17,7 +17,7 @@ public sealed class ThemePackSerializer
 
     public string Serialize(ThemePackConfiguration configuration)
     {
-        var json = JsonSerializer.Serialize(configuration, SerializerOptions);
+        var json = JsonSerializer.Serialize(configuration, _serializerOptions);
         EnsureValid(configuration, Encoding.UTF8.GetByteCount(json));
         return json;
     }
@@ -31,7 +31,7 @@ public sealed class ThemePackSerializer
         {
             configuration = JsonSerializer.Deserialize<ThemePackConfiguration>(
                     json,
-                    SerializerOptions)
+                    _serializerOptions)
                 ?? throw new InvalidDataException(
                     "Theme pack configuration cannot be null.");
         }
@@ -46,7 +46,7 @@ public sealed class ThemePackSerializer
         return configuration;
     }
 
-    private void EnsureValid(
+    private static void EnsureValid(
         ThemePackConfiguration configuration,
         int serializedByteCount)
     {
