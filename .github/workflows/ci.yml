@@ -92,22 +92,24 @@ jobs:
       - name: Restore backend
         run: dotnet restore CommunityIntranet.sln
 
+      - name: Build backend
+        run: dotnet build CommunityIntranet.sln --configuration Release --no-restore
+
       - name: Generate phase 3 migration
         run: |
           dotnet tool install --global dotnet-ef --version 8.0.19
           dotnet ef migrations add Phase3IdentityOrganizations \
             --project backend/CommunityIntranet.Infrastructure/CommunityIntranet.Infrastructure.csproj \
             --startup-project backend/CommunityIntranet.Api/CommunityIntranet.Api.csproj \
-            --output-dir Persistence/Migrations
+            --output-dir Persistence/Migrations \
+            --configuration Release \
+            --no-build
 
       - name: Upload generated migration
         uses: actions/upload-artifact@v4
         with:
           name: phase-3-migration
           path: backend/CommunityIntranet.Infrastructure/Persistence/Migrations
-
-      - name: Build backend
-        run: dotnet build CommunityIntranet.sln --configuration Release --no-restore
 
       - name: Test backend
         run: dotnet test CommunityIntranet.sln --configuration Release --no-build
