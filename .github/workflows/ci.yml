@@ -229,12 +229,59 @@ jobs:
             > /tmp/register-b.json
           user_b_token=$(jq --raw-output ".accessToken" /tmp/register-b.json)
 
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_a_token" \
+            --data '{"defaultPermissionRole":"Member","expiresInDays":7,"maximumUses":1}' \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/invitations" \
+            > /tmp/invitation.json
+          invitation_token=$(jq --raw-output ".token" /tmp/invitation.json)
+          test -n "$invitation_token"
+          test "$invitation_token" != "null"
+
+          jq --null-input \
+            --arg token "$invitation_token" \
+            '{token: $token}' \
+            > /tmp/invitation-request.json
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --data @/tmp/invitation-request.json \
+            http://127.0.0.1:5080/api/invitations/resolve \
+            > /tmp/invitation-preview.json
+          test "$(jq --raw-output ".organizationId" /tmp/invitation-preview.json)" = "$organization_id"
+
           tenant_status=$(curl --silent \
             --output /tmp/tenant-isolation.json \
             --write-out "%{http_code}" \
             --header "Authorization: Bearer $user_b_token" \
             "http://127.0.0.1:5080/api/organizations/$organization_id")
           test "$tenant_status" = "404"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_b_token" \
+            --data @/tmp/invitation-request.json \
+            http://127.0.0.1:5080/api/invitations/accept \
+            > /tmp/invitation-accepted.json
+          test "$(jq --raw-output ".organizationId" /tmp/invitation-accepted.json)" = "$organization_id"
+
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_b_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id" \
+            > /tmp/member-organization.json
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/members" \
+            > /tmp/members.json
+          test "$(jq length /tmp/members.json)" = "2"
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/departments" \
+            > /tmp/departments.json
+          test "$(jq length /tmp/departments.json)" -ge 1
 
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:5173 > /tmp/frontend.html; then

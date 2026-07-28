@@ -7,7 +7,7 @@ bleibt aber vollständig spielunabhängig.
 
 ## Aktueller Stand
 
-Phase 1 bis 4 liefern die dokumentierte Zielarchitektur, ein startbares
+Phase 1 bis 5 liefern die dokumentierte Zielarchitektur, ein startbares
 Full-Stack-System sowie die ersten echten Benutzer- und Mandantendaten:
 
 - modularer ASP.NET-Core-8-Monolith mit Minimal APIs
@@ -18,14 +18,16 @@ Full-Stack-System sowie die ersten echten Benutzer- und Mandantendaten:
 - Seed-Themes `generic-corporate` und `satisfactory-ficsit`
 - mehrstufiger Organisationswizard mit Theme-Vorschau und Modulauswahl
 - dynamische Theme-Farben, Terminologie und Systemtexte im Frontend
+- Mitgliederverwaltung mit technischen Rollen, sichtbaren Titeln und Status
+- Theme-basierte Abteilungen inklusive Verwaltung und Bestands-Backfill
+- sichere, widerrufbare Einladungslinks mit Ablauf und Maximalnutzung
+- öffentlicher Einladungs-Check und Beitritt nach Login oder Registrierung
 - PostgreSQL über Docker Compose und eine initiale EF-Core-Migration
 - Serilog, ProblemDetails, Swagger und Health Checks
 - React-PWA mit Authentifizierung, Organisationsanlage und -auswahl
 - Entwicklungs-Proxy von `/api` auf das Backend
 - PowerShell-Skripte für Start, Stop, Status und Logs
 - CI-Prüfungen für Backend, Frontend und HTTP-Smoke-Tests
-
-Mitglieder, Einladungen und echte Abteilungen folgen in Phase 5.
 
 ## Architektur in Kürze
 
@@ -153,11 +155,11 @@ versioniert angelegt. Offizielle Spiel-Assets werden nicht verwendet.
 
 ## Bekannte Einschränkungen
 
-- noch keine Einladungen, Abteilungen oder Mitgliederverwaltung
 - noch keine Seed-Benutzer oder Demo-Organisation
 - noch keine Passwort-Zurücksetzen- und E-Mail-Bestätigungsstrecke
+- noch kein Versand von Einladungen per E-Mail; Links werden bewusst kopiert
 
 ## Nächster Schritt
 
-Phase 5 implementiert Mitglieder, sichere Einladungslinks, Abteilungen und die
-Übernahme der im Theme Pack vorgeschlagenen Standardabteilungen.
+Phase 6 implementiert zunächst Projekte und Aufgaben, danach Incidents,
+Auszeichnungen, Activity Feed und Dashboard-Kennzahlen.

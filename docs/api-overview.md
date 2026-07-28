@@ -78,11 +78,21 @@ enthalten keine Scripts, kein HTML und kein frei ausführbares CSS.
 |---|---|---|
 | GET | `/api/organizations/{organizationId}/members` | `members.read` |
 | GET | `/api/organizations/{organizationId}/members/{memberId}` | `members.read` |
-| PATCH | `/api/organizations/{organizationId}/members/{memberId}` | `members.manage` oder eigene erlaubte Felder |
+| PATCH | `/api/organizations/{organizationId}/members/{memberId}` | Owner oder Administrator |
+| GET | `/api/organizations/{organizationId}/departments` | Mitglied |
+| POST | `/api/organizations/{organizationId}/departments` | Owner oder Administrator |
+| PUT | `/api/organizations/{organizationId}/departments/{departmentId}` | Owner oder Administrator |
+| DELETE | `/api/organizations/{organizationId}/departments/{departmentId}` | Owner oder Administrator |
+| GET | `/api/organizations/{organizationId}/invitations` | Owner oder Administrator |
 | POST | `/api/organizations/{organizationId}/invitations` | `invitations.manage` |
-| GET | `/api/invitations/{token}` | nein |
-| POST | `/api/invitations/{token}/accept` | ja |
+| POST | `/api/invitations/resolve` | nein |
+| POST | `/api/invitations/accept` | ja |
 | DELETE | `/api/organizations/{organizationId}/invitations/{invitationId}` | `invitations.manage` |
+
+Einladungstokens werden bei `resolve` und `accept` im Request-Body übertragen.
+Der öffentliche Browser-Link verwendet ein URL-Fragment (`/invite#token`), das
+nicht an Caddy oder das Backend übertragen wird. Der Klartext-Token wird nur in
+der Erstellungsantwort ausgegeben.
 
 ## Fachmodule (Phase 6)
 
@@ -118,6 +128,7 @@ PATCH /api/organizations/{organizationId}/tasks/{taskId}/status
 | 403 | authentifiziert, aber keine Permission |
 | 404 | Ressource nicht vorhanden oder für fremden Tenant verborgen |
 | 409 | Eindeutigkeits- oder Concurrency-Konflikt |
+| 410 | Einladung ungültig, abgelaufen, widerrufen oder verbraucht |
 | 422 | optionale spätere Nutzung für komplexe Fachvalidierung |
 | 429 | Rate Limit erreicht |
 | 500 | unerwarteter, intern protokollierter Fehler |

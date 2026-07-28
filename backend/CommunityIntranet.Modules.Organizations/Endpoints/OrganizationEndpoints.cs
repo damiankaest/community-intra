@@ -162,6 +162,13 @@ public static class OrganizationEndpoints
             organization.Id,
             userId,
             NormalizeOptional(request.VisibleTitle));
+        ownerProvisioner.AddDepartments(
+            organization.Id,
+            themePack.Configuration.SuggestedDepartments
+                .Select(department => new OrganizationDepartmentTemplate(
+                    department.Name,
+                    department.Icon))
+                .ToArray());
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Results.Created(
