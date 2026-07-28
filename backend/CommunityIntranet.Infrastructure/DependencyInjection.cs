@@ -1,7 +1,12 @@
 using CommunityIntranet.Infrastructure.Persistence;
 using CommunityIntranet.Modules.Identity.Persistence;
+using CommunityIntranet.Modules.ActivityFeed.Persistence;
+using CommunityIntranet.Modules.Awards.Persistence;
+using CommunityIntranet.Modules.Incidents.Persistence;
 using CommunityIntranet.Modules.Members.Persistence;
 using CommunityIntranet.Modules.Organizations.Persistence;
+using CommunityIntranet.Modules.Projects.Persistence;
+using CommunityIntranet.Modules.Tasks.Persistence;
 using CommunityIntranet.Modules.ThemePacks.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -34,6 +39,16 @@ public static class DependencyInjection
         services.AddScoped<IMemberDbContext>(
             provider => provider.GetRequiredService<CommunityIntranetDbContext>());
         services.AddScoped<IThemePackDbContext>(
+            provider => provider.GetRequiredService<CommunityIntranetDbContext>());
+        services.AddScoped<IProjectDbContext>(
+            provider => provider.GetRequiredService<CommunityIntranetDbContext>());
+        services.AddScoped<ITaskDbContext>(
+            provider => provider.GetRequiredService<CommunityIntranetDbContext>());
+        services.AddScoped<IIncidentDbContext>(
+            provider => provider.GetRequiredService<CommunityIntranetDbContext>());
+        services.AddScoped<IAwardDbContext>(
+            provider => provider.GetRequiredService<CommunityIntranetDbContext>());
+        services.AddScoped<IActivityDbContext>(
             provider => provider.GetRequiredService<CommunityIntranetDbContext>());
 
         return services;

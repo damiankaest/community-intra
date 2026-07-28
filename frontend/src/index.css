@@ -106,6 +106,81 @@ html[data-theme-style='clean-corporate'] .industrial-grid {
   color: color-mix(in srgb, var(--theme-muted) 55%, transparent);
 }
 
+.feature-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.feature-form input,
+.feature-form textarea,
+.feature-form select,
+.feature-card select {
+  min-height: 2.75rem;
+  border: 1px solid color-mix(in srgb, var(--theme-text) 12%, transparent);
+  border-radius: 0.75rem;
+  outline: none;
+  background: color-mix(in srgb, var(--theme-background) 72%, transparent);
+  padding: 0.7rem 0.85rem;
+  color: var(--theme-text);
+}
+
+.feature-form textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.feature-form input:focus,
+.feature-form textarea:focus,
+.feature-form select:focus,
+.feature-card select:focus {
+  border-color: var(--theme-primary);
+}
+
+.feature-card {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--theme-text) 10%, transparent);
+  border-radius: 1rem;
+  background: var(--theme-surface);
+  padding: 1.25rem;
+}
+
+.feature-card h2 {
+  margin: 0;
+  color: white;
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
+.feature-card p {
+  margin: 0;
+  color: var(--theme-muted);
+  line-height: 1.55;
+}
+
+.feature-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: var(--theme-primary);
+  padding: 0.65rem 1rem;
+  color: #090909;
+  font-size: 0.875rem;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.feature-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

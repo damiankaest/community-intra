@@ -1,9 +1,19 @@
 using CommunityIntranet.Modules.Identity.Domain;
 using CommunityIntranet.Modules.Identity.Persistence;
+using CommunityIntranet.Modules.ActivityFeed.Domain;
+using CommunityIntranet.Modules.ActivityFeed.Persistence;
+using CommunityIntranet.Modules.Awards.Domain;
+using CommunityIntranet.Modules.Awards.Persistence;
+using CommunityIntranet.Modules.Incidents.Domain;
+using CommunityIntranet.Modules.Incidents.Persistence;
 using CommunityIntranet.Modules.Members.Domain;
 using CommunityIntranet.Modules.Members.Persistence;
 using CommunityIntranet.Modules.Organizations.Domain;
 using CommunityIntranet.Modules.Organizations.Persistence;
+using CommunityIntranet.Modules.Projects.Domain;
+using CommunityIntranet.Modules.Projects.Persistence;
+using CommunityIntranet.Modules.Tasks.Domain;
+using CommunityIntranet.Modules.Tasks.Persistence;
 using CommunityIntranet.Modules.ThemePacks.Domain;
 using CommunityIntranet.Modules.ThemePacks.Persistence;
 using Microsoft.AspNetCore.Identity;
@@ -18,7 +28,12 @@ public sealed class CommunityIntranetDbContext(
         IIdentityDbContext,
         IOrganizationDbContext,
         IMemberDbContext,
-        IThemePackDbContext
+        IThemePackDbContext,
+        IProjectDbContext,
+        ITaskDbContext,
+        IIncidentDbContext,
+        IAwardDbContext,
+        IActivityDbContext
 {
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
@@ -34,6 +49,16 @@ public sealed class CommunityIntranetDbContext(
 
     public DbSet<ThemePack> ThemePacks => Set<ThemePack>();
 
+    public DbSet<Project> Projects => Set<Project>();
+
+    public DbSet<WorkTask> WorkTasks => Set<WorkTask>();
+
+    public DbSet<Incident> Incidents => Set<Incident>();
+
+    public DbSet<Award> Awards => Set<Award>();
+
+    public DbSet<ActivityEntry> Activities => Set<ActivityEntry>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -42,6 +67,11 @@ public sealed class CommunityIntranetDbContext(
         builder.ApplyConfigurationsFromAssembly(typeof(Organization).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(OrganizationMember).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(ThemePack).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(Project).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(WorkTask).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(Incident).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(Award).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(ActivityEntry).Assembly);
 
         builder.Entity<IdentityRole<Guid>>().ToTable("roles", "identity");
         builder.Entity<IdentityUserClaim<Guid>>()
@@ -69,6 +99,76 @@ public sealed class CommunityIntranetDbContext(
             .HasOne<ThemePack>()
             .WithMany()
             .HasForeignKey(organization => organization.ThemePackId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<Project>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(project => project.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<Project>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(project => project.OwnerMemberId)
+            .OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<WorkTask>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(task => task.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<WorkTask>()
+            .HasOne<Project>()
+            .WithMany()
+            .HasForeignKey(task => task.ProjectId)
+            .OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<WorkTask>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(task => task.AssignedMemberId)
+            .OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<WorkTask>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(task => task.CreatedByMemberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<Incident>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(incident => incident.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<Incident>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(incident => incident.ReportedByMemberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<Incident>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(incident => incident.ResponsibleMemberId)
+            .OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Award>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(award => award.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<Award>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(award => award.AwardedToMemberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<Award>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(award => award.AwardedByMemberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<ActivityEntry>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(activity => activity.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<ActivityEntry>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(activity => activity.ActorMemberId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

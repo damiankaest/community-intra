@@ -283,6 +283,60 @@ jobs:
             > /tmp/departments.json
           test "$(jq length /tmp/departments.json)" -ge 1
 
+          member_b_id=$(jq --raw-output ".membershipId" /tmp/invitation-accepted.json)
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_a_token" \
+            --data "{\"name\":\"Phase 6 Factory\",\"description\":\"CI project\",\"status\":\"InProgress\",\"priority\":\"High\",\"ownerMemberId\":\"$member_b_id\",\"startDate\":\"2026-07-28\",\"dueDate\":\"2026-08-28\"}" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/projects" \
+            > /tmp/project.json
+          project_id=$(jq --raw-output ".id" /tmp/project.json)
+          test -n "$project_id"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_b_token" \
+            --data "{\"title\":\"Connect conveyor\",\"description\":\"Tenant-aware task\",\"status\":\"Open\",\"priority\":\"Normal\",\"projectId\":\"$project_id\",\"assignedMemberId\":\"$member_b_id\",\"dueDate\":\"2026-08-01\"}" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/tasks" \
+            > /tmp/task.json
+          test "$(jq --raw-output ".projectId" /tmp/task.json)" = "$project_id"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_b_token" \
+            --data '{"title":"Power grid unstable","description":"Fuse status disputed","category":"Stromausfall","severity":"High","status":"Reported","occurredAt":"2026-07-28T18:00:00Z"}' \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/incidents" \
+            > /tmp/incident.json
+          test "$(jq --raw-output ".status" /tmp/incident.json)" = "Reported"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_a_token" \
+            --data "{\"name\":\"CI Officer\",\"description\":\"For keeping the pipeline green.\",\"awardedToMemberId\":\"$member_b_id\",\"icon\":\"award\",\"category\":\"Quality\",\"isPublic\":true}" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/awards" \
+            > /tmp/award.json
+          test "$(jq --raw-output ".awardedToMemberId" /tmp/award.json)" = "$member_b_id"
+
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/dashboard" \
+            > /tmp/dashboard.json
+          test "$(jq ".memberCount" /tmp/dashboard.json)" = "2"
+          test "$(jq ".openTaskCount" /tmp/dashboard.json)" = "1"
+          test "$(jq ".activeProjectCount" /tmp/dashboard.json)" = "1"
+          test "$(jq ".openIncidentCount" /tmp/dashboard.json)" = "1"
+          test "$(jq --raw-output ".currentAward.name" /tmp/dashboard.json)" = "CI Officer"
+
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/activities" \
+            > /tmp/activities.json
+          test "$(jq length /tmp/activities.json)" -ge 6
+
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:5173 > /tmp/frontend.html; then
               break

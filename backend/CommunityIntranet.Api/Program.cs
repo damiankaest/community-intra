@@ -7,10 +7,20 @@ using CommunityIntranet.Infrastructure;
 using CommunityIntranet.Infrastructure.Persistence;
 using CommunityIntranet.Modules.Identity;
 using CommunityIntranet.Modules.Identity.Endpoints;
+using CommunityIntranet.Modules.ActivityFeed;
+using CommunityIntranet.Modules.ActivityFeed.Endpoints;
+using CommunityIntranet.Modules.Awards;
+using CommunityIntranet.Modules.Awards.Endpoints;
+using CommunityIntranet.Modules.Incidents;
+using CommunityIntranet.Modules.Incidents.Endpoints;
 using CommunityIntranet.Modules.Members;
 using CommunityIntranet.Modules.Members.Endpoints;
 using CommunityIntranet.Modules.Organizations;
 using CommunityIntranet.Modules.Organizations.Endpoints;
+using CommunityIntranet.Modules.Projects;
+using CommunityIntranet.Modules.Projects.Endpoints;
+using CommunityIntranet.Modules.Tasks;
+using CommunityIntranet.Modules.Tasks.Endpoints;
 using CommunityIntranet.Modules.ThemePacks;
 using CommunityIntranet.Modules.ThemePacks.Endpoints;
 using FluentValidation;
@@ -94,6 +104,11 @@ try
     builder.Services.AddOrganizationsModule();
     builder.Services.AddMembersModule();
     builder.Services.AddThemePacksModule();
+    builder.Services.AddProjectsModule();
+    builder.Services.AddTasksModule();
+    builder.Services.AddIncidentsModule();
+    builder.Services.AddAwardsModule();
+    builder.Services.AddActivityFeedModule();
     builder.Services.AddScoped<DatabaseInitializer>();
     builder.Services.AddRateLimiter(options =>
     {
@@ -178,6 +193,11 @@ try
     app.MapOrganizationEndpoints();
     app.MapMemberEndpoints();
     app.MapThemePackEndpoints();
+    app.MapProjectEndpoints();
+    app.MapTaskEndpoints();
+    app.MapIncidentEndpoints();
+    app.MapAwardEndpoints();
+    app.MapActivityFeedEndpoints();
 
     await app.RunAsync();
 }
