@@ -1,4 +1,5 @@
 using CommunityIntranet.Modules.Members.Services;
+using Xunit;
 
 namespace CommunityIntranet.Api.Tests.Members;
 
