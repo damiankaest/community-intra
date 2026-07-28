@@ -8,6 +8,8 @@ export interface OrganizationSummary {
   name: string
   slug: string
   description?: string
+  themePackKey: string
+  themePackVersion: string
   language: string
   permissionRole: PermissionRole
   visibleTitle?: string
@@ -15,6 +17,7 @@ export interface OrganizationSummary {
 
 export interface Organization extends OrganizationSummary {
   themePackId?: string
+  enabledModules: string[]
   timeZone: string
   ownerUserId: string
   createdAt: string
@@ -28,6 +31,8 @@ export interface CreateOrganizationInput {
   language: string
   timeZone: string
   visibleTitle?: string
+  themePackKey: string
+  enabledModules: string[]
 }
 
 export function listOrganizations() {

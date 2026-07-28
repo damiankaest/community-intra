@@ -21,6 +21,19 @@ public sealed class CreateOrganizationRequestValidator
             .NotEmpty()
             .MaximumLength(100);
         RuleFor(request => request.VisibleTitle).MaximumLength(100);
+        RuleFor(request => request.ThemePackKey)
+            .Matches("^[a-z0-9]+(?:-[a-z0-9]+)*$")
+            .MaximumLength(64)
+            .When(request => !string.IsNullOrWhiteSpace(request.ThemePackKey));
+        RuleFor(request => request.EnabledModules)
+            .Must(modules => modules is null || modules.Count is > 0 and <= 10)
+            .WithMessage("EnabledModules must contain between 1 and 10 modules.");
+        RuleForEach(request => request.EnabledModules!)
+            .Must(module =>
+                !string.IsNullOrWhiteSpace(module)
+                && OrganizationModuleKeys.All.Contains(
+                    module.Trim().ToLowerInvariant()))
+            .WithMessage("EnabledModules contains an unknown module.");
     }
 }
 
@@ -41,5 +54,18 @@ public sealed class UpdateOrganizationRequestValidator
         RuleFor(request => request.TimeZone)
             .NotEmpty()
             .MaximumLength(100);
+        RuleFor(request => request.ThemePackKey)
+            .Matches("^[a-z0-9]+(?:-[a-z0-9]+)*$")
+            .MaximumLength(64)
+            .When(request => !string.IsNullOrWhiteSpace(request.ThemePackKey));
+        RuleFor(request => request.EnabledModules)
+            .Must(modules => modules is null || modules.Count is > 0 and <= 10)
+            .WithMessage("EnabledModules must contain between 1 and 10 modules.");
+        RuleForEach(request => request.EnabledModules!)
+            .Must(module =>
+                !string.IsNullOrWhiteSpace(module)
+                && OrganizationModuleKeys.All.Contains(
+                    module.Trim().ToLowerInvariant()))
+            .WithMessage("EnabledModules contains an unknown module.");
     }
 }

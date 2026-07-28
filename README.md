@@ -7,13 +7,17 @@ bleibt aber vollständig spielunabhängig.
 
 ## Aktueller Stand
 
-Phase 1 bis 3 liefern die dokumentierte Zielarchitektur, ein startbares
+Phase 1 bis 4 liefern die dokumentierte Zielarchitektur, ein startbares
 Full-Stack-System sowie die ersten echten Benutzer- und Mandantendaten:
 
 - modularer ASP.NET-Core-8-Monolith mit Minimal APIs
 - ASP.NET Core Identity mit Registrierung, Login und Lockout
 - kurzlebige JWT Access Tokens und gehashte Refresh-Token-Rotation
 - Organisationen mit Owner-Mitgliedschaft und serverseitiger Tenant-Prüfung
+- fest typisierte, serverseitig validierte und versionierte Theme Packs
+- Seed-Themes `generic-corporate` und `satisfactory-ficsit`
+- mehrstufiger Organisationswizard mit Theme-Vorschau und Modulauswahl
+- dynamische Theme-Farben, Terminologie und Systemtexte im Frontend
 - PostgreSQL über Docker Compose und eine initiale EF-Core-Migration
 - Serilog, ProblemDetails, Swagger und Health Checks
 - React-PWA mit Authentifizierung, Organisationsanlage und -auswahl
@@ -21,8 +25,7 @@ Full-Stack-System sowie die ersten echten Benutzer- und Mandantendaten:
 - PowerShell-Skripte für Start, Stop, Status und Logs
 - CI-Prüfungen für Backend, Frontend und HTTP-Smoke-Tests
 
-Theme Packs, Standardabteilungen und thematische Terminologie folgen in
-Phase 4.
+Mitglieder, Einladungen und echte Abteilungen folgen in Phase 5.
 
 ## Architektur in Kürze
 
@@ -138,18 +141,17 @@ dev/                                     # lokale PowerShell-Werkzeuge
 
 Theme Packs sind validierte Daten, kein ausführbarer Code. Sie liefern Farben,
 Terminologie, Titelvorschläge, Abteilungen, Kategorien und Systemtexte. Die
-fest typisierte Konfiguration sowie die Seed-Packs `generic-corporate` und
-`satisfactory-ficsit` folgen in Phase 4. Offizielle Spiel-Assets werden nicht
-verwendet.
+fest typisierte Konfiguration wird als JSONB gespeichert; die Seed-Packs
+`generic-corporate` und `satisfactory-ficsit` werden beim Datenbankstart
+versioniert angelegt. Offizielle Spiel-Assets werden nicht verwendet.
 
 ## Bekannte Einschränkungen
 
-- noch keine Theme-Pack-Persistenz
 - noch keine Einladungen, Abteilungen oder Mitgliederverwaltung
 - noch keine Seed-Benutzer oder Demo-Organisation
 - noch keine Passwort-Zurücksetzen- und E-Mail-Bestätigungsstrecke
 
 ## Nächster Schritt
 
-Phase 4 implementiert das fest typisierte Theme-Pack-Modell, Validierung,
-Seed-Themes, Terminologie und die Theme-Anwendung im Frontend.
+Phase 5 implementiert Mitglieder, sichere Einladungslinks, Abteilungen und die
+Übernahme der im Theme Pack vorgeschlagenen Standardabteilungen.

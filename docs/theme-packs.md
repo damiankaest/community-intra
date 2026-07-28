@@ -9,7 +9,7 @@ JavaScript, HTML oder frei eingebettetes CSS ausgeführt.
 
 ## Fest typisiertes Modell
 
-Die geplante Konfiguration besteht aus:
+Die implementierte Konfiguration besteht aus:
 
 ```text
 ThemePackConfiguration
@@ -89,9 +89,23 @@ Phase 4 liefert:
   Konzernsprache, ohne offizielle Logos, Grafiken oder kopierte Spiel-Assets
 
 Theme Packs enthalten Standardabteilungen und Vorlagen. Beim Erstellen einer
-Organisation werden diese als normale organisationsbezogene Daten kopiert.
-Spätere Theme-Updates überschreiben benutzerdefinierte Abteilungen oder Titel
-nicht automatisch.
+Organisation werden sie im Wizard bereits angezeigt. Die Übernahme in echte
+organisationsbezogene Abteilungen folgt gemeinsam mit der
+Mitgliederverwaltung in Phase 5. Spätere Theme-Updates überschreiben
+benutzerdefinierte Abteilungen oder Titel nicht automatisch.
+
+## API und Anwendung
+
+Authentifizierte Nutzer können die verfügbaren Themes über
+`GET /api/theme-packs` und ein einzelnes Theme über
+`GET /api/theme-packs/{key}` abrufen. Organisationen speichern die konkrete
+Theme-Pack-ID und geben zusätzlich Key und Version zurück.
+
+Beim Start nach einer Migration werden beide System-Themes idempotent angelegt.
+Bestehende Organisationen ohne Theme erhalten `generic-corporate`. Der
+Erstellungswizard zeigt Farben, Beispielbegriffe, Titel und vorgeschlagene
+Abteilungen. Nach der Gründung setzt das Frontend ausschließlich die erlaubten
+CSS-Variablen und verwendet die validierte Terminologie und Systemtexte.
 
 ## Activity-Texte
 

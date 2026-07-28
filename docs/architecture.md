@@ -62,7 +62,7 @@ Module.*
 
 Infrastructure
   -> BuildingBlocks
-  -> Identity, Organizations und Members für EF-Konfigurationen
+  -> Identity, Organizations, Members und ThemePacks für EF-Konfigurationen
 ```
 
 - `Api` ist Composition Root und besitzt keine Fachlogik.
@@ -174,9 +174,9 @@ Konsequenz: Renderer müssen unbekannte Ereignisversionen robust behandeln.
 
 1. Grundgerüst, Beobachtbarkeit und CI
 2. Identity, Tokens und Organisationen
-3. Theme-Pack-Modell und Seed-Packs
-4. Mitglieder, Abteilungen und Einladungen
-5. Projekte und Aufgaben
-6. Incidents und Awards
-7. Activity Feed und Dashboard
-8. Isolationstests, responsive Stabilisierung und Deployment
+3. Theme-Pack-Modell und Seed-Packs (Phase 4)
+4. Mitglieder, Abteilungen und Einladungen (Phase 5)
+5. Projekte und Aufgaben (Phase 6)
+6. Incidents und Awards (Phase 6)
+7. Activity Feed und Dashboard (Phase 6)
+8. Isolationstests und responsive Stabilisierung (Phase 7)

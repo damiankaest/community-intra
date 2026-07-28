@@ -12,6 +12,8 @@ public sealed class Organization
 
     public Guid? ThemePackId { get; set; }
 
+    public required List<string> EnabledModules { get; set; }
+
     public required string Language { get; set; }
 
     public required string TimeZone { get; set; }

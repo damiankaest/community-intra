@@ -110,6 +110,11 @@ Dauer, aber filtert sensible Header und Request-Bodies.
 - archivierte Organisationen sind schreibgeschützt
 - Theme Packs mit HTML, Scripts, ungültigen Farben oder zu großen Listen werden
   abgelehnt
+- Theme Keys und Versionen werden validiert; Farben müssen `#RRGGBB` verwenden
+- Icons und Layout-Stile stammen aus festen serverseitigen Allowlists
+- unbekannte JSON-Felder sowie Konfigurationen über 128 KiB werden abgelehnt
+- das Frontend setzt ausschließlich bekannte CSS-Variablen und rendert Texte
+  ohne HTML-Injektion
 
 ## Secret Management
 

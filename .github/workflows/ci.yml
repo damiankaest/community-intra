@@ -159,15 +159,27 @@ jobs:
           test "$user_a_token" != "null"
 
           curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            http://127.0.0.1:5080/api/theme-packs \
+            > /tmp/theme-packs.json
+          test "$(jq length /tmp/theme-packs.json)" -ge 2
+          jq --exit-status \
+            '.[] | select(.key == "satisfactory-ficsit")' \
+            /tmp/theme-packs.json \
+            > /dev/null
+
+          curl --fail --silent \
             --request POST \
             --header "Content-Type: application/json" \
             --header "Authorization: Bearer $user_a_token" \
-            --data '{"name":"CI Organization","description":"Tenant isolation smoke test","language":"de","timeZone":"Europe/Berlin","visibleTitle":"Chief CI Officer"}' \
+            --data '{"name":"CI Organization","description":"Tenant isolation smoke test","language":"de","timeZone":"Europe/Berlin","visibleTitle":"Chief CI Officer","themePackKey":"satisfactory-ficsit","enabledModules":["projects","tasks","incidents","awards","activity-feed"]}' \
             http://127.0.0.1:5080/api/organizations \
             > /tmp/organization.json
           organization_id=$(jq --raw-output ".id" /tmp/organization.json)
           test -n "$organization_id"
           test "$organization_id" != "null"
+          test "$(jq --raw-output ".themePackKey" /tmp/organization.json)" = "satisfactory-ficsit"
+          test "$(jq ".enabledModules | length" /tmp/organization.json)" = "5"
 
           curl --fail --silent \
             --request POST \
