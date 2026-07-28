@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../CommunityIntranet.BuildingBlocks/CommunityIntranet.BuildingBlocks.csproj" />
   </ItemGroup>
 </Project>

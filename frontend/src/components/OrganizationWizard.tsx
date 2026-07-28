@@ -326,7 +326,7 @@ function ModulesStep({
     <div>
       <StepHeading
         title="Module vormerken"
-        description="Die Auswahl wird bereits an der Organisation gespeichert. Die fachlichen Funktionen folgen in Phase 6."
+        description="Die ausgewählten Fachmodule werden direkt für die neue Organisation aktiviert."
       />
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         {moduleOptions.map((module) => {
@@ -417,8 +417,8 @@ function SetupStep({
                 Vorgeschlagene {theme.configuration.terminology.department}
               </p>
               <p className="mt-1 text-xs text-[var(--theme-muted)]">
-                Werden in Phase 5 bei der Mitgliederverwaltung als Vorlagen
-                angeboten.
+                Werden bei der Gründung automatisch als echte Abteilungen
+                angelegt.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {theme.configuration.suggestedDepartments.map((department) => (

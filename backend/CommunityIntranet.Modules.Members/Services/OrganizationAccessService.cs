@@ -12,11 +12,12 @@ public sealed class OrganizationAccessService(
     TimeProvider timeProvider)
     : IOrganizationAccessService, IOrganizationOwnerProvisioner
 {
-    public void AddOwner(Guid organizationId, Guid userId, string? visibleTitle)
+    public Guid AddOwner(Guid organizationId, Guid userId, string? visibleTitle)
     {
+        var memberId = Guid.NewGuid();
         dbContext.OrganizationMembers.Add(new OrganizationMember
         {
-            Id = Guid.NewGuid(),
+            Id = memberId,
             OrganizationId = organizationId,
             UserId = userId,
             PermissionRole = PermissionRole.Owner,
@@ -24,6 +25,7 @@ public sealed class OrganizationAccessService(
             JoinedAt = timeProvider.GetUtcNow(),
             IsActive = true
         });
+        return memberId;
     }
 
     public void AddDepartments(
@@ -56,7 +58,9 @@ public sealed class OrganizationAccessService(
                 && member.UserId == userId
                 && member.IsActive)
             .Select(member => new OrganizationMembership(
+                member.Id,
                 member.OrganizationId,
+                member.UserId,
                 member.PermissionRole,
                 member.VisibleTitle))
             .SingleOrDefaultAsync(cancellationToken);
@@ -69,8 +73,35 @@ public sealed class OrganizationAccessService(
             .AsNoTracking()
             .Where(member => member.UserId == userId && member.IsActive)
             .Select(member => new OrganizationMembership(
+                member.Id,
                 member.OrganizationId,
+                member.UserId,
                 member.PermissionRole,
                 member.VisibleTitle))
             .ToArrayAsync(cancellationToken);
+
+    public Task<bool> IsActiveMemberAsync(
+        Guid organizationId,
+        Guid memberId,
+        CancellationToken cancellationToken) =>
+        dbContext.OrganizationMembers.AnyAsync(
+            member =>
+                member.OrganizationId == organizationId
+                && member.Id == memberId
+                && member.IsActive,
+            cancellationToken);
+
+    public Task<string?> GetMemberDisplayNameAsync(
+        Guid organizationId,
+        Guid memberId,
+        CancellationToken cancellationToken) =>
+        (
+            from member in dbContext.OrganizationMembers.AsNoTracking()
+            join user in dbContext.Users.AsNoTracking()
+                on member.UserId equals user.Id
+            where member.OrganizationId == organizationId
+                && member.Id == memberId
+                && member.IsActive
+            select user.DisplayName)
+        .SingleOrDefaultAsync(cancellationToken);
 }

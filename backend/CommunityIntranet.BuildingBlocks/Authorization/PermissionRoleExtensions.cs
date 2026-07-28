@@ -9,4 +9,20 @@ public static class PermissionRoleExtensions
         role is PermissionRole.Owner
             or PermissionRole.Administrator
             or PermissionRole.Moderator;
+
+    public static bool CanCreateContent(this PermissionRole role) =>
+        role is PermissionRole.Owner
+            or PermissionRole.Administrator
+            or PermissionRole.Moderator
+            or PermissionRole.Member;
+
+    public static bool CanManageContent(this PermissionRole role) =>
+        role is PermissionRole.Owner
+            or PermissionRole.Administrator
+            or PermissionRole.Moderator;
+
+    public static bool CanGrantAwards(this PermissionRole role) =>
+        role is PermissionRole.Owner
+            or PermissionRole.Administrator
+            or PermissionRole.Moderator;
 }

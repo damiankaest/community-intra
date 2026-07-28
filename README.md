@@ -7,8 +7,8 @@ bleibt aber vollständig spielunabhängig.
 
 ## Aktueller Stand
 
-Phase 1 bis 5 liefern die dokumentierte Zielarchitektur, ein startbares
-Full-Stack-System sowie die ersten echten Benutzer- und Mandantendaten:
+Phase 1 bis 6 liefern die dokumentierte Zielarchitektur, ein startbares
+Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 
 - modularer ASP.NET-Core-8-Monolith mit Minimal APIs
 - ASP.NET Core Identity mit Registrierung, Login und Lockout
@@ -22,6 +22,11 @@ Full-Stack-System sowie die ersten echten Benutzer- und Mandantendaten:
 - Theme-basierte Abteilungen inklusive Verwaltung und Bestands-Backfill
 - sichere, widerrufbare Einladungslinks mit Ablauf und Maximalnutzung
 - öffentlicher Einladungs-Check und Beitritt nach Login oder Registrierung
+- Projekte und Aufgaben mit Filterung, Zuweisung und Statusübergängen
+- Incident Reports mit Untersuchung, Auflösung und Lessons Learned
+- Theme-basierte Auszeichnungen für Mitglieder
+- strukturierter, lokalisierbarer Activity Feed
+- Dashboard-Kennzahlen, aktuelle Auszeichnung und Schnellaktionen
 - PostgreSQL über Docker Compose und eine initiale EF-Core-Migration
 - Serilog, ProblemDetails, Swagger und Health Checks
 - React-PWA mit Authentifizierung, Organisationsanlage und -auswahl
@@ -161,5 +166,5 @@ versioniert angelegt. Offizielle Spiel-Assets werden nicht verwendet.
 
 ## Nächster Schritt
 
-Phase 6 implementiert zunächst Projekte und Aufgaben, danach Incidents,
-Auszeichnungen, Activity Feed und Dashboard-Kennzahlen.
+Phase 7 vertieft Tenant-Isolationstests, responsive Stabilisierung,
+Barrierefreiheit und den produktiven Einladungs-/Testbetrieb.
