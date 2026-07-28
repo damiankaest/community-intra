@@ -1,0 +1,90 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Api", "backend\CommunityIntranet.Api\CommunityIntranet.Api.csproj", "{A0000000-0000-4000-8000-000000000001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.BuildingBlocks", "backend\CommunityIntranet.BuildingBlocks\CommunityIntranet.BuildingBlocks.csproj", "{B0000000-0000-4000-8000-000000000001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Infrastructure", "backend\CommunityIntranet.Infrastructure\CommunityIntranet.Infrastructure.csproj", "{D0000000-0000-4000-8000-000000000001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Modules.Identity", "backend\CommunityIntranet.Modules.Identity\CommunityIntranet.Modules.Identity.csproj", "{C0000000-0000-4000-8000-000000000001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Modules.Organizations", "backend\CommunityIntranet.Modules.Organizations\CommunityIntranet.Modules.Organizations.csproj", "{C0000000-0000-4000-8000-000000000002}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Modules.Members", "backend\CommunityIntranet.Modules.Members\CommunityIntranet.Modules.Members.csproj", "{C0000000-0000-4000-8000-000000000003}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Modules.ThemePacks", "backend\CommunityIntranet.Modules.ThemePacks\CommunityIntranet.Modules.ThemePacks.csproj", "{C0000000-0000-4000-8000-000000000004}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Modules.Projects", "backend\CommunityIntranet.Modules.Projects\CommunityIntranet.Modules.Projects.csproj", "{C0000000-0000-4000-8000-000000000005}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Modules.Tasks", "backend\CommunityIntranet.Modules.Tasks\CommunityIntranet.Modules.Tasks.csproj", "{C0000000-0000-4000-8000-000000000006}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Modules.Incidents", "backend\CommunityIntranet.Modules.Incidents\CommunityIntranet.Modules.Incidents.csproj", "{C0000000-0000-4000-8000-000000000007}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Modules.Awards", "backend\CommunityIntranet.Modules.Awards\CommunityIntranet.Modules.Awards.csproj", "{C0000000-0000-4000-8000-000000000008}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Modules.ActivityFeed", "backend\CommunityIntranet.Modules.ActivityFeed\CommunityIntranet.Modules.ActivityFeed.csproj", "{C0000000-0000-4000-8000-000000000009}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Api.Tests", "backend\CommunityIntranet.Api.Tests\CommunityIntranet.Api.Tests.csproj", "{E0000000-0000-4000-8000-000000000001}"
+EndProject
+Global
+    GlobalSection(SolutionConfigurationPlatforms) = preSolution
+        Debug|Any CPU = Debug|Any CPU
+        Release|Any CPU = Release|Any CPU
+    EndGlobalSection
+    GlobalSection(ProjectConfigurationPlatforms) = postSolution
+        {A0000000-0000-4000-8000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {A0000000-0000-4000-8000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {A0000000-0000-4000-8000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {A0000000-0000-4000-8000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+        {B0000000-0000-4000-8000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {B0000000-0000-4000-8000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {B0000000-0000-4000-8000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {B0000000-0000-4000-8000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+        {D0000000-0000-4000-8000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {D0000000-0000-4000-8000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {D0000000-0000-4000-8000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {D0000000-0000-4000-8000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000002}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000002}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000002}.Release|Any CPU.Build.0 = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000003}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000003}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000003}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000003}.Release|Any CPU.Build.0 = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000004}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000004}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000004}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000004}.Release|Any CPU.Build.0 = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000005}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000005}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000005}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000005}.Release|Any CPU.Build.0 = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000006}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000006}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000006}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000006}.Release|Any CPU.Build.0 = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000007}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000007}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000007}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000007}.Release|Any CPU.Build.0 = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000008}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000008}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000008}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000008}.Release|Any CPU.Build.0 = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000009}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000009}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000009}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000009}.Release|Any CPU.Build.0 = Release|Any CPU
+        {E0000000-0000-4000-8000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {E0000000-0000-4000-8000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {E0000000-0000-4000-8000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {E0000000-0000-4000-8000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+    EndGlobalSection
+EndGlobal

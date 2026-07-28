@@ -10,6 +10,7 @@
 *.userosscache
 *.sln.docstates
 *.env
+.env
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -46,6 +47,7 @@ bld/
 [Oo]ut/
 [Ll]og/
 [Ll]ogs/
+.runtime/
 
 # Build results on 'Bin' directories
 **/[Bb]in/*
@@ -87,6 +89,15 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 .artifacts/
+
+# Frontend
+node_modules/
+dist/
+coverage/
+.vite/
+
+# Unused binary from the Vite starter template
+frontend/src/assets/hero.png
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt

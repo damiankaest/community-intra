@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../CommunityIntranet.BuildingBlocks/CommunityIntranet.BuildingBlocks.csproj" />
+  </ItemGroup>
+</Project>
