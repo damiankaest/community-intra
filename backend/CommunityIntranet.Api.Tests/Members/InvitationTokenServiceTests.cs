@@ -6,7 +6,7 @@ namespace CommunityIntranet.Api.Tests.Members;
 public sealed class InvitationTokenServiceTests
 {
     [Fact]
-    public void Create_ReturnsUniqueOpaqueTokensAndHashes()
+    public void CreateReturnsUniqueOpaqueTokensAndHashes()
     {
         var first = InvitationTokenService.Create();
         var second = InvitationTokenService.Create();
@@ -22,7 +22,7 @@ public sealed class InvitationTokenServiceTests
     }
 
     [Fact]
-    public void Hash_ReturnsSameValueForSameToken()
+    public void HashReturnsSameValueForSameToken()
     {
         const string rawToken = "safe-token-value";
 
