@@ -1,4 +1,5 @@
 using CommunityIntranet.Modules.Organizations.Services;
+using Xunit;
 
 namespace CommunityIntranet.Api.Tests.Organizations;
 

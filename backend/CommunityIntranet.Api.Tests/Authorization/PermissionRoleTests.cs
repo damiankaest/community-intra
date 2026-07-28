@@ -1,4 +1,5 @@
 using CommunityIntranet.BuildingBlocks.Authorization;
+using Xunit;
 
 namespace CommunityIntranet.Api.Tests.Authorization;
 
