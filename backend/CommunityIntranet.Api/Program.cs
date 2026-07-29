@@ -32,6 +32,8 @@ using CommunityIntranet.Modules.ThemePacks;
 using CommunityIntranet.Modules.ThemePacks.Endpoints;
 using CommunityIntranet.Modules.TimeTracking;
 using CommunityIntranet.Modules.TimeTracking.Endpoints;
+using CommunityIntranet.Modules.FactoryInsights;
+using CommunityIntranet.Modules.FactoryInsights.Endpoints;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
@@ -122,6 +124,7 @@ try
     builder.Services.AddNotificationsModule();
     builder.Services.AddLiveOperationsModule(builder.Configuration);
     builder.Services.AddTimeTrackingModule();
+    builder.Services.AddFactoryInsightsModule(builder.Configuration);
     builder.Services.AddScoped<DatabaseInitializer>();
     builder.Services.AddRateLimiter(options =>
     {
@@ -229,6 +232,7 @@ try
     app.MapNotificationEndpoints();
     app.MapLiveOperationsEndpoints();
     app.MapTimeTrackingEndpoints();
+    app.MapFactoryInsightsEndpoints();
 
     await app.RunAsync();
 }

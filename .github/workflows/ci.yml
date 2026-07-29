@@ -24,6 +24,8 @@ jobs:
             dockerfile: backend/CommunityIntranet.Api/Dockerfile
           - name: frontend
             dockerfile: frontend/Dockerfile
+          - name: save-parser
+            dockerfile: save-parser/Dockerfile
 
     steps:
       - name: Checkout
@@ -84,7 +86,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: |
+            frontend/package-lock.json
+            save-parser/package-lock.json
 
       - name: Validate Docker Compose
         run: |
@@ -144,6 +148,18 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: Install save parser
+        working-directory: save-parser
+        run: npm ci
+
+      - name: Test save parser
+        working-directory: save-parser
+        run: npm test
+
+      - name: Check save parser formatting
+        working-directory: save-parser
+        run: npm run format:check
+
       - name: Smoke-test running applications
         shell: bash
         run: |
@@ -158,12 +174,16 @@ jobs:
             > /tmp/community-intranet-backend.log 2>&1 &
           backend_pid=$!
 
+          PORT=5091 npm --prefix save-parser start \
+            > /tmp/community-intranet-save-parser.log 2>&1 &
+          save_parser_pid=$!
+
           npm --prefix frontend run dev -- --host 127.0.0.1 \
             > /tmp/community-intranet-frontend.log 2>&1 &
           frontend_pid=$!
 
           cleanup() {
-            kill "$frontend_pid" "$backend_pid" 2>/dev/null || true
+            kill "$frontend_pid" "$save_parser_pid" "$backend_pid" 2>/dev/null || true
           }
           trap cleanup EXIT
 
@@ -175,6 +195,7 @@ jobs:
           done
 
           curl --fail --silent http://127.0.0.1:5080/api/health > /tmp/health.json
+          curl --fail --silent http://127.0.0.1:5091/health > /tmp/save-parser-health.json
           curl --fail --silent http://127.0.0.1:5080/swagger/index.html > /dev/null
 
           curl --fail --silent \
@@ -267,6 +288,24 @@ jobs:
           test "$(jq ".activeShift" /tmp/time-clock-finished.json)" = "null"
           test "$(jq ".todaySeconds" /tmp/time-clock-finished.json)" -ge 1
           test "$(jq ".weekSeconds" /tmp/time-clock-finished.json)" -ge 1
+
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/factory-insights" \
+            > /tmp/factory-insights-empty.json
+          test "$(jq ".factories | length" /tmp/factory-insights-empty.json)" = "0"
+          test "$(jq ".recentSnapshots | length" /tmp/factory-insights-empty.json)" = "0"
+          test "$(jq --raw-output ".saveParserAvailable" /tmp/factory-insights-empty.json)" = "true"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_a_token" \
+            --data '{"name":"CI Aluminiumwerk","description":"Automatischer Fabrik-Smoke-Test"}' \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/factory-insights/factories" \
+            > /tmp/factory-created.json
+          factory_id=$(jq --raw-output ".id" /tmp/factory-created.json)
+          test -n "$factory_id"
 
           curl --fail --silent \
             --request POST \

@@ -13,6 +13,7 @@ public sealed class SatisfactoryServerClient(TimeProvider timeProvider)
     : ISatisfactoryServerClient
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
+    private const int MaximumSaveBytes = 200 * 1024 * 1024;
 
     public async Task<LiveServerStatus> ProbeAsync(
         SatisfactoryServerTarget target,
@@ -235,6 +236,206 @@ public sealed class SatisfactoryServerClient(TimeProvider timeProvider)
         }
     }
 
+    public async Task<ServerSaveDownloadResult> DownloadSaveAsync(
+        SatisfactoryServerTarget target,
+        string? saveName,
+        CancellationToken cancellationToken)
+    {
+        if (!ServerAddressPolicy.IsValidHost(target.Host)
+            || target.Port is < 1 or > 65535
+            || string.IsNullOrWhiteSpace(target.ApiToken))
+        {
+            return SaveFailure(
+                ServerSaveDownloadState.ConfigurationError,
+                "Host, Port oder API-Token fehlen.");
+        }
+
+        IPAddress[] addresses;
+        try
+        {
+            addresses = await Dns.GetHostAddressesAsync(
+                target.Host,
+                cancellationToken);
+        }
+        catch (SocketException)
+        {
+            return SaveFailure(
+                ServerSaveDownloadState.Unavailable,
+                "Der Servername konnte nicht aufgelöst werden.");
+        }
+
+        var publicAddresses = addresses
+            .Where(ServerAddressPolicy.IsPublicAddress)
+            .Distinct()
+            .ToArray();
+        if (publicAddresses.Length == 0)
+        {
+            return SaveFailure(
+                ServerSaveDownloadState.ConfigurationError,
+                "Die Serveradresse ist aus Sicherheitsgründen nicht erlaubt.");
+        }
+
+        var certificateRejected = false;
+        var expectedFingerprint = NormalizeFingerprint(
+            target.CertificateFingerprint);
+        using var handler = new SocketsHttpHandler
+        {
+            AllowAutoRedirect = false,
+            ConnectTimeout = TimeSpan.FromSeconds(5),
+            PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+            ConnectCallback = (context, token) =>
+                ConnectAsync(publicAddresses, context.DnsEndPoint.Port, token)
+        };
+        handler.SslOptions.RemoteCertificateValidationCallback =
+            (_, certificate, _, errors) =>
+            {
+                if (certificate is null)
+                {
+                    certificateRejected = true;
+                    return false;
+                }
+
+                var presented = certificate.GetCertHashString(
+                    HashAlgorithmName.SHA256);
+                var accepted = expectedFingerprint is null
+                    ? errors == SslPolicyErrors.None
+                    : FingerprintsEqual(expectedFingerprint, presented);
+                certificateRejected = !accepted;
+                return accepted;
+            };
+        using var client = new HttpClient(handler)
+        {
+            BaseAddress = new UriBuilder(
+                Uri.UriSchemeHttps,
+                target.Host,
+                target.Port,
+                "/api/v1").Uri,
+            Timeout = TimeSpan.FromMinutes(5)
+        };
+
+        try
+        {
+            using var sessionsResponse = await SendAsync(
+                client,
+                "EnumerateSessions",
+                new { },
+                target.ApiToken,
+                cancellationToken);
+            if (sessionsResponse.StatusCode is HttpStatusCode.Unauthorized
+                or HttpStatusCode.Forbidden)
+            {
+                return SaveFailure(
+                    ServerSaveDownloadState.AuthenticationFailed,
+                    "Das API-Token darf Spielstände nicht lesen.");
+            }
+
+            if (!sessionsResponse.IsSuccessStatusCode)
+            {
+                return SaveFailure(
+                    ServerSaveDownloadState.Unavailable,
+                    "Die Save-Liste konnte nicht vom Gameserver geladen werden.");
+            }
+
+            using var sessions = await ReadJsonAsync(
+                sessionsResponse,
+                cancellationToken);
+            var availableNames = FindSaveNames(sessions.RootElement)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var requestedName = saveName?.Trim();
+            var selectedName = string.IsNullOrWhiteSpace(requestedName)
+                ? availableNames.LastOrDefault()
+                : availableNames.FirstOrDefault(name =>
+                    name.Equals(
+                        requestedName,
+                        StringComparison.OrdinalIgnoreCase));
+            if (string.IsNullOrWhiteSpace(selectedName))
+            {
+                return SaveFailure(
+                    ServerSaveDownloadState.NotFound,
+                    availableNames.Length == 0
+                        ? "Der Gameserver meldet noch keinen Spielstand."
+                        : "Der gewählte Spielstand wurde nicht gefunden.");
+            }
+
+            using var downloadResponse = await SendAsync(
+                client,
+                "DownloadSaveGame",
+                new { SaveName = selectedName },
+                target.ApiToken,
+                cancellationToken);
+            if (downloadResponse.StatusCode is HttpStatusCode.Unauthorized
+                or HttpStatusCode.Forbidden)
+            {
+                return SaveFailure(
+                    ServerSaveDownloadState.AuthenticationFailed,
+                    "Das API-Token darf Spielstände nicht herunterladen.");
+            }
+
+            if (!downloadResponse.IsSuccessStatusCode)
+            {
+                return SaveFailure(
+                    downloadResponse.StatusCode == HttpStatusCode.NotFound
+                        ? ServerSaveDownloadState.NotFound
+                        : ServerSaveDownloadState.Unavailable,
+                    "Der Spielstand konnte nicht heruntergeladen werden.");
+            }
+
+            if (downloadResponse.Content.Headers.ContentLength
+                is > MaximumSaveBytes)
+            {
+                return SaveFailure(
+                    ServerSaveDownloadState.ConfigurationError,
+                    "Der Spielstand ist größer als 200 MB.");
+            }
+
+            var content = await ReadWithLimitAsync(
+                downloadResponse.Content,
+                MaximumSaveBytes,
+                cancellationToken);
+            var fileName = selectedName.EndsWith(
+                ".sav",
+                StringComparison.OrdinalIgnoreCase)
+                ? selectedName
+                : $"{selectedName}.sav";
+            return new ServerSaveDownloadResult(
+                ServerSaveDownloadState.Downloaded,
+                fileName,
+                content,
+                "Der aktuelle Spielstand wurde heruntergeladen.");
+        }
+        catch (HttpRequestException) when (certificateRejected)
+        {
+            return SaveFailure(
+                ServerSaveDownloadState.CertificateError,
+                "Das Serverzertifikat ist nicht bestätigt oder hat sich geändert.");
+        }
+        catch (HttpRequestException)
+        {
+            return SaveFailure(
+                ServerSaveDownloadState.Unavailable,
+                "Der Gameserver ist über HTTPS gerade nicht erreichbar.");
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return SaveFailure(
+                ServerSaveDownloadState.Unavailable,
+                "Der Download hat zu lange gedauert.");
+        }
+        catch (JsonException)
+        {
+            return SaveFailure(
+                ServerSaveDownloadState.Unavailable,
+                "Die Save-Liste des Gameservers hatte ein unbekanntes Format.");
+        }
+        catch (InvalidDataException)
+        {
+            return SaveFailure(
+                ServerSaveDownloadState.ConfigurationError,
+                "Der Spielstand ist größer als 200 MB.");
+        }
+    }
+
     private static async ValueTask<Stream> ConnectAsync(
         IReadOnlyList<IPAddress> addresses,
         int port,
@@ -272,6 +473,71 @@ public sealed class SatisfactoryServerClient(TimeProvider timeProvider)
         throw new HttpRequestException(
             "No approved server address was reachable.",
             lastException);
+    }
+
+    private static IEnumerable<string> FindSaveNames(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (property.Name.Equals(
+                        "saveName",
+                        StringComparison.OrdinalIgnoreCase)
+                    && property.Value.ValueKind == JsonValueKind.String
+                    && property.Value.GetString() is { Length: > 0 } value)
+                {
+                    yield return value;
+                }
+
+                foreach (var nested in FindSaveNames(property.Value))
+                {
+                    yield return nested;
+                }
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                foreach (var nested in FindSaveNames(item))
+                {
+                    yield return nested;
+                }
+            }
+        }
+    }
+
+    private static async Task<byte[]> ReadWithLimitAsync(
+        HttpContent content,
+        int maximumBytes,
+        CancellationToken cancellationToken)
+    {
+        await using var source = await content.ReadAsStreamAsync(
+            cancellationToken);
+        using var destination = new MemoryStream();
+        var buffer = new byte[81920];
+        while (true)
+        {
+            var read = await source.ReadAsync(
+                buffer,
+                cancellationToken);
+            if (read == 0)
+            {
+                break;
+            }
+
+            if (destination.Length + read > maximumBytes)
+            {
+                throw new InvalidDataException("Save exceeds configured limit.");
+            }
+
+            await destination.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
+        }
+
+        return destination.ToArray();
     }
 
     private static async Task<HttpResponseMessage> SendAsync(
@@ -496,4 +762,9 @@ public sealed class SatisfactoryServerClient(TimeProvider timeProvider)
             checkedAt,
             message,
             fingerprint);
+
+    private static ServerSaveDownloadResult SaveFailure(
+        ServerSaveDownloadState state,
+        string message) =>
+        new(state, null, null, message);
 }

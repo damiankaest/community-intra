@@ -227,6 +227,31 @@ eine Wochenrangliste, die letzten organisationsweiten Arbeitslogs sowie den
 eigenen Schichtverlauf. WebMCP-Schreibaktionen werden immer erst nach einer
 sichtbaren Bestätigung ausgeführt.
 
+## Fabrikarchiv und Save-Import (Phase 14)
+
+Alle Routen liegen unter
+`/organizations/{organizationId}/factory-insights`:
+
+| Methode | Route                     | Permission               | Zweck                                  |
+| ------- | ------------------------- | ------------------------ | -------------------------------------- |
+| GET     | `/`                       | aktives Mitglied         | Fabriken, letzten Save und Verlauf     |
+| POST    | `/factories`              | Content erstellen        | Fabrik frei oder aus Bereich anlegen   |
+| DELETE  | `/factories/{factoryId}`  | Content verwalten        | registrierte Fabrik entfernen          |
+| POST    | `/imports/manual`         | Content erstellen        | `.sav` bis 200 MB analysieren          |
+| POST    | `/imports/server`         | Owner oder Administrator | neuesten Server-Spielstand analysieren |
+
+Upload und Serverdownload verwenden denselben internen Save-Parser. Die
+Binärdatei wird nach der Analyse verworfen. PostgreSQL speichert SHA-256-Hash,
+Metadaten, aggregierte Bauwerkzahlen, erkannte Fabrikbereiche und die
+Importhistorie. Derselbe Hash kann pro Organisation nur einmal importiert
+werden.
+
+Der Gameserver-Import verwendet `EnumerateSessions` und `DownloadSaveGame`.
+Token, öffentliche Zielprüfung und TLS-Fingerprint-Pinning bleiben in der
+Live-Operations-Grenze. Das WebMCP-Werkzeug
+`community_get_factory_overview` liest ausschließlich die bereits
+gespeicherte Zusammenfassung.
+
 ## Zusammenarbeit im Alltag (Phase 9)
 
 | Methode | Route                                                     | Zweck                                |

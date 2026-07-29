@@ -38,10 +38,10 @@ if (Test-Path $processFile) {
     }
 }
 
-Write-Host "Starting PostgreSQL..."
-& docker compose --file (Join-Path $repositoryRoot "docker-compose.yml") up -d postgres
+Write-Host "Starting PostgreSQL and the save parser..."
+& docker compose --file (Join-Path $repositoryRoot "docker-compose.yml") up -d postgres save-parser
 if ($LASTEXITCODE -ne 0) {
-    throw "Docker Compose could not start PostgreSQL."
+    throw "Docker Compose could not start PostgreSQL and the save parser."
 }
 
 $databaseReady = $false
@@ -125,3 +125,4 @@ Write-Host "Community Intranet is running."
 Write-Host "Frontend: http://localhost:5173"
 Write-Host "Backend:  http://localhost:5080"
 Write-Host "Swagger:  http://localhost:5080/swagger"
+Write-Host "Save parser health: http://localhost:5091/health"

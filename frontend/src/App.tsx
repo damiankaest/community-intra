@@ -80,6 +80,7 @@ import {
 import { AiAssistantPanel } from './components/AiAssistantPanel'
 import { LiveOperationsPage } from './components/LiveOperationsPage'
 import { TimeClockPage } from './components/TimeClockPage'
+import { FactoryInsightsPage } from './components/FactoryInsightsPage'
 import { ThemeIcon } from './components/ThemeIcon'
 import { applyTheme, getThemeCssVariables, resetTheme } from './theme'
 
@@ -175,6 +176,10 @@ function App() {
         <Route
           path="time-clock"
           element={<TimeClockPage user={currentUser.data!} />}
+        />
+        <Route
+          path="factories"
+          element={<FactoryInsightsPage user={currentUser.data!} />}
         />
         <Route
           path="members"

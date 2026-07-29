@@ -31,9 +31,9 @@ else {
 }
 
 if ($StopDatabase) {
-    Write-Host "Stopping PostgreSQL..."
-    & docker compose --file (Join-Path $repositoryRoot "docker-compose.yml") stop postgres
+    Write-Host "Stopping PostgreSQL and the save parser..."
+    & docker compose --file (Join-Path $repositoryRoot "docker-compose.yml") stop postgres save-parser
 }
 else {
-    Write-Host "PostgreSQL remains running. Use -StopDatabase to stop it as well."
+    Write-Host "PostgreSQL and the save parser remain running. Use -StopDatabase to stop them as well."
 }

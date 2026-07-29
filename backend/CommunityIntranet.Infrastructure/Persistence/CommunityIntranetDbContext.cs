@@ -24,6 +24,8 @@ using CommunityIntranet.Modules.ThemePacks.Domain;
 using CommunityIntranet.Modules.ThemePacks.Persistence;
 using CommunityIntranet.Modules.TimeTracking.Domain;
 using CommunityIntranet.Modules.TimeTracking.Persistence;
+using CommunityIntranet.Modules.FactoryInsights.Domain;
+using CommunityIntranet.Modules.FactoryInsights.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -45,7 +47,8 @@ public sealed class CommunityIntranetDbContext(
         IAiAssistantDbContext,
         INotificationDbContext,
         ILiveOperationsDbContext,
-        ITimeTrackingDbContext
+        ITimeTrackingDbContext,
+        IFactoryInsightsDbContext
 {
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
@@ -96,6 +99,10 @@ public sealed class CommunityIntranetDbContext(
 
     public DbSet<WorkLogEntry> WorkLogEntries => Set<WorkLogEntry>();
 
+    public DbSet<FactorySite> FactorySites => Set<FactorySite>();
+
+    public DbSet<SaveSnapshot> SaveSnapshots => Set<SaveSnapshot>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -113,6 +120,7 @@ public sealed class CommunityIntranetDbContext(
         builder.ApplyConfigurationsFromAssembly(typeof(MemberNotification).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(GameServerConnection).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(WorkShift).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(FactorySite).Assembly);
 
         builder.Entity<IdentityRole<Guid>>().ToTable("roles", "identity");
         builder.Entity<IdentityUserClaim<Guid>>()
@@ -361,5 +369,20 @@ public sealed class CommunityIntranetDbContext(
             .WithMany()
             .HasForeignKey(entry => entry.WorkShiftId)
             .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<FactorySite>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(factory => factory.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<SaveSnapshot>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(snapshot => snapshot.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<SaveSnapshot>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(snapshot => snapshot.ImportedByMemberId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

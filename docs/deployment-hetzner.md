@@ -1,13 +1,13 @@
 # Deployment auf einer Hetzner-VM
 
 Die Anwendung läuft als Docker-Compose-Stack hinter Caddy. Caddy stellt
-automatisch HTTPS bereit. Backend und Frontend werden in GitHub Actions gebaut
+automatisch HTTPS bereit. Backend, Frontend und Save-Parser werden in GitHub Actions gebaut
 und unter der jeweiligen Commit-ID in der GitHub Container Registry
 veröffentlicht. Die VM benötigt deshalb keinen Zugriff auf das Repository und
 das Deployment funktioniert auch nach einer Umstellung auf ein privates Repo.
 
-PostgreSQL, Backend und Frontend sind nur im internen Docker-Netz erreichbar.
-Lediglich Caddy veröffentlicht die Ports `80/443`.
+PostgreSQL, Backend, Frontend und der Save-Parser sind nur im internen
+Docker-Netz erreichbar. Lediglich Caddy veröffentlicht die Ports `80/443`.
 
 ## Einmalige Vorbereitung
 
@@ -119,8 +119,8 @@ Unter `Actions → Deploy production → Run workflow` den Workflow auf `main`
 starten. Der Workflow:
 
 1. prüft, ob alle Secrets vorhanden sind,
-2. baut Backend und Frontend,
-3. veröffentlicht beide Images mit der aktuellen Commit-ID in GHCR,
+2. baut Backend, Frontend und Save-Parser,
+3. veröffentlicht alle drei Images mit der aktuellen Commit-ID in GHCR,
 4. überträgt Caddy-, Compose- und Laufzeitkonfiguration per SSH,
 5. lädt auf der VM exakt diese Images,
 6. startet den Stack inklusive Migrationen,

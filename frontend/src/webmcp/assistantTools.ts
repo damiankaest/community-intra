@@ -12,6 +12,7 @@ import {
 } from '../api/features'
 import { listMembers } from '../api/members'
 import { getLiveServerStatus } from '../api/liveOperations'
+import { getFactoryInsights } from '../api/factoryInsights'
 import {
   clockIn,
   clockOut,
@@ -206,6 +207,26 @@ export function registerAssistantTools({
     execute: async () => {
       onOpenChat()
       return getTimeClockOverview(organizationId)
+    },
+  })
+
+  register({
+    name: 'community_get_factory_overview',
+    title: 'Fabrikübersicht laden',
+    description:
+      'Lädt registrierte Fabriken und die zusammengefasste Analyse des letzten importierten Satisfactory-Spielstands. Nur lesend.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {},
+    },
+    annotations: {
+      readOnlyHint: true,
+      untrustedContentHint: true,
+    },
+    execute: async () => {
+      onOpenChat()
+      return getFactoryInsights(organizationId)
     },
   })
 

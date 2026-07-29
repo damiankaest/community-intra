@@ -176,6 +176,9 @@ export function AiAssistantPanel({
       queryClient.invalidateQueries({
         queryKey: ['notification-summary', organizationId],
       }),
+      queryClient.invalidateQueries({
+        queryKey: ['factory-insights', organizationId],
+      }),
     ])
   }, [organizationId, queryClient])
 

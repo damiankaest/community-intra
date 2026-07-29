@@ -60,8 +60,21 @@ persistiert, damit Container-Updates die Entschlüsselung nicht zerstören.
   SHA-256-Fingerprint-Bestätigung akzeptiert.
 - Ändert sich ein gepinntes Zertifikat, bleibt die Verbindung gesperrt, bis der
   neue Fingerprint bewusst bestätigt wurde.
-- Phase 10 stellt ausschließlich Statusabfragen bereit. Neustart, Shutdown,
-  Save-Upload und Konsolenbefehle sind absichtlich nicht implementiert.
+- Phase 14 ergänzt ausschließlich das Auflisten und Herunterladen von
+  Spielständen für die interne Analyse. Neustart, Shutdown, Save-Upload und
+  Konsolenbefehle bleiben absichtlich nicht implementiert.
+
+## Save-Import
+
+Im Bereich `Fabriken` kann jedes inhaltlich berechtigte Mitglied eine lokale
+`.sav`-Datei bis 200 MB importieren. Owner und Administratoren können
+zusätzlich den neuesten Save über die konfigurierte Serververbindung laden.
+Dafür benötigt das Application Token Rechte für `EnumerateSessions` und
+`DownloadSaveGame`.
+
+Beide Wege laufen durch denselben internen Parser. Die rohe Save-Datei wird
+nicht dauerhaft gespeichert. Der Browser-Chat erhält über WebMCP nur die
+fertige Zusammenfassung und niemals API-Token oder Save-Binärdaten.
 
 Grundlage ist die mit dem Spiel ausgelieferte
 `DedicatedServerAPIDocs.md`, die in der

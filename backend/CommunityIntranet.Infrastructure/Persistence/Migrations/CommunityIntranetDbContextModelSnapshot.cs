@@ -408,6 +408,155 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CommunityIntranet.Modules.FactoryInsights.Domain.FactorySite", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Organizations.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.FactoryInsights.Domain.SaveSnapshot", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Members.Domain.OrganizationMember", null)
+                        .WithMany()
+                        .HasForeignKey("ImportedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CommunityIntranet.Modules.Organizations.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.FactoryInsights.Domain.FactorySite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("CenterX")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("CenterY")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("RadiusMeters")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Name");
+
+                    b.ToTable("factory_sites", "factory_insights");
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.FactoryInsights.Domain.SaveSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AnalysisJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int?>("BuildVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ContentSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ImportedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ImportedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool?>("IsModdedSave")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MapName")
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<string>("ParserVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<long?>("PlayDurationSeconds")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SaveName")
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<DateTimeOffset?>("SavedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("SaveVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SessionName")
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImportedByMemberId");
+
+                    b.HasIndex("OrganizationId", "ContentSha256")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "ImportedAt");
+
+                    b.ToTable("save_snapshots", "factory_insights");
+                });
+
             modelBuilder.Entity("CommunityIntranet.Modules.LiveOperations.Domain.GameServerConnection", b =>
                 {
                     b.HasOne("CommunityIntranet.Modules.Organizations.Domain.Organization", null)

@@ -8,6 +8,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   FolderKanban,
+  Factory,
   Gauge,
   PackageCheck,
   PanelLeftClose,
@@ -227,6 +228,11 @@ export function FeatureLayout({
               to="time-clock"
               label="Stechuhr"
               icon={<TimerReset size={17} />}
+            />
+            <FeatureLink
+              to="factories"
+              label="Fabriken"
+              icon={<Factory size={17} />}
             />
             <FeatureLink
               to="members"
