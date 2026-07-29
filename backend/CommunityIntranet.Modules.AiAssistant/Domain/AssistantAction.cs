@@ -30,7 +30,10 @@ public enum AssistantActionKind
     CreateTask,
     UpdateTask,
     CreateProject,
-    AddTaskComment
+    AddTaskComment,
+    ClockIn,
+    ClockOut,
+    LogWork
 }
 
 public enum AssistantActionStatus
