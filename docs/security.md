@@ -98,14 +98,14 @@ Autorisierungsentscheidung verwendet.
 - der OpenAI-API-Schlüssel liegt nur im Backend und wird nie an den Browser
   ausgeliefert
 - Requests an die Responses API verwenden `store: false`
-- das Modell erhält nur die konkrete Nutzereingabe und die validierte
-  Theme-Pack-Konfiguration, keine fremden Tenant-Daten
+- das Modell erhält den begrenzten eigenen Gesprächsverlauf; Workspace-Daten
+  werden ausschließlich durch organisationsgefilterte Lesewerkzeuge geladen
 - Modellantworten müssen einem strengen JSON-Schema entsprechen und werden
   anschließend erneut serverseitig auf Enum-, Anzahl- und Textgrenzen geprüft
 - generierter Text bleibt unvertrauenswürdig und wird durch React ohne
   HTML-Ausführung dargestellt
-- das Modell besitzt im ersten Slice keine direkten Schreib-Tools; es erzeugt
-  ausschließlich einen Entwurf
+- schreibende Modellwerkzeuge erzeugen ausschließlich eine
+  bestätigungspflichtige `AssistantAction`, keine unmittelbare Fachänderung
 - Entwürfe sind kurzlebig, organisations- und mitgliedsgebunden sowie durch
   einen Concurrency-Token geschützt
 - erst der getrennte Bestätigungsendpunkt legt Projekt und Aufgaben atomar an
@@ -116,6 +116,21 @@ Autorisierungsentscheidung verwendet.
 - der bestätigende WebMCP-Handler fordert zusätzlich eine sichtbare
   Nutzerbestätigung an
 - der Assistent besitzt ein eigenes Rate Limit
+- Werkzeugaufrufe verwenden strikte Schemas und deaktivieren parallele
+  Funktionsaufrufe
+- Chatnachrichten und Aktionen sind zusätzlich an das aktive Mitglied gebunden
+
+## Aufgabenbilder und Kommentare
+
+- Uploads erlauben nur PNG, JPEG, WebP und GIF; SVG und frei ausführbare
+  Dokumentformate sind ausgeschlossen
+- maximal 5 MB pro Bild und maximal 20 Bilder pro Aufgabe
+- Dateinamen werden auf den Basename und 240 Zeichen reduziert
+- Bildinhalte werden erst nach JWT-, Mitgliedschafts- und Tenant-Prüfung
+  ausgeliefert
+- Caddy setzt `X-Content-Type-Options: nosniff`
+- Kommentare sind auf 2000 Zeichen begrenzt und werden von React als Text
+  gerendert
 
 ## Fehler und Logging
 

@@ -8,6 +8,8 @@ public sealed class WorkTask
 
     public Guid? ProjectId { get; set; }
 
+    public Guid? ParentTaskId { get; set; }
+
     public required string Title { get; set; }
 
     public string? Description { get; set; }

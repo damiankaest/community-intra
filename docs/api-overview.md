@@ -108,20 +108,24 @@ Alle Collections liegen unter
 
 Die implementierten Endpunkte sind:
 
-| Methode        | Route                             | Zweck                                              |
-| -------------- | --------------------------------- | -------------------------------------------------- |
-| GET/POST       | `/projects`                       | Projekte filtern oder erstellen                    |
-| GET/PUT/DELETE | `/projects/{projectId}`           | Projekt lesen, bearbeiten oder abbrechen           |
-| GET/POST       | `/tasks`                          | Aufgaben filtern oder erstellen                    |
-| GET/PUT/DELETE | `/tasks/{taskId}`                 | Aufgabe lesen, bearbeiten oder abbrechen           |
-| PATCH          | `/tasks/{taskId}/status`          | Aufgabenstatus ändern                              |
-| GET/POST       | `/incidents`                      | Incidents filtern oder melden                      |
-| GET/PUT        | `/incidents/{incidentId}`         | Incident lesen oder bearbeiten                     |
-| POST           | `/incidents/{incidentId}/resolve` | Lösung dokumentieren                               |
-| GET/POST       | `/awards`                         | Auszeichnungen lesen oder vergeben                 |
-| GET            | `/awards/templates`               | Theme-Pack-Vorlagen lesen                          |
-| GET            | `/activities`                     | strukturierte Aktivitäten lesen                    |
-| GET            | `/dashboard`                      | organisationsweite Kennzahlen und Schnellübersicht |
+| Methode        | Route                                                | Zweck                                              |
+| -------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| GET/POST       | `/projects`                                          | Projekte filtern oder erstellen                    |
+| GET/PUT/DELETE | `/projects/{projectId}`                              | Projekt lesen, bearbeiten oder abbrechen           |
+| GET/POST       | `/tasks`                                             | Aufgaben filtern oder erstellen                    |
+| GET/PUT/DELETE | `/tasks/{taskId}`                                    | Aufgabe lesen, bearbeiten oder abbrechen           |
+| PATCH          | `/tasks/{taskId}/status`                             | Aufgabenstatus ändern                              |
+| GET            | `/tasks/{taskId}/details`                            | Subtasks, Kommentare und Screenshot-Metadaten      |
+| POST           | `/tasks/{taskId}/comments`                           | Kommentar hinzufügen                               |
+| POST           | `/tasks/{taskId}/attachments`                        | Screenshot bis 5 MB hochladen                      |
+| GET            | `/tasks/{taskId}/attachments/{attachmentId}/content` | Screenshot laden                                   |
+| GET/POST       | `/incidents`                                         | Incidents filtern oder melden                      |
+| GET/PUT        | `/incidents/{incidentId}`                            | Incident lesen oder bearbeiten                     |
+| POST           | `/incidents/{incidentId}/resolve`                    | Lösung dokumentieren                               |
+| GET/POST       | `/awards`                                            | Auszeichnungen lesen oder vergeben                 |
+| GET            | `/awards/templates`                                  | Theme-Pack-Vorlagen lesen                          |
+| GET            | `/activities`                                        | strukturierte Aktivitäten lesen                    |
+| GET            | `/dashboard`                                         | organisationsweite Kennzahlen und Schnellübersicht |
 
 Schreibende Updates verwenden einen `concurrencyToken`; veraltete Änderungen
 antworten mit `409 Conflict`. Projekt-, Mitglieds- und Zuweisungsreferenzen
@@ -141,10 +145,27 @@ an das erstellende Mitglied und die Organisation gebunden. Die Bestätigung
 benötigt den aktuellen `concurrencyToken`. Wiederholte Bestätigungen erzeugen
 keine Duplikate, sondern geben das bereits angelegte Projekt zurück.
 
-Das Frontend registriert zusätzlich die WebMCP-Tools `prepare_work_plan` und,
-sobald ein Entwurf sichtbar ist, `confirm_current_work_plan`. Sie rufen
-ausschließlich diese APIs auf. Das bestätigende WebMCP-Tool zeigt vor dem
-Schreibzugriff eine sichtbare Browser-Bestätigung.
+Diese Endpunkte bleiben für bestehende Phase-7-Clients verfügbar. Die sichtbare
+Oberfläche und die aktuellen WebMCP-Werkzeuge verwenden ab Phase 8 den
+feingranularen Chat- und Aktionsfluss.
+
+## Community-Chat und interaktive Aufgaben (Phase 8)
+
+| Methode | Route                                                            | Zweck                                     |
+| ------- | ---------------------------------------------------------------- | ----------------------------------------- |
+| GET     | `/organizations/{organizationId}/assistant/chat`                 | letzte Unterhaltung und Aktionen laden    |
+| POST    | `/organizations/{organizationId}/assistant/chat/messages`        | Nachricht senden; NDJSON-Antwort streamen |
+| POST    | `/organizations/{organizationId}/assistant/actions/{id}/confirm` | vorgeschlagene Änderung bestätigen        |
+
+Der Chat kann Projekte und Aufgaben lesen sowie genau eine
+Aufgaben-/Projektänderung vorbereiten. Schreibende KI-Aktionen bleiben bis zur
+Bestätigung im Status `Pending`. Nachrichten und Aktionen sind an Organisation
+und Mitglied gebunden.
+
+Aufgaben unterstützen eine Ebene Subtasks, Kommentare und bis zu 20
+Screenshot-Anhänge mit jeweils maximal 5 MB. Erlaubt sind PNG, JPEG, WebP und
+GIF. Binärdaten liegen in PostgreSQL und werden nur nach erneuter
+Mitgliedschaftsprüfung ausgeliefert.
 
 ## Statuscodes
 

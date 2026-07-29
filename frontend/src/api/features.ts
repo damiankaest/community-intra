@@ -1,4 +1,4 @@
-import { apiRequest } from './client'
+import { apiFetch, apiProblem, apiRequest } from './client'
 
 export type Priority = 'Low' | 'Normal' | 'High' | 'Critical'
 export type ProjectStatus =
@@ -39,6 +39,7 @@ export interface SaveProjectInput {
 export interface WorkTask {
   id: string
   projectId?: string
+  parentTaskId?: string
   title: string
   description?: string
   status: TaskStatus
@@ -58,9 +59,38 @@ export interface SaveTaskInput {
   status: TaskStatus
   priority: Priority
   projectId?: string
+  parentTaskId?: string
   assignedMemberId?: string
   dueDate?: string
   concurrencyToken?: string
+}
+
+export interface TaskComment {
+  id: string
+  taskId: string
+  authorMemberId: string
+  authorDisplayName?: string
+  body: string
+  createdAt: string
+}
+
+export interface TaskAttachment {
+  id: string
+  taskId: string
+  uploadedByMemberId: string
+  uploadedByDisplayName?: string
+  fileName: string
+  mediaType: string
+  size: number
+  createdAt: string
+  contentUrl: string
+}
+
+export interface TaskDetails {
+  task: WorkTask
+  subtasks: WorkTask[]
+  comments: TaskComment[]
+  attachments: TaskAttachment[]
 }
 
 export interface Incident {
@@ -186,6 +216,48 @@ export function createTask(organizationId: string, input: SaveTaskInput) {
     method: 'POST',
     body: JSON.stringify(input),
   })
+}
+
+export function getTaskDetails(organizationId: string, taskId: string) {
+  return apiRequest<TaskDetails>(
+    `${base(organizationId, 'tasks')}/${taskId}/details`,
+  )
+}
+
+export function addTaskComment(
+  organizationId: string,
+  taskId: string,
+  body: string,
+) {
+  return apiRequest<TaskComment>(
+    `${base(organizationId, 'tasks')}/${taskId}/comments`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    },
+  )
+}
+
+export function uploadTaskScreenshot(
+  organizationId: string,
+  taskId: string,
+  file: File,
+) {
+  const body = new FormData()
+  body.set('file', file)
+  return apiRequest<TaskAttachment>(
+    `${base(organizationId, 'tasks')}/${taskId}/attachments`,
+    { method: 'POST', body },
+  )
+}
+
+export async function downloadTaskAttachment(contentUrl: string) {
+  const response = await apiFetch(contentUrl)
+  if (!response.ok) {
+    throw await apiProblem(response)
+  }
+
+  return response.blob()
 }
 
 export function changeTaskStatus(

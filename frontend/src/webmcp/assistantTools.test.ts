@@ -1,30 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { WorkPlanDraft } from '../api/assistant'
 import { registerAssistantTools } from './assistantTools'
-
-const draft: WorkPlanDraft = {
-  id: 'draft-id',
-  tone: 'Theme',
-  prompt: 'Aluminiumproduktion bauen',
-  proposal: {
-    title: 'Aluminiumversorgung',
-    executiveSummary: 'Versorgung aufbauen.',
-    managementMessage: 'Synergien zeitnah materialisieren.',
-    materials: [],
-    tasks: [
-      {
-        title: 'Raffinerie bauen',
-        description: 'Produktionslinie errichten.',
-        priority: 'High',
-        acceptanceCriteria: ['Aluminiumoxid wird produziert.'],
-      },
-    ],
-  },
-  model: 'gpt-5.6',
-  createdAt: '2026-07-29T07:00:00Z',
-  expiresAt: '2026-07-29T07:30:00Z',
-  concurrencyToken: 'draft-token',
-}
 
 describe('WebMCP assistant tools', () => {
   afterEach(() => {
@@ -32,7 +7,7 @@ describe('WebMCP assistant tools', () => {
     vi.restoreAllMocks()
   })
 
-  it('registers prepare and confirmation as effectful tools', () => {
+  it('registers read and confirmed write tools', () => {
     const tools: WebMcpTool[] = []
     document.modelContext = {
       registerTool: vi.fn((tool: WebMcpTool) => {
@@ -42,26 +17,31 @@ describe('WebMCP assistant tools', () => {
 
     const registration = registerAssistantTools({
       organizationId: 'organization-id',
-      currentDraft: draft,
-      onDraft: vi.fn(),
-      onConfirmed: vi.fn(),
+      onChanged: vi.fn(),
+      onOpenChat: vi.fn(),
     })
 
     expect(registration.isSupported).toBe(true)
     expect(tools.map((tool) => tool.name)).toEqual([
-      'prepare_work_plan',
-      'confirm_current_work_plan',
+      'community_list_projects',
+      'community_list_tasks',
+      'community_get_task',
+      'community_create_task',
+      'community_change_task_status',
     ])
     expect(
-      tools.every((tool) => tool.annotations?.readOnlyHint === false),
+      tools.slice(0, 3).every((tool) => tool.annotations?.readOnlyHint),
+    ).toBe(true)
+    expect(
+      tools.slice(3).every((tool) => tool.annotations?.readOnlyHint === false),
     ).toBe(true)
   })
 
   it('does not register tools in browsers without WebMCP', () => {
     const registration = registerAssistantTools({
       organizationId: 'organization-id',
-      onDraft: vi.fn(),
-      onConfirmed: vi.fn(),
+      onChanged: vi.fn(),
+      onOpenChat: vi.fn(),
     })
 
     expect(registration.isSupported).toBe(false)

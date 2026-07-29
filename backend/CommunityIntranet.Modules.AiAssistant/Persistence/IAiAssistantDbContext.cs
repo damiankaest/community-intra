@@ -9,9 +9,19 @@ public interface IAiAssistantDbContext
 {
     DbSet<WorkPlanDraft> WorkPlanDrafts { get; }
 
+    DbSet<AssistantConversation> AssistantConversations { get; }
+
+    DbSet<AssistantMessage> AssistantMessages { get; }
+
+    DbSet<AssistantAction> AssistantActions { get; }
+
     DbSet<Project> Projects { get; }
 
     DbSet<WorkTask> WorkTasks { get; }
+
+    DbSet<TaskComment> TaskComments { get; }
+
+    DbSet<TaskAttachment> TaskAttachments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

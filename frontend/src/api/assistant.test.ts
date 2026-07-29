@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { confirmWorkPlan, prepareWorkPlan } from './assistant'
+import {
+  confirmWorkPlan,
+  prepareWorkPlan,
+  streamAssistantMessage,
+} from './assistant'
 
 describe('AI assistant API', () => {
   afterEach(() => {
@@ -65,5 +69,42 @@ describe('AI assistant API', () => {
         body: JSON.stringify({ concurrencyToken: 'draft-token' }),
       }),
     )
+  })
+
+  it('delivers split chat events while the response streams', async () => {
+    const encoder = new TextEncoder()
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            '{"type":"message_ack","conversationId":"chat","message":{"id":"user","role":"User","content":"Hallo","createdAt":"2026-07-29T07:00:00Z"}}\n{"type":"del',
+          ),
+        )
+        controller.enqueue(
+          encoder.encode(
+            'ta","delta":"Hi"}\n{"type":"done","message":{"id":"assistant","role":"Assistant","content":"Hi","createdAt":"2026-07-29T07:00:01Z"}}',
+          ),
+        )
+        controller.close()
+      },
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(body, {
+          headers: { 'Content-Type': 'application/x-ndjson' },
+        }),
+      ),
+    )
+    const events: string[] = []
+
+    await streamAssistantMessage(
+      'organization-id',
+      'Hallo',
+      'Neutral',
+      (event) => events.push(event.type),
+    )
+
+    expect(events).toEqual(['message_ack', 'delta', 'done'])
   })
 })

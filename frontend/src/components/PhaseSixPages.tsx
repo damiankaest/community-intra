@@ -1,16 +1,18 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   Award as AwardIcon,
   CheckCircle2,
+  ChevronRight,
   ClipboardCheck,
   FolderKanban,
   Gauge,
   Plus,
   ScrollText,
   Users,
+  X,
 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import type { CurrentUser } from '../api/auth'
@@ -32,17 +34,21 @@ import {
   type Activity,
   type GrantAwardInput,
   type IncidentSeverity,
+  type Priority,
+  type Project,
   type ProjectStatus,
   type SaveIncidentInput,
   type SaveProjectInput,
   type SaveTaskInput,
   type TaskStatus,
+  type WorkTask,
 } from '../api/features'
 import { listMembers } from '../api/members'
 import { getOrganization } from '../api/organizations'
 import { getThemePack } from '../api/themePacks'
 import { applyTheme, resetTheme } from '../theme'
 import { AiAssistantPanel } from './AiAssistantPanel'
+import { TaskDetailDrawer } from './TaskDetailDrawer'
 
 interface PhaseSixPageProps {
   user: CurrentUser
@@ -63,6 +69,27 @@ const taskStatuses: TaskStatus[] = [
   'Done',
   'Cancelled',
 ]
+const projectStatusLabels: Record<ProjectStatus, string> = {
+  Idea: 'Idee',
+  Planned: 'Geplant',
+  InProgress: 'In Arbeit',
+  Blocked: 'Blockiert',
+  Completed: 'Erledigt',
+  Cancelled: 'Abgebrochen',
+}
+const taskStatusLabels: Record<TaskStatus, string> = {
+  Open: 'Offen',
+  InProgress: 'In Arbeit',
+  Blocked: 'Blockiert',
+  Done: 'Erledigt',
+  Cancelled: 'Abgebrochen',
+}
+const priorityLabels: Record<Priority, string> = {
+  Low: 'Niedrig',
+  Normal: 'Normal',
+  High: 'Hoch',
+  Critical: 'Kritisch',
+}
 const incidentSeverities: IncidentSeverity[] = [
   'Informational',
   'Low',
@@ -156,7 +183,7 @@ function FeatureLayout({
         </nav>
         <main>
           <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
-            Phase 7 · Agentic Intranet
+            Eure gemeinsame Werkbank
           </p>
           <h1 className="mt-2 text-4xl font-black tracking-tight text-white">
             {title}
@@ -166,6 +193,7 @@ function FeatureLayout({
         </main>
       </div>
       <AiAssistantPanel
+        key={organizationId}
         organizationId={organizationId}
         themeName={themePack.data?.name}
       />
@@ -207,7 +235,7 @@ export function PhaseSixDashboard({ user }: PhaseSixPageProps) {
   return (
     <FeatureLayout
       user={user}
-      title="Betriebsübersicht"
+      title="Übersicht"
       subtitle={
         themePack.data?.configuration.messages.welcome ??
         'Alle Fachbereiche melden ihre aktuellen Kennzahlen.'
@@ -230,7 +258,7 @@ export function PhaseSixDashboard({ user }: PhaseSixPageProps) {
         />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <Panel title="Aktuelle Unternehmensmeldung">
+        <Panel title="Was gerade wichtig ist">
           <p className="text-lg font-bold text-white">
             {dashboard.data?.systemMessage ?? 'Lagebild wird erstellt …'}
           </p>
@@ -270,7 +298,7 @@ export function PhaseSixDashboard({ user }: PhaseSixPageProps) {
           </QuickLink>
         </div>
       </Panel>
-      <Panel title="Letzte Aktivitäten" className="mt-6">
+      <Panel title="Was zuletzt passiert ist" className="mt-6">
         <ActivityList activities={dashboard.data?.recentActivities ?? []} />
       </Panel>
     </FeatureLayout>
@@ -280,6 +308,8 @@ export function PhaseSixDashboard({ user }: PhaseSixPageProps) {
 export function ProjectsPage({ user }: PhaseSixPageProps) {
   const { organizationId } = usePhaseSixContext()
   const queryClient = useQueryClient()
+  const [selectedProjectId, setSelectedProjectId] = useState<string>()
+  const [selectedTaskId, setSelectedTaskId] = useState<string>()
   const projects = useQuery({
     queryKey: ['projects', organizationId],
     queryFn: () => listProjects(organizationId),
@@ -288,6 +318,11 @@ export function ProjectsPage({ user }: PhaseSixPageProps) {
   const members = useQuery({
     queryKey: ['members', organizationId],
     queryFn: () => listMembers(organizationId),
+    enabled: Boolean(organizationId),
+  })
+  const tasks = useQuery({
+    queryKey: ['tasks', organizationId],
+    queryFn: () => listTasks(organizationId),
     enabled: Boolean(organizationId),
   })
   const form = useForm<SaveProjectInput>({
@@ -324,7 +359,7 @@ export function ProjectsPage({ user }: PhaseSixPageProps) {
     <FeatureLayout
       user={user}
       title="Projekte"
-      subtitle="Größere Vorhaben, nachvollziehbare Zustände und belastbare Verantwortlichkeiten."
+      subtitle="Alles, was aus mehreren Aufgaben besteht. Klick ein Projekt an und du siehst sofort, was dazugehört."
     >
       <CreatePanel title="Neues Projekt">
         <form
@@ -337,17 +372,21 @@ export function ProjectsPage({ user }: PhaseSixPageProps) {
             required
           />
           <textarea
-            placeholder="Beschreibung"
+            placeholder="Was soll am Ende erreicht sein?"
             {...form.register('description')}
           />
           <select {...form.register('status')}>
             {projectStatuses.map((status) => (
-              <option key={status}>{status}</option>
+              <option key={status} value={status}>
+                {projectStatusLabels[status]}
+              </option>
             ))}
           </select>
           <select {...form.register('priority')}>
             {['Low', 'Normal', 'High', 'Critical'].map((priority) => (
-              <option key={priority}>{priority}</option>
+              <option key={priority} value={priority}>
+                {priorityLabels[priority as Priority]}
+              </option>
             ))}
           </select>
           <select {...form.register('ownerMemberId')}>
@@ -368,10 +407,34 @@ export function ProjectsPage({ user }: PhaseSixPageProps) {
       </CreatePanel>
       <CardGrid>
         {projects.data?.map((project) => (
-          <article key={project.id} className="feature-card">
-            <StatusLine status={project.status} priority={project.priority} />
-            <h2>{project.name}</h2>
-            <p>{project.description ?? 'Keine Beschreibung hinterlegt.'}</p>
+          <article key={project.id} className="feature-card interactive-card">
+            <button
+              type="button"
+              className="grid w-full gap-3 text-left"
+              onClick={() => setSelectedProjectId(project.id)}
+            >
+              <StatusLine status={project.status} priority={project.priority} />
+              <span className="flex items-center justify-between gap-3">
+                <span className="text-lg font-extrabold text-white">
+                  {project.name}
+                </span>
+                <ChevronRight
+                  size={19}
+                  className="text-[var(--theme-primary)]"
+                />
+              </span>
+              <span className="line-clamp-3 text-sm leading-6 text-[var(--theme-muted)]">
+                {project.description ??
+                  'Noch kein Ziel beschrieben. Klick hinein, um die zugehörigen Aufgaben zu sehen.'}
+              </span>
+              <span className="text-xs font-semibold text-[var(--theme-text)]">
+                {
+                  tasks.data?.filter((task) => task.projectId === project.id)
+                    .length
+                }{' '}
+                Aufgaben
+              </span>
+            </button>
             <select
               aria-label={`Status von ${project.name}`}
               value={project.status}
@@ -386,14 +449,41 @@ export function ProjectsPage({ user }: PhaseSixPageProps) {
               }
             >
               {projectStatuses.map((status) => (
-                <option key={status}>{status}</option>
+                <option key={status} value={status}>
+                  {projectStatusLabels[status]}
+                </option>
               ))}
             </select>
           </article>
         ))}
       </CardGrid>
       {!projects.isPending && projects.data?.length === 0 && (
-        <Empty text="Noch keine Projekte. Das Management vermutet trotzdem Bautätigkeit." />
+        <Empty text="Noch keine Projekte. Leg eins an, sobald mehrere Aufgaben zusammengehören." />
+      )}
+      {selectedProjectId && (
+        <ProjectDetail
+          project={projects.data?.find(
+            (project) => project.id === selectedProjectId,
+          )}
+          tasks={
+            tasks.data?.filter(
+              (task) =>
+                task.projectId === selectedProjectId && !task.parentTaskId,
+            ) ?? []
+          }
+          onClose={() => setSelectedProjectId(undefined)}
+          onSelectTask={setSelectedTaskId}
+        />
+      )}
+      {selectedTaskId && (
+        <TaskDetailDrawer
+          organizationId={organizationId}
+          taskId={selectedTaskId}
+          projects={projects.data ?? []}
+          members={members.data ?? []}
+          onSelectTask={setSelectedTaskId}
+          onClose={() => setSelectedTaskId(undefined)}
+        />
       )}
     </FeatureLayout>
   )
@@ -402,6 +492,7 @@ export function ProjectsPage({ user }: PhaseSixPageProps) {
 export function TasksPage({ user }: PhaseSixPageProps) {
   const { organizationId } = usePhaseSixContext()
   const queryClient = useQueryClient()
+  const [selectedTaskId, setSelectedTaskId] = useState<string>()
   const tasks = useQuery({
     queryKey: ['tasks', organizationId],
     queryFn: () => listTasks(organizationId),
@@ -453,7 +544,7 @@ export function TasksPage({ user }: PhaseSixPageProps) {
     <FeatureLayout
       user={user}
       title="Aufgaben"
-      subtitle="Arbeitsaufträge mit Projektbezug, Zuweisung und klarer Erledigungslogik."
+      subtitle="Konkrete Dinge, die jemand erledigen kann. Klick eine Aufgabe für Subtasks, Kommentare und Screenshots an."
     >
       <CreatePanel title="Neue Aufgabe">
         <form
@@ -462,7 +553,7 @@ export function TasksPage({ user }: PhaseSixPageProps) {
         >
           <input placeholder="Titel" {...form.register('title')} required />
           <textarea
-            placeholder="Beschreibung"
+            placeholder="Was genau soll gemacht werden – und wann ist es fertig?"
             {...form.register('description')}
           />
           <select {...form.register('projectId')}>
@@ -483,7 +574,9 @@ export function TasksPage({ user }: PhaseSixPageProps) {
           </select>
           <select {...form.register('priority')}>
             {['Low', 'Normal', 'High', 'Critical'].map((priority) => (
-              <option key={priority}>{priority}</option>
+              <option key={priority} value={priority}>
+                {priorityLabels[priority as Priority]}
+              </option>
             ))}
           </select>
           <input type="date" {...form.register('dueDate')} />
@@ -493,29 +586,72 @@ export function TasksPage({ user }: PhaseSixPageProps) {
         </form>
       </CreatePanel>
       <CardGrid>
-        {tasks.data?.map((task) => (
-          <article key={task.id} className="feature-card">
-            <StatusLine status={task.status} priority={task.priority} />
-            <h2>{task.title}</h2>
-            <p>{task.description ?? 'Kein Begleittext vorhanden.'}</p>
-            <select
-              aria-label={`Status von ${task.title}`}
-              value={task.status}
-              onChange={(event) =>
-                statusMutation.mutate({
-                  id: task.id,
-                  status: event.target.value as TaskStatus,
-                  token: task.concurrencyToken,
-                })
-              }
-            >
-              {taskStatuses.map((status) => (
-                <option key={status}>{status}</option>
-              ))}
-            </select>
-          </article>
-        ))}
+        {tasks.data
+          ?.filter((task) => !task.parentTaskId)
+          .map((task) => (
+            <article key={task.id} className="feature-card interactive-card">
+              <button
+                type="button"
+                className="grid w-full gap-3 text-left"
+                onClick={() => setSelectedTaskId(task.id)}
+              >
+                <StatusLine status={task.status} priority={task.priority} />
+                <span className="flex items-center justify-between gap-3">
+                  <span className="text-lg font-extrabold text-white">
+                    {task.title}
+                  </span>
+                  <ChevronRight
+                    size={19}
+                    className="text-[var(--theme-primary)]"
+                  />
+                </span>
+                <span className="line-clamp-3 text-sm leading-6 whitespace-pre-wrap text-[var(--theme-muted)]">
+                  {task.description ??
+                    'Noch nicht beschrieben. Klick hinein und ergänzt, was zu tun ist.'}
+                </span>
+                <span className="text-xs font-semibold text-[var(--theme-text)]">
+                  {
+                    tasks.data.filter(
+                      (subtask) => subtask.parentTaskId === task.id,
+                    ).length
+                  }{' '}
+                  Subtasks
+                </span>
+              </button>
+              <select
+                aria-label={`Status von ${task.title}`}
+                value={task.status}
+                onChange={(event) =>
+                  statusMutation.mutate({
+                    id: task.id,
+                    status: event.target.value as TaskStatus,
+                    token: task.concurrencyToken,
+                  })
+                }
+              >
+                {taskStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {taskStatusLabels[status]}
+                  </option>
+                ))}
+              </select>
+            </article>
+          ))}
       </CardGrid>
+      {!tasks.isPending &&
+        tasks.data?.filter((task) => !task.parentTaskId).length === 0 && (
+          <Empty text="Noch keine Aufgaben. Frag den Chat oder leg die erste direkt hier an." />
+        )}
+      {selectedTaskId && (
+        <TaskDetailDrawer
+          organizationId={organizationId}
+          taskId={selectedTaskId}
+          projects={projects.data ?? []}
+          members={members.data ?? []}
+          onSelectTask={setSelectedTaskId}
+          onClose={() => setSelectedTaskId(undefined)}
+        />
+      )}
     </FeatureLayout>
   )
 }
@@ -759,13 +895,102 @@ export function ActivitiesPage({ user }: PhaseSixPageProps) {
   return (
     <FeatureLayout
       user={user}
-      title="Activity Feed"
-      subtitle="Die strukturierte Chronik der wichtigsten Vorgänge."
+      title="Aktivitäten"
+      subtitle="Was eure Community zuletzt erledigt, geändert oder gemeldet hat."
     >
-      <Panel title="Konzernchronik">
+      <Panel title="Chronik">
         <ActivityList activities={activities.data ?? []} />
       </Panel>
     </FeatureLayout>
+  )
+}
+
+function ProjectDetail({
+  project,
+  tasks,
+  onClose,
+  onSelectTask,
+}: {
+  project?: Project
+  tasks: WorkTask[]
+  onClose: () => void
+  onSelectTask: (taskId: string) => void
+}) {
+  if (!project) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-30 grid place-items-center bg-black/65 p-4 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) onClose()
+      }}
+    >
+      <section className="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/10 bg-[var(--theme-background)] p-6 shadow-2xl sm:p-8">
+        <div className="flex items-start justify-between gap-5">
+          <div>
+            <StatusLine status={project.status} priority={project.priority} />
+            <h2 className="mt-3 text-3xl font-black text-white">
+              {project.name}
+            </h2>
+          </div>
+          <button
+            type="button"
+            aria-label="Projekt schließen"
+            className="rounded-xl border border-white/10 p-2 text-[var(--theme-muted)] hover:text-white"
+            onClick={onClose}
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="mt-6 rounded-2xl bg-white/[0.04] p-5">
+          <h3 className="font-bold text-white">Was wollen wir erreichen?</h3>
+          <p className="mt-2 text-sm leading-6 whitespace-pre-wrap text-[var(--theme-muted)]">
+            {project.description ??
+              'Für dieses Projekt fehlt noch ein verständliches Ziel.'}
+          </p>
+        </div>
+        <div className="mt-7 flex items-end justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-black text-white">Aufgaben</h3>
+            <p className="mt-1 text-sm text-[var(--theme-muted)]">
+              Klick eine Aufgabe an, um Details und Fortschritt zu sehen.
+            </p>
+          </div>
+          <span className="task-count">{tasks.length}</span>
+        </div>
+        <div className="mt-4 grid gap-3">
+          {tasks.map((task) => (
+            <button
+              key={task.id}
+              type="button"
+              className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left transition hover:border-[var(--theme-primary)]/50 hover:bg-[var(--theme-primary)]/[0.05]"
+              onClick={() => onSelectTask(task.id)}
+            >
+              <span
+                className={`subtask-check ${
+                  task.status === 'Done' ? 'is-done' : ''
+                }`}
+              >
+                {task.status === 'Done' && <CheckCircle2 size={14} />}
+              </span>
+              <span>
+                <span className="block font-bold text-white">{task.title}</span>
+                <span className="mt-1 block text-xs text-[var(--theme-muted)]">
+                  {task.status} · {task.priority}
+                </span>
+              </span>
+              <ChevronRight
+                size={18}
+                className="ml-auto text-[var(--theme-primary)]"
+              />
+            </button>
+          ))}
+          {tasks.length === 0 && (
+            <Empty text="Noch keine Aufgaben in diesem Projekt." />
+          )}
+        </div>
+      </section>
+    </div>
   )
 }
 
@@ -836,6 +1061,7 @@ function normalizeTask(input: SaveTaskInput): SaveTaskInput {
     ...input,
     description: input.description || undefined,
     projectId: input.projectId || undefined,
+    parentTaskId: input.parentTaskId || undefined,
     assignedMemberId: input.assignedMemberId || undefined,
     dueDate: input.dueDate || undefined,
   }

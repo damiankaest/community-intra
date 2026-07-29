@@ -235,6 +235,12 @@ jobs:
             > /tmp/assistant-availability.json
           test "$(jq --raw-output ".isConfigured" /tmp/assistant-availability.json)" = "false"
 
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/assistant/chat" \
+            > /tmp/assistant-chat.json
+          test "$(jq ".messages | length" /tmp/assistant-chat.json)" = "0"
+
           assistant_tenant_status=$(curl --silent \
             --output /tmp/assistant-tenant-isolation.json \
             --write-out "%{http_code}" \
@@ -315,6 +321,41 @@ jobs:
             "http://127.0.0.1:5080/api/organizations/$organization_id/tasks" \
             > /tmp/task.json
           test "$(jq --raw-output ".projectId" /tmp/task.json)" = "$project_id"
+          task_id=$(jq --raw-output ".id" /tmp/task.json)
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_b_token" \
+            --data "{\"title\":\"Check belt direction\",\"description\":\"Confirm that items reach the target container.\",\"status\":\"Open\",\"priority\":\"Normal\",\"projectId\":\"$project_id\",\"parentTaskId\":\"$task_id\",\"assignedMemberId\":\"$member_b_id\"}" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/tasks" \
+            > /tmp/subtask.json
+          test "$(jq --raw-output ".parentTaskId" /tmp/subtask.json)" = "$task_id"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_b_token" \
+            --data '{"body":"Belt is connected; screenshot follows."}' \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/tasks/$task_id/comments" \
+            > /tmp/task-comment.json
+
+          printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' \
+            | base64 --decode > /tmp/task-screenshot.png
+          curl --fail --silent \
+            --request POST \
+            --header "Authorization: Bearer $user_b_token" \
+            --form "file=@/tmp/task-screenshot.png;type=image/png" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/tasks/$task_id/attachments" \
+            > /tmp/task-attachment.json
+
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_b_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/tasks/$task_id/details" \
+            > /tmp/task-details.json
+          test "$(jq ".subtasks | length" /tmp/task-details.json)" = "1"
+          test "$(jq ".comments | length" /tmp/task-details.json)" = "1"
+          test "$(jq ".attachments | length" /tmp/task-details.json)" = "1"
 
           curl --fail --silent \
             --request POST \
@@ -339,7 +380,7 @@ jobs:
             "http://127.0.0.1:5080/api/organizations/$organization_id/dashboard" \
             > /tmp/dashboard.json
           test "$(jq ".memberCount" /tmp/dashboard.json)" = "2"
-          test "$(jq ".openTaskCount" /tmp/dashboard.json)" = "1"
+          test "$(jq ".openTaskCount" /tmp/dashboard.json)" = "2"
           test "$(jq ".activeProjectCount" /tmp/dashboard.json)" = "1"
           test "$(jq ".openIncidentCount" /tmp/dashboard.json)" = "1"
           test "$(jq --raw-output ".currentAward.name" /tmp/dashboard.json)" = "CI Officer"

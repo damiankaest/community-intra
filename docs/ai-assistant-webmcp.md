@@ -1,64 +1,82 @@
-# KI-Arbeitsplanung und WebMCP
+# Community-Chat und WebMCP
 
 ## Nutzerfluss
 
-1. Ein Mitglied öffnet den schwebenden Assistenten.
-2. Es beschreibt das gewünschte Ergebnis und wählt den Tonfall.
-3. Das Backend lässt einen strukturierten Arbeitsplan erzeugen.
-4. Der Entwurf zeigt Management-Text, Materialliste und Aufgaben.
-5. Erst nach einer ausdrücklichen Bestätigung werden Projekt und Aufgaben
-   gespeichert.
-6. Eine wiederholte Bestätigung liefert dasselbe Ergebnis und erzeugt keine
-   Duplikate.
+Der Assistent ist ab Phase 8 ein dauerhafter Chat pro Organisation und
+Mitglied:
 
-Entwürfe sind 30 Minuten gültig und an Organisation sowie Ersteller gebunden.
+1. Die eigene Nachricht erscheint sofort im Verlauf.
+2. Das Backend sendet die OpenAI-Antwort als NDJSON-Stream an den Browser.
+3. Text-Deltas werden während der Generierung sichtbar.
+4. Der Assistent lädt Projekte und Aufgaben über klar begrenzte Lesewerkzeuge.
+5. Gewünschte Änderungen erscheinen als kompakte Vorschau.
+6. Erst ein sichtbarer Bestätigungsklick führt die Änderung mit den normalen
+   Rollen- und Tenant-Prüfungen aus.
+
+Eine einfache Frage bleibt eine kurze Antwort. Der Assistent darf nur dann
+mehrere Aufgaben oder ein Projekt vorschlagen, wenn ausdrücklich ein Plan oder
+mehrere Schritte gewünscht sind.
 
 ## Tonfall
 
-- **Theme-Pack:** Formuliert die Anforderungen passend zur aktuellen
-  Intranet-Welt, etwa bewusst schwammig und mit Fabrik-Humor.
-- **Normal:** Formuliert sachlich, konkret und ohne Rollenspiel.
+- **Theme-Pack:** leichter Humor passend zur aktuellen Intranet-Welt
+- **Klar & normal:** freundlich, direkt und ohne Rollenspiel
 
-Der Tonfall verändert nur die Darstellung. Pflichtfelder, Grenzen und
-serverseitige Prüfungen gelten in beiden Modi identisch.
+Der Tonfall verändert nur den Begleittext. Aufgabentitel und -beschreibungen
+müssen in beiden Modi Ziel, konkrete Arbeit und ein erkennbares
+Fertig-Kriterium enthalten.
 
-## OpenAI
+## OpenAI Responses API
 
-Das Backend nutzt die Responses API mit einem strikten JSON-Schema. Das Modell
-ist über `AiAssistant__Model` konfigurierbar und standardmäßig `gpt-5.6`.
-Speicherung beim Anbieter ist deaktiviert (`store: false`); der API-Schlüssel
-bleibt ausschließlich im Backend.
+Das Backend nutzt `stream: true` und verarbeitet insbesondere
+`response.output_text.delta` und `response.output_item.done`.
+Werkzeugaufrufe verwenden strikte JSON-Schemas, `parallel_tool_calls: false`
+und höchstens vier Werkzeugrunden. `store: false` bleibt gesetzt.
+
+Folgende serverseitige Werkzeuge stehen dem Modell zur Verfügung:
+
+- `list_projects`
+- `list_tasks`
+- `get_task_details`
+- `propose_create_task`
+- `propose_update_task`
+- `propose_create_project`
+
+Lesewerkzeuge geben nur Daten der aktiven Organisation zurück. Schreibwerkzeuge
+speichern ausschließlich eine `AssistantAction` im Status `Pending`. Die
+Ausführung erfolgt über einen getrennten Bestätigungsendpunkt.
 
 Weiterführende offizielle Dokumentation:
 
-- [Function Calling](https://developers.openai.com/api/docs/guides/function-calling)
-- [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
+- [Streaming API responses](https://developers.openai.com/api/docs/guides/streaming-responses)
+- [Function calling](https://developers.openai.com/api/docs/guides/function-calling)
 
 ## WebMCP
 
-`frontend/src/webmcp/assistantTools.ts` registriert zwei Werkzeuge:
+`frontend/src/webmcp/assistantTools.ts` registriert optional:
 
-- `prepare_work_plan` erzeugt einen Entwurf über dieselbe REST-API wie der
-  sichtbare Chat.
-- `confirm_current_work_plan` wird nur registriert, wenn ein aktueller Entwurf
-  vorliegt. Vor der schreibenden Aktion erscheint zusätzlich eine
-  Browser-Bestätigung.
+- `community_list_projects`
+- `community_list_tasks`
+- `community_get_task`
+- `community_create_task`
+- `community_change_task_status`
 
-Die Werkzeuge enthalten keine zweite Geschäftslogik. Rollen, Mandantengrenzen,
-Validierung und Idempotenz werden ausschließlich im Backend erzwungen. Browser
-ohne WebMCP-Unterstützung nutzen weiterhin den vollständigen sichtbaren
-Assistenten.
+Die letzten beiden Werkzeuge zeigen vor dem Schreiben eine Browser-Bestätigung.
+Alle Werkzeuge verwenden dieselben REST-Endpunkte wie die sichtbare Oberfläche;
+WebMCP enthält keine zweite Geschäftslogik.
 
-Weiterführende offizielle Dokumentation:
+WebMCP ist eine experimentelle Browser-Schnittstelle. Fehlt
+`document.modelContext`, funktioniert der eingebaute Chat trotzdem vollständig
+über das Backend. Die UI zeigt deshalb keinen Fehlerzustand für fehlendes
+WebMCP.
+
+Weiterführende Spezifikation:
 
 - [WebMCP Imperative API](https://webmachinelearning.github.io/webmcp/#imperative-api)
 - [WebMCP Security and Privacy](https://webmachinelearning.github.io/webmcp/#security-and-privacy)
 
-## Nächste Ausbaustufen
+## Legacy-Arbeitsplan
 
-- Integrationstests für organisationsübergreifende Zugriffsversuche
-- Eval-Datensatz für Satisfactory- und Normal-Ton
-- Entwurf vor dem Speichern bearbeiten
-- Aufgaben direkt Mitgliedern zuweisen
-- Lesende Werkzeuge für Projekte, Aufgaben und Vorfälle
-- Weitere schreibende Werkzeuge nur mit Vorschau und Bestätigung
+Die Phase-7-Endpunkte für große, bestätigungspflichtige Arbeitspläne bleiben
+vorerst kompatibel. Die normale Chat-Oberfläche verwendet ab Phase 8 jedoch den
+feingranularen Chat- und Aktionsfluss.
