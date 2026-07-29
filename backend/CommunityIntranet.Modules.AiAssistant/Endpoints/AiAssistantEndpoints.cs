@@ -15,6 +15,7 @@ using CommunityIntranet.Modules.Projects.Domain;
 using CommunityIntranet.Modules.Tasks.Domain;
 using CommunityIntranet.Modules.ThemePacks.Seeding;
 using CommunityIntranet.Modules.ThemePacks.Services;
+using CommunityIntranet.Modules.TimeTracking.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -624,6 +625,7 @@ public static class AiAssistantEndpoints
         IOrganizationAccessService accessService,
         IActivityWriter activityWriter,
         INotificationWriter notificationWriter,
+        ITimeClockService timeClockService,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -677,7 +679,8 @@ public static class AiAssistantEndpoints
             });
         }
 
-        if (!membership.PermissionRole.CanCreateContent())
+        if (!membership.PermissionRole.CanCreateContent()
+            && !IsTimeTrackingAction(action.Kind))
         {
             return Results.Forbid();
         }
@@ -721,6 +724,25 @@ public static class AiAssistantEndpoints
                     accessService,
                     notificationWriter,
                     now,
+                    cancellationToken),
+            AssistantActionKind.ClockIn =>
+                await ConfirmClockInAsync(
+                    organizationId,
+                    membership.MemberId,
+                    timeClockService,
+                    cancellationToken),
+            AssistantActionKind.ClockOut =>
+                await ConfirmClockOutAsync(
+                    organizationId,
+                    membership.MemberId,
+                    timeClockService,
+                    cancellationToken),
+            AssistantActionKind.LogWork =>
+                await ConfirmLogWorkAsync(
+                    organizationId,
+                    membership.MemberId,
+                    action,
+                    timeClockService,
                     cancellationToken),
             _ => new ActionConfirmationResult(
                 null,
@@ -1116,6 +1138,66 @@ public static class AiAssistantEndpoints
             }));
         return new ActionConfirmationResult(project.Id, null);
     }
+
+    private static async Task<ActionConfirmationResult> ConfirmClockInAsync(
+        Guid organizationId,
+        Guid memberId,
+        ITimeClockService timeClockService,
+        CancellationToken cancellationToken)
+    {
+        var result = await timeClockService.ClockInAsync(
+            organizationId,
+            memberId,
+            cancellationToken);
+        return new ActionConfirmationResult(result.Shift.Id, null);
+    }
+
+    private static async Task<ActionConfirmationResult> ConfirmClockOutAsync(
+        Guid organizationId,
+        Guid memberId,
+        ITimeClockService timeClockService,
+        CancellationToken cancellationToken)
+    {
+        var result = await timeClockService.ClockOutAsync(
+            organizationId,
+            memberId,
+            cancellationToken);
+        return result.Shift is null
+            ? InvalidAction(result.Error ?? "Es läuft keine Schicht.")
+            : new ActionConfirmationResult(result.Shift.Id, null);
+    }
+
+    private static async Task<ActionConfirmationResult> ConfirmLogWorkAsync(
+        Guid organizationId,
+        Guid memberId,
+        AssistantAction action,
+        ITimeClockService timeClockService,
+        CancellationToken cancellationToken)
+    {
+        var payload = DeserializePayload<WorkLogActionPayload>(action);
+        if (payload is null
+            || !Enum.IsDefined(payload.Kind)
+            || string.IsNullOrWhiteSpace(payload.Note)
+            || payload.Note.Length > 240)
+        {
+            return InvalidAction("Der Fortschritts-Eintrag ist ungültig.");
+        }
+
+        var result = await timeClockService.LogWorkAsync(
+            organizationId,
+            memberId,
+            payload.Kind,
+            payload.Note.Trim(),
+            cancellationToken);
+        return result.Entry is null
+            ? InvalidAction(result.Error ?? "Es läuft keine Schicht.")
+            : new ActionConfirmationResult(result.Entry.Id, null);
+    }
+
+    private static bool IsTimeTrackingAction(AssistantActionKind kind) =>
+        kind is AssistantActionKind.ClockIn
+            or AssistantActionKind.ClockOut
+            or AssistantActionKind.LogWork;
 
     private static T? DeserializePayload<T>(AssistantAction action)
     {
