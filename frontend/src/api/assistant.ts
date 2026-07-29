@@ -91,9 +91,19 @@ export interface AssistantAction {
 
 export interface AssistantConversation {
   id?: string
+  title: string
   tone: AssistantTone
   messages: AssistantMessage[]
   actions: AssistantAction[]
+}
+
+export interface AssistantConversationSummary {
+  id: string
+  title: string
+  tone: AssistantTone
+  messageCount: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface ConfirmedAssistantAction {
@@ -129,15 +139,68 @@ export function getAssistantChat(organizationId: string) {
   )
 }
 
+export function listAssistantConversations(organizationId: string) {
+  return apiRequest<AssistantConversationSummary[]>(
+    `${assistantBase(organizationId)}/conversations`,
+  )
+}
+
+export function createAssistantConversation(
+  organizationId: string,
+  tone: AssistantTone,
+) {
+  return apiRequest<AssistantConversationSummary>(
+    `${assistantBase(organizationId)}/conversations`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ tone }),
+    },
+  )
+}
+
+export function getAssistantConversation(
+  organizationId: string,
+  conversationId: string,
+) {
+  return apiRequest<AssistantConversation>(
+    `${assistantBase(organizationId)}/conversations/${conversationId}`,
+  )
+}
+
+export function renameAssistantConversation(
+  organizationId: string,
+  conversationId: string,
+  title: string,
+) {
+  return apiRequest<AssistantConversationSummary>(
+    `${assistantBase(organizationId)}/conversations/${conversationId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ title }),
+    },
+  )
+}
+
+export function archiveAssistantConversation(
+  organizationId: string,
+  conversationId: string,
+) {
+  return apiRequest<void>(
+    `${assistantBase(organizationId)}/conversations/${conversationId}`,
+    { method: 'DELETE' },
+  )
+}
+
 export async function streamAssistantMessage(
   organizationId: string,
+  conversationId: string,
   message: string,
   tone: AssistantTone,
   onEvent: (event: AssistantStreamEvent) => void,
   signal?: AbortSignal,
 ) {
   const response = await apiFetch(
-    `${assistantBase(organizationId)}/chat/messages`,
+    `${assistantBase(organizationId)}/conversations/${conversationId}/messages`,
     {
       method: 'POST',
       body: JSON.stringify({ message, tone }),
