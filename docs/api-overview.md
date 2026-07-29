@@ -26,21 +26,21 @@ Beispiel einer Liste:
 
 ## Systemendpunkte (Phase 2)
 
-| Methode | Route | Auth | Zweck |
-|---|---|---:|---|
-| GET | `/api/health` | nein | aggregierter Anwendungs- und Datenbankstatus |
-| GET | `/api/system/info` | nein | Name, Version, Umgebung und Status |
-| GET | `/swagger` | nein, nur Development | interaktive API-Dokumentation |
+| Methode | Route              |                  Auth | Zweck                                        |
+| ------- | ------------------ | --------------------: | -------------------------------------------- |
+| GET     | `/api/health`      |                  nein | aggregierter Anwendungs- und Datenbankstatus |
+| GET     | `/api/system/info` |                  nein | Name, Version, Umgebung und Status           |
+| GET     | `/swagger`         | nein, nur Development | interaktive API-Dokumentation                |
 
 ## Identity (Phase 3)
 
-| Methode | Route | Auth |
-|---|---|---:|
-| POST | `/api/auth/register` | nein |
-| POST | `/api/auth/login` | nein |
-| POST | `/api/auth/refresh` | Refresh Token |
-| POST | `/api/auth/logout` | optionale Sitzung |
-| GET | `/api/auth/me` | ja |
+| Methode | Route                |              Auth |
+| ------- | -------------------- | ----------------: |
+| POST    | `/api/auth/register` |              nein |
+| POST    | `/api/auth/login`    |              nein |
+| POST    | `/api/auth/refresh`  |     Refresh Token |
+| POST    | `/api/auth/logout`   | optionale Sitzung |
+| GET     | `/api/auth/me`       |                ja |
 
 Login, Registrierung und Refresh erhalten eigene Rate-Limit-Policies. Der
 Refresh Token wird bevorzugt als `HttpOnly`, `Secure`, `SameSite`-Cookie
@@ -49,13 +49,13 @@ Browser gespeichert.
 
 ## Organizations (Phase 3)
 
-| Methode | Route | Permission |
-|---|---|---|
-| GET | `/api/organizations` | authentifiziert |
-| POST | `/api/organizations` | authentifiziert |
-| GET | `/api/organizations/{organizationId}` | `organization.read` |
-| PUT | `/api/organizations/{organizationId}` | `organization.manage` |
-| DELETE | `/api/organizations/{organizationId}` | Owner oder Administrator |
+| Methode | Route                                 | Permission               |
+| ------- | ------------------------------------- | ------------------------ |
+| GET     | `/api/organizations`                  | authentifiziert          |
+| POST    | `/api/organizations`                  | authentifiziert          |
+| GET     | `/api/organizations/{organizationId}` | `organization.read`      |
+| PUT     | `/api/organizations/{organizationId}` | `organization.manage`    |
+| DELETE  | `/api/organizations/{organizationId}` | Owner oder Administrator |
 
 Beim Erstellen kann `themePackKey` sowie die Liste `enabledModules` angegeben
 werden. Ohne Theme-Angabe wird `generic-corporate` verwendet. Antworten
@@ -74,20 +74,20 @@ enthalten keine Scripts, kein HTML und kein frei ausführbares CSS.
 
 ## Members und Invitations (Phase 5)
 
-| Methode | Route | Permission |
-|---|---|---|
-| GET | `/api/organizations/{organizationId}/members` | `members.read` |
-| GET | `/api/organizations/{organizationId}/members/{memberId}` | `members.read` |
-| PATCH | `/api/organizations/{organizationId}/members/{memberId}` | Owner oder Administrator |
-| GET | `/api/organizations/{organizationId}/departments` | Mitglied |
-| POST | `/api/organizations/{organizationId}/departments` | Owner oder Administrator |
-| PUT | `/api/organizations/{organizationId}/departments/{departmentId}` | Owner oder Administrator |
-| DELETE | `/api/organizations/{organizationId}/departments/{departmentId}` | Owner oder Administrator |
-| GET | `/api/organizations/{organizationId}/invitations` | Owner oder Administrator |
-| POST | `/api/organizations/{organizationId}/invitations` | `invitations.manage` |
-| POST | `/api/invitations/resolve` | nein |
-| POST | `/api/invitations/accept` | ja |
-| DELETE | `/api/organizations/{organizationId}/invitations/{invitationId}` | `invitations.manage` |
+| Methode | Route                                                            | Permission               |
+| ------- | ---------------------------------------------------------------- | ------------------------ |
+| GET     | `/api/organizations/{organizationId}/members`                    | `members.read`           |
+| GET     | `/api/organizations/{organizationId}/members/{memberId}`         | `members.read`           |
+| PATCH   | `/api/organizations/{organizationId}/members/{memberId}`         | Owner oder Administrator |
+| GET     | `/api/organizations/{organizationId}/departments`                | Mitglied                 |
+| POST    | `/api/organizations/{organizationId}/departments`                | Owner oder Administrator |
+| PUT     | `/api/organizations/{organizationId}/departments/{departmentId}` | Owner oder Administrator |
+| DELETE  | `/api/organizations/{organizationId}/departments/{departmentId}` | Owner oder Administrator |
+| GET     | `/api/organizations/{organizationId}/invitations`                | Owner oder Administrator |
+| POST    | `/api/organizations/{organizationId}/invitations`                | `invitations.manage`     |
+| POST    | `/api/invitations/resolve`                                       | nein                     |
+| POST    | `/api/invitations/accept`                                        | ja                       |
+| DELETE  | `/api/organizations/{organizationId}/invitations/{invitationId}` | `invitations.manage`     |
 
 Einladungstokens werden bei `resolve` und `accept` im Request-Body übertragen.
 Der öffentliche Browser-Link verwendet ein URL-Fragment (`/invite#token`), das
@@ -106,33 +106,44 @@ Alle Collections liegen unter
 - `/activities`
 - `/dashboard`
 
-CRUD nutzt `GET`, `POST`, `PUT`/`PATCH` und `DELETE` konsistent. Fachliche
-Transitionen, die mehr als Feldänderungen ausdrücken, erhalten sprechende
-Subressourcen, zum Beispiel:
+Die implementierten Endpunkte sind:
 
-```text
-POST /api/organizations/{organizationId}/incidents/{incidentId}/resolve
-POST /api/organizations/{organizationId}/awards
-PATCH /api/organizations/{organizationId}/tasks/{taskId}/status
-```
+| Methode        | Route                             | Zweck                                              |
+| -------------- | --------------------------------- | -------------------------------------------------- |
+| GET/POST       | `/projects`                       | Projekte filtern oder erstellen                    |
+| GET/PUT/DELETE | `/projects/{projectId}`           | Projekt lesen, bearbeiten oder abbrechen           |
+| GET/POST       | `/tasks`                          | Aufgaben filtern oder erstellen                    |
+| GET/PUT/DELETE | `/tasks/{taskId}`                 | Aufgabe lesen, bearbeiten oder abbrechen           |
+| PATCH          | `/tasks/{taskId}/status`          | Aufgabenstatus ändern                              |
+| GET/POST       | `/incidents`                      | Incidents filtern oder melden                      |
+| GET/PUT        | `/incidents/{incidentId}`         | Incident lesen oder bearbeiten                     |
+| POST           | `/incidents/{incidentId}/resolve` | Lösung dokumentieren                               |
+| GET/POST       | `/awards`                         | Auszeichnungen lesen oder vergeben                 |
+| GET            | `/awards/templates`               | Theme-Pack-Vorlagen lesen                          |
+| GET            | `/activities`                     | strukturierte Aktivitäten lesen                    |
+| GET            | `/dashboard`                      | organisationsweite Kennzahlen und Schnellübersicht |
+
+Schreibende Updates verwenden einen `concurrencyToken`; veraltete Änderungen
+antworten mit `409 Conflict`. Projekt-, Mitglieds- und Zuweisungsreferenzen
+werden zusätzlich gegen den aktiven Tenant geprüft.
 
 ## Statuscodes
 
-| Code | Verwendung |
-|---:|---|
-| 200 | erfolgreiche Abfrage oder Änderung |
-| 201 | Ressource erstellt, inklusive `Location` |
-| 204 | erfolgreiche Aktion ohne Body |
-| 400 | syntaktisch/fachlich ungültiger Request |
-| 401 | nicht authentifiziert |
-| 403 | authentifiziert, aber keine Permission |
-| 404 | Ressource nicht vorhanden oder für fremden Tenant verborgen |
-| 409 | Eindeutigkeits- oder Concurrency-Konflikt |
-| 410 | Einladung ungültig, abgelaufen, widerrufen oder verbraucht |
-| 422 | optionale spätere Nutzung für komplexe Fachvalidierung |
-| 429 | Rate Limit erreicht |
-| 500 | unerwarteter, intern protokollierter Fehler |
-| 503 | Health Check nicht gesund |
+| Code | Verwendung                                                  |
+| ---: | ----------------------------------------------------------- |
+|  200 | erfolgreiche Abfrage oder Änderung                          |
+|  201 | Ressource erstellt, inklusive `Location`                    |
+|  204 | erfolgreiche Aktion ohne Body                               |
+|  400 | syntaktisch/fachlich ungültiger Request                     |
+|  401 | nicht authentifiziert                                       |
+|  403 | authentifiziert, aber keine Permission                      |
+|  404 | Ressource nicht vorhanden oder für fremden Tenant verborgen |
+|  409 | Eindeutigkeits- oder Concurrency-Konflikt                   |
+|  410 | Einladung ungültig, abgelaufen, widerrufen oder verbraucht  |
+|  422 | optionale spätere Nutzung für komplexe Fachvalidierung      |
+|  429 | Rate Limit erreicht                                         |
+|  500 | unerwarteter, intern protokollierter Fehler                 |
+|  503 | Health Check nicht gesund                                   |
 
 Bei Tenant-fremden IDs wird in der Regel `404` statt `403` geliefert, damit die
 Existenz fremder Ressourcen nicht bestätigt wird.

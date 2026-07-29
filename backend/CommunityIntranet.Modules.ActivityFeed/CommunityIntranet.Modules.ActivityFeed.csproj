@@ -2,9 +2,16 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../CommunityIntranet.BuildingBlocks/CommunityIntranet.BuildingBlocks.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Awards/CommunityIntranet.Modules.Awards.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Incidents/CommunityIntranet.Modules.Incidents.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Members/CommunityIntranet.Modules.Members.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Organizations/CommunityIntranet.Modules.Organizations.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Projects/CommunityIntranet.Modules.Projects.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Tasks/CommunityIntranet.Modules.Tasks.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.ThemePacks/CommunityIntranet.Modules.ThemePacks.csproj" />
   </ItemGroup>
 </Project>

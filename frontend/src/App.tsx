@@ -68,6 +68,14 @@ import {
 import { getThemePack, listThemePacks, type ThemePack } from './api/themePacks'
 import { OrganizationWizard } from './components/OrganizationWizard'
 import { OrganizationSwitcher } from './components/OrganizationSwitcher'
+import {
+  ActivitiesPage,
+  AwardsPage,
+  IncidentsPage,
+  PhaseSixDashboard,
+  ProjectsPage,
+  TasksPage,
+} from './components/PhaseSixPages'
 import { ThemeIcon } from './components/ThemeIcon'
 import { applyTheme, getThemeCssVariables, resetTheme } from './theme'
 
@@ -134,7 +142,47 @@ function App() {
         path="/organizations/:organizationId"
         element={
           <ProtectedRoute query={currentUser}>
-            <OrganizationDashboard user={currentUser.data!} />
+            <PhaseSixDashboard user={currentUser.data!} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/organizations/:organizationId/projects"
+        element={
+          <ProtectedRoute query={currentUser}>
+            <ProjectsPage user={currentUser.data!} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/organizations/:organizationId/tasks"
+        element={
+          <ProtectedRoute query={currentUser}>
+            <TasksPage user={currentUser.data!} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/organizations/:organizationId/incidents"
+        element={
+          <ProtectedRoute query={currentUser}>
+            <IncidentsPage user={currentUser.data!} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/organizations/:organizationId/awards"
+        element={
+          <ProtectedRoute query={currentUser}>
+            <AwardsPage user={currentUser.data!} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/organizations/:organizationId/activities"
+        element={
+          <ProtectedRoute query={currentUser}>
+            <ActivitiesPage user={currentUser.data!} />
           </ProtectedRoute>
         }
       />
@@ -212,7 +260,7 @@ function LandingPage({ user }: { user?: CurrentUser }) {
           <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[var(--theme-surface)] shadow-2xl shadow-black/30">
             <div className="border-b border-white/10 p-6">
               <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
-                Phase 5
+                Phase 6
               </p>
               <h2 className="mt-2 text-2xl font-bold text-white">
                 Ein Kern, viele Welten
@@ -234,7 +282,7 @@ function LandingPage({ user }: { user?: CurrentUser }) {
               />
               <Feature
                 icon={<Sparkles />}
-                text="Theme Packs mit eigenen Farben und Begriffen"
+                text="Projekte, Aufgaben, Incidents und Auszeichnungen"
               />
             </div>
           </div>
@@ -253,7 +301,7 @@ function PublicHeader({ user }: { user?: CurrentUser }) {
           <div>
             <p className="text-sm font-semibold">Community Intranet</p>
             <p className="text-xs text-[var(--theme-muted)]">
-              Mitglieder & Einladungen · Phase 5
+              Fachmodule & Activity Feed · Phase 6
             </p>
           </div>
         </a>
@@ -643,7 +691,7 @@ function CreateOrganizationPage({ user }: { user: CurrentUser }) {
   )
 }
 
-function OrganizationDashboard({ user }: { user: CurrentUser }) {
+export function OrganizationDashboard({ user }: { user: CurrentUser }) {
   const { organizationId = '' } = useParams()
   const navigate = useNavigate()
   const organizations = useQuery({
