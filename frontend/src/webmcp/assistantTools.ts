@@ -1,6 +1,7 @@
 import {
   addTaskComment,
   changeTaskStatus,
+  changeTaskMaterialState,
   createTask,
   getTaskDetails,
   listProjects,
@@ -201,6 +202,22 @@ export function registerAssistantTools({
         },
         projectId: { type: ['string', 'null'] },
         parentTaskId: { type: ['string', 'null'] },
+        materials: {
+          type: 'array',
+          maxItems: 24,
+          description:
+            'Material oder Werkzeuge, die vor dem Start bereitliegen sollen.',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              name: { type: 'string' },
+              quantity: { type: 'string' },
+              notes: { type: ['string', 'null'] },
+            },
+            required: ['name', 'quantity', 'notes'],
+          },
+        },
       },
       required: [
         'title',
@@ -208,6 +225,7 @@ export function registerAssistantTools({
         'priority',
         'projectId',
         'parentTaskId',
+        'materials',
       ],
     },
     annotations: {
@@ -229,6 +247,16 @@ export function registerAssistantTools({
         priority: asPriority(input.priority),
         projectId: nullableString(input.projectId),
         parentTaskId: nullableString(input.parentTaskId),
+        materials: Array.isArray(input.materials)
+          ? input.materials.slice(0, 24).map((material) => {
+              const value = material as Record<string, unknown>
+              return {
+                name: String(value.name ?? '').trim(),
+                quantity: String(value.quantity ?? '').trim(),
+                notes: nullableString(value.notes),
+              }
+            })
+          : [],
       })
       onChanged()
       return { confirmed: true, task }
@@ -282,6 +310,55 @@ export function registerAssistantTools({
       )
       onChanged()
       return { confirmed: true, task: updated }
+    },
+  })
+
+  register({
+    name: 'community_set_task_material_state',
+    title: 'Material als vorbereitet markieren',
+    description:
+      'Hakt nach sichtbarer Bestätigung genau einen Materialpunkt einer Aufgabe ab oder öffnet ihn wieder.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        taskId: { type: 'string' },
+        materialItemId: { type: 'string' },
+        isPrepared: { type: 'boolean' },
+      },
+      required: ['taskId', 'materialItemId', 'isPrepared'],
+    },
+    annotations: {
+      readOnlyHint: false,
+      untrustedContentHint: false,
+    },
+    execute: async (input) => {
+      onOpenChat()
+      const taskId = String(input.taskId ?? '')
+      const materialItemId = String(input.materialItemId ?? '')
+      const details = await getTaskDetails(organizationId, taskId)
+      const material = details.materials.find(
+        (item) => item.id === materialItemId,
+      )
+      if (!material) {
+        return { confirmed: false, reason: 'Material not found' }
+      }
+
+      const isPrepared = input.isPrepared === true
+      const wording = isPrepared ? 'als vorbereitet markieren' : 'wieder öffnen'
+      if (!window.confirm(`„${material.name}“ wirklich ${wording}?`)) {
+        return { confirmed: false, reason: 'User cancelled' }
+      }
+
+      const updated = await changeTaskMaterialState(
+        organizationId,
+        taskId,
+        material.id,
+        isPrepared,
+        material.concurrencyToken,
+      )
+      onChanged()
+      return { confirmed: true, material: updated }
     },
   })
 

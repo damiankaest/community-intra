@@ -115,7 +115,10 @@ Die implementierten Endpunkte sind:
 | GET/POST       | `/tasks`                                             | Aufgaben filtern oder erstellen                    |
 | GET/PUT/DELETE | `/tasks/{taskId}`                                    | Aufgabe lesen, bearbeiten oder dauerhaft löschen   |
 | PATCH          | `/tasks/{taskId}/status`                             | Aufgabenstatus ändern                              |
-| GET            | `/tasks/{taskId}/details`                            | Subtasks, Kommentare und Screenshot-Metadaten      |
+| GET            | `/tasks/{taskId}/details`                            | Subtasks, Material, Kommentare und Screenshots     |
+| POST           | `/tasks/{taskId}/materials`                          | Material oder Werkzeug ergänzen                    |
+| PATCH          | `/tasks/{taskId}/materials/{materialId}`             | Vorbereitungsstatus ändern                         |
+| DELETE         | `/tasks/{taskId}/materials/{materialId}`             | Materialpunkt entfernen                            |
 | POST           | `/tasks/{taskId}/comments`                           | Kommentar hinzufügen                               |
 | POST           | `/tasks/{taskId}/attachments`                        | Screenshot bis 5 MB hochladen                      |
 | GET            | `/tasks/{taskId}/attachments/{attachmentId}/content` | Screenshot laden                                   |
@@ -166,6 +169,21 @@ Aufgaben unterstützen eine Ebene Subtasks, Kommentare und bis zu 20
 Screenshot-Anhänge mit jeweils maximal 5 MB. Erlaubt sind PNG, JPEG, WebP und
 GIF. Binärdaten liegen in PostgreSQL und werden nur nach erneuter
 Mitgliedschaftsprüfung ausgeliefert.
+
+## Living Intranet (Phase 11)
+
+Aufgaben können bis zu 24 Materialpunkte mit Menge, Hinweis und
+Vorbereitungsstatus enthalten. Beim Abhaken werden Mitglied und Zeitpunkt
+gespeichert; ein `concurrencyToken` verhindert widersprüchliche Änderungen.
+Das Löschen einer Aufgabe entfernt ihre Materialliste kaskadierend.
+
+Der Arbeitsplan und die kleine Chat-Aktion `CreateTask` erzeugen passende
+task-spezifische Listen. Wenn keine Vorbereitung nötig ist, bleibt die Liste
+bewusst leer. Unbekannte exakte Mengen werden als „zu prüfen“ ausgegeben.
+
+Die Dashboard-Antwort enthält zusätzlich ein Fokusprojekt, bis zu fünf
+priorisierte Aufgaben inklusive Materialfortschritt und einen aggregierten
+Sieben-Tage-Bericht.
 
 ## Zusammenarbeit im Alltag (Phase 9)
 

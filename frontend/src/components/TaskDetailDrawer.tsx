@@ -7,6 +7,7 @@ import {
   ChevronRight,
   ImagePlus,
   MessageSquare,
+  PackageCheck,
   Paperclip,
   Plus,
   Trash2,
@@ -14,9 +15,12 @@ import {
 } from 'lucide-react'
 import {
   addTaskComment,
+  addTaskMaterial,
   changeTaskStatus,
+  changeTaskMaterialState,
   createTask,
   deleteTask,
+  deleteTaskMaterial,
   downloadTaskAttachment,
   getTaskDetails,
   uploadTaskScreenshot,
@@ -64,6 +68,9 @@ export function TaskDetailDrawer({
   const [comment, setComment] = useState('')
   const [mentionedMemberIds, setMentionedMemberIds] = useState<string[]>([])
   const [subtaskTitle, setSubtaskTitle] = useState('')
+  const [materialName, setMaterialName] = useState('')
+  const [materialQuantity, setMaterialQuantity] = useState('1')
+  const [celebration, setCelebration] = useState<string>()
   const details = useQuery({
     queryKey: ['task-details', organizationId, taskId],
     queryFn: () => getTaskDetails(organizationId, taskId),
@@ -98,7 +105,10 @@ export function TaskDetailDrawer({
       status: TaskStatus
       token: string
     }) => changeTaskStatus(organizationId, id, status, token),
-    onSuccess: invalidate,
+    onSuccess: async (_, variables) => {
+      if (variables.status === 'Done') celebrate('Aufgabe abgeschlossen!')
+      await invalidate()
+    },
   })
   const commentMutation = useMutation({
     mutationFn: () =>
@@ -136,6 +146,45 @@ export function TaskDetailDrawer({
     },
     onSuccess: invalidate,
   })
+  const addMaterialMutation = useMutation({
+    mutationFn: () =>
+      addTaskMaterial(organizationId, taskId, {
+        name: materialName,
+        quantity: materialQuantity,
+      }),
+    onSuccess: async () => {
+      setMaterialName('')
+      setMaterialQuantity('1')
+      await invalidate()
+    },
+  })
+  const materialStateMutation = useMutation({
+    mutationFn: ({
+      id,
+      isPrepared,
+      token,
+    }: {
+      id: string
+      isPrepared: boolean
+      token: string
+    }) =>
+      changeTaskMaterialState(organizationId, taskId, id, isPrepared, token),
+    onSuccess: async (_, variables) => {
+      const materials = details.data?.materials ?? []
+      const remaining = materials.filter(
+        (item) => !item.isPrepared && item.id !== variables.id,
+      ).length
+      if (variables.isPrepared && remaining === 0) {
+        celebrate('Alles liegt bereit – los geht’s!')
+      }
+      await invalidate()
+    },
+  })
+  const deleteMaterialMutation = useMutation({
+    mutationFn: (materialItemId: string) =>
+      deleteTaskMaterial(organizationId, taskId, materialItemId),
+    onSuccess: invalidate,
+  })
   const deleteMutation = useMutation({
     mutationFn: () => deleteTask(organizationId, taskId),
     onSuccess: async () => {
@@ -153,7 +202,20 @@ export function TaskDetailDrawer({
     commentMutation.error ??
     subtaskMutation.error ??
     uploadMutation.error ??
+    addMaterialMutation.error ??
+    materialStateMutation.error ??
+    deleteMaterialMutation.error ??
     deleteMutation.error
+
+  const materials = details.data?.materials ?? []
+  const preparedMaterialCount = materials.filter(
+    (item) => item.isPrepared,
+  ).length
+
+  function celebrate(message: string) {
+    setCelebration(message)
+    window.setTimeout(() => setCelebration(undefined), 2_800)
+  }
 
   return (
     <div
@@ -211,6 +273,12 @@ export function TaskDetailDrawer({
         </header>
 
         <div className="grid gap-6 p-5 sm:p-8">
+          {celebration && (
+            <div className="task-celebration" role="status">
+              <Check size={18} />
+              {celebration}
+            </div>
+          )}
           {error && <ErrorNotice message={error.message} />}
           {task && (
             <>
@@ -254,6 +322,141 @@ export function TaskDetailDrawer({
                   {task.description ??
                     'Noch keine Beschreibung. Ergänzt am besten Ziel, konkrete Schritte und wann die Aufgabe als fertig gilt.'}
                 </p>
+              </section>
+
+              <section className="task-detail-section task-material-section">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="mt-0 flex items-center gap-2">
+                      <PackageCheck size={18} />
+                      Vorbereiten
+                    </h3>
+                    <p>Material und Werkzeuge abhaken, bevor ihr loslegt.</p>
+                  </div>
+                  <span className="task-count">
+                    {preparedMaterialCount}/{materials.length}
+                  </span>
+                </div>
+                {materials.length > 0 && (
+                  <div className="material-progress" aria-hidden="true">
+                    <span
+                      style={{
+                        width: `${Math.round(
+                          (preparedMaterialCount / materials.length) * 100,
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                )}
+                <div className="mt-4 grid gap-2">
+                  {materials.map((material) => {
+                    const preparedBy = members.find(
+                      (member) => member.id === material.preparedByMemberId,
+                    )
+                    return (
+                      <div
+                        key={material.id}
+                        className={`material-row ${
+                          material.isPrepared ? 'is-prepared' : ''
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          className={`subtask-check ${
+                            material.isPrepared ? 'is-done' : ''
+                          }`}
+                          aria-label={`${material.name} ${
+                            material.isPrepared
+                              ? 'wieder als fehlend markieren'
+                              : 'als vorbereitet markieren'
+                          }`}
+                          onClick={() =>
+                            materialStateMutation.mutate({
+                              id: material.id,
+                              isPrepared: !material.isPrepared,
+                              token: material.concurrencyToken,
+                            })
+                          }
+                        >
+                          {material.isPrepared && <Check size={14} />}
+                        </button>
+                        <span className="material-quantity">
+                          {material.quantity}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <strong>{material.name}</strong>
+                          {(material.notes || preparedBy) && (
+                            <small>
+                              {material.notes}
+                              {material.notes && preparedBy ? ' · ' : ''}
+                              {preparedBy
+                                ? `bereitgelegt von ${preparedBy.displayName}`
+                                : ''}
+                            </small>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="material-delete"
+                          aria-label={`${material.name} entfernen`}
+                          onClick={() =>
+                            deleteMaterialMutation.mutate(material.id)
+                          }
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )
+                  })}
+                  {materials.length === 0 && (
+                    <p>
+                      Für diese Aufgabe ist noch nichts vorzubereiten. Der Chat
+                      ergänzt bei neuen Aufgaben passende Listen automatisch.
+                    </p>
+                  )}
+                  <div className="material-add-row">
+                    <input
+                      value={materialQuantity}
+                      onChange={(event) =>
+                        setMaterialQuantity(event.target.value)
+                      }
+                      maxLength={80}
+                      aria-label="Materialmenge"
+                      placeholder="Menge"
+                      className="task-text-input material-quantity-input"
+                    />
+                    <input
+                      value={materialName}
+                      onChange={(event) => setMaterialName(event.target.value)}
+                      maxLength={160}
+                      aria-label="Materialname"
+                      placeholder="Material oder Werkzeug …"
+                      className="task-text-input"
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === 'Enter' &&
+                          materialName.trim() &&
+                          materialQuantity.trim()
+                        ) {
+                          addMaterialMutation.mutate()
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="task-icon-button"
+                      aria-label="Material hinzufügen"
+                      disabled={
+                        !materialName.trim() ||
+                        !materialQuantity.trim() ||
+                        addMaterialMutation.isPending
+                      }
+                      onClick={() => addMaterialMutation.mutate()}
+                    >
+                      <Plus size={18} />
+                    </button>
+                  </div>
+                </div>
               </section>
 
               <section className="task-detail-section">

@@ -77,6 +77,7 @@ public static class ActivityEndpoints
         ITaskDbContext taskDbContext,
         IOrganizationAccessService accessService,
         IThemePackCatalog themePackCatalog,
+        TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
         var access = await GetAccessAsync(
@@ -111,6 +112,112 @@ public static class ActivityEndpoints
                 && incident.Status != IncidentStatus.Resolved
                 && incident.Status != IncidentStatus.Rejected,
             cancellationToken);
+        var focusProject = await projectDbContext.Projects
+            .AsNoTracking()
+            .Where(project =>
+                project.OrganizationId == organizationId
+                && project.Status != ProjectStatus.Completed
+                && project.Status != ProjectStatus.Cancelled)
+            .OrderByDescending(project =>
+                project.Status == ProjectStatus.InProgress)
+            .ThenByDescending(project => project.Priority)
+            .ThenBy(project => project.DueDate)
+            .FirstOrDefaultAsync(cancellationToken);
+        DashboardFocusProjectResponse? focusProjectResponse = null;
+        if (focusProject is not null)
+        {
+            var focusTaskCount = await taskDbContext.WorkTasks.CountAsync(
+                task =>
+                    task.OrganizationId == organizationId
+                    && task.ProjectId == focusProject.Id,
+                cancellationToken);
+            var focusDoneCount = await taskDbContext.WorkTasks.CountAsync(
+                task =>
+                    task.OrganizationId == organizationId
+                    && task.ProjectId == focusProject.Id
+                    && task.Status == WorkTaskStatus.Done,
+                cancellationToken);
+            focusProjectResponse = new DashboardFocusProjectResponse(
+                focusProject.Id,
+                focusProject.Name,
+                focusProject.Status,
+                focusProject.Priority,
+                focusDoneCount,
+                focusTaskCount);
+        }
+
+        var priorityTasks = await taskDbContext.WorkTasks
+            .AsNoTracking()
+            .Where(task =>
+                task.OrganizationId == organizationId
+                && task.Status != WorkTaskStatus.Done
+                && task.Status != WorkTaskStatus.Cancelled)
+            .OrderByDescending(task => task.Status == WorkTaskStatus.InProgress)
+            .ThenByDescending(task => task.Priority)
+            .ThenBy(task => task.DueDate)
+            .Take(5)
+            .ToArrayAsync(cancellationToken);
+        var priorityTaskResponses = new List<DashboardTaskResponse>(
+            priorityTasks.Length);
+        foreach (var task in priorityTasks)
+        {
+            var materialCount = await taskDbContext.TaskMaterialItems.CountAsync(
+                material =>
+                    material.OrganizationId == organizationId
+                    && material.TaskId == task.Id,
+                cancellationToken);
+            var preparedCount = await taskDbContext.TaskMaterialItems.CountAsync(
+                material =>
+                    material.OrganizationId == organizationId
+                    && material.TaskId == task.Id
+                    && material.IsPrepared,
+                cancellationToken);
+            var assigneeName = task.AssignedMemberId is null
+                ? null
+                : await accessService.GetMemberDisplayNameAsync(
+                    organizationId,
+                    task.AssignedMemberId.Value,
+                    cancellationToken);
+            priorityTaskResponses.Add(new DashboardTaskResponse(
+                task.Id,
+                task.Title,
+                task.Status,
+                task.Priority,
+                assigneeName,
+                task.DueDate,
+                preparedCount,
+                materialCount));
+        }
+
+        var weekStart = timeProvider.GetUtcNow().AddDays(-7);
+        var weeklyPulse = new WeeklyPulseResponse(
+            await taskDbContext.WorkTasks.CountAsync(
+                task =>
+                    task.OrganizationId == organizationId
+                    && task.CreatedAt >= weekStart,
+                cancellationToken),
+            await taskDbContext.WorkTasks.CountAsync(
+                task =>
+                    task.OrganizationId == organizationId
+                    && task.CompletedAt >= weekStart,
+                cancellationToken),
+            await taskDbContext.TaskComments.CountAsync(
+                comment =>
+                    comment.OrganizationId == organizationId
+                    && comment.CreatedAt >= weekStart,
+                cancellationToken),
+            await taskDbContext.TaskAttachments.CountAsync(
+                attachment =>
+                    attachment.OrganizationId == organizationId
+                    && attachment.CreatedAt >= weekStart,
+                cancellationToken),
+            await activityDbContext.Activities
+                .Where(activity =>
+                    activity.OrganizationId == organizationId
+                    && activity.CreatedAt >= weekStart)
+                .Select(activity => activity.ActorMemberId)
+                .Distinct()
+                .CountAsync(cancellationToken));
 
         var currentAward = await awardDbContext.Awards
             .AsNoTracking()
@@ -156,6 +263,9 @@ public static class ActivityEndpoints
             openTaskCount,
             projectCount,
             incidentCount,
+            focusProjectResponse,
+            priorityTaskResponses,
+            weeklyPulse,
             currentAwardResponse,
             activities,
             systemMessage));

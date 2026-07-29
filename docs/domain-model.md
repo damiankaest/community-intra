@@ -79,9 +79,11 @@ fest typisiert; die JSON-Spalte ist nur das Persistenzformat.
 | AssistantAction       |              ja | bestätigungspflichtige KI-Änderung mit Concurrency-Token                |
 | TaskComment           |            nein | append-only Diskussion an einer Aufgabe                                 |
 | TaskAttachment        |            nein | Screenshot-Binärdaten mit Größen- und Typgrenze                         |
+| TaskMaterialItem      |            nein | vorbereitbare Checkliste einer Aufgabe mit Concurrency-Token            |
 
 Tasks dürfen genau eine Subtask-Ebene besitzen. Ein Subtask und seine
 Hauptaufgabe müssen bei gesetztem Projektbezug zum selben Projekt gehören.
+Eine Aufgabe darf höchstens 24 Materialpunkte besitzen.
 
 ## Invarianten und Constraints
 

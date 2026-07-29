@@ -559,6 +559,26 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CommunityIntranet.Modules.Tasks.Domain.TaskMaterialItem", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Organizations.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CommunityIntranet.Modules.Members.Domain.OrganizationMember", null)
+                        .WithMany()
+                        .HasForeignKey("PreparedByMemberId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("CommunityIntranet.Modules.Tasks.Domain.WorkTask", null)
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CommunityIntranet.Modules.Tasks.Domain.TaskAttachment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -644,6 +664,65 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                     b.HasIndex("OrganizationId", "TaskId", "CreatedAt");
 
                     b.ToTable("task_comments", "tasks");
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Tasks.Domain.TaskMaterialItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsPrepared")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("PreparedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("PreparedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Quantity")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PreparedByMemberId");
+
+                    b.HasIndex("TaskId");
+
+                    b.HasIndex("OrganizationId", "TaskId");
+
+                    b.ToTable("task_material_items", "tasks");
                 });
 
             modelBuilder.Entity("CommunityIntranet.Modules.Tasks.Domain.WorkTask", b =>

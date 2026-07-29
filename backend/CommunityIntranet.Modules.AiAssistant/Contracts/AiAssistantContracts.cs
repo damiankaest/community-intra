@@ -25,7 +25,8 @@ public sealed record WorkPlanTask(
     string Title,
     string Description,
     WorkTaskPriority Priority,
-    IReadOnlyList<string> AcceptanceCriteria);
+    IReadOnlyList<string> AcceptanceCriteria,
+    IReadOnlyList<WorkPlanMaterial> Materials);
 
 public sealed record WorkPlanProposal(
     string Title,
@@ -97,7 +98,8 @@ public sealed record CreateTaskActionPayload(
     Guid? ParentTaskId,
     WorkTaskPriority Priority,
     DateOnly? DueDate,
-    Guid? AssignedMemberId = null);
+    Guid? AssignedMemberId,
+    IReadOnlyList<WorkPlanMaterial> Materials);
 
 public sealed record UpdateTaskActionPayload(
     Guid TaskId,

@@ -7,7 +7,7 @@ bleibt aber vollständig spielunabhängig.
 
 ## Aktueller Stand
 
-Phase 1 bis 10 liefern die dokumentierte Zielarchitektur, ein startbares
+Phase 1 bis 11 liefern die dokumentierte Zielarchitektur, ein startbares
 Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 
 - modularer ASP.NET-Core-8-Monolith mit Minimal APIs
@@ -44,6 +44,12 @@ Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 - optionaler Satisfactory-Livestatus mit Session, Spielern und Fortschritt
 - verschlüsselte Server-Tokens und bestätigtes TLS-Zertifikat-Pinning
 - read-only Gameserver-Zugriff für Chat und WebMCP
+- abhakbare Material- und Werkzeuglisten direkt an Aufgaben
+- KI-generierte, auf die einzelne Aufgabe zugeschnittene Vorbereitung
+- Materialfortschritt im Aufgaben-Drawer und im Command Center
+- bestätigte Chat-Karten mit Materialvorschau und direktem Aufgabenlink
+- Command Center mit Fokusprojekt, priorisierten Aufgaben, Serverstatus und
+  FICSIT-Wochenbericht
 - PostgreSQL über Docker Compose und eine initiale EF-Core-Migration
 - Serilog, ProblemDetails, Swagger und Health Checks
 - React-PWA mit Authentifizierung, Organisationsanlage und -auswahl

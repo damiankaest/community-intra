@@ -326,7 +326,7 @@ jobs:
             --request POST \
             --header "Content-Type: application/json" \
             --header "Authorization: Bearer $user_b_token" \
-            --data "{\"title\":\"Connect conveyor\",\"description\":\"Tenant-aware task\",\"status\":\"Open\",\"priority\":\"Normal\",\"projectId\":\"$project_id\",\"assignedMemberId\":\"$member_b_id\",\"dueDate\":\"2026-08-01\"}" \
+            --data "{\"title\":\"Connect conveyor\",\"description\":\"Tenant-aware task\",\"status\":\"Open\",\"priority\":\"Normal\",\"projectId\":\"$project_id\",\"assignedMemberId\":\"$member_b_id\",\"dueDate\":\"2026-08-01\",\"materials\":[{\"name\":\"Conveyor Belt Mk.1\",\"quantity\":\"2\",\"notes\":\"Bring to the build site\"}]}" \
             "http://127.0.0.1:5080/api/organizations/$organization_id/tasks" \
             > /tmp/task.json
           test "$(jq --raw-output ".projectId" /tmp/task.json)" = "$project_id"
@@ -366,7 +366,19 @@ jobs:
           test "$(jq ".subtasks | length" /tmp/task-details.json)" = "1"
           test "$(jq ".comments | length" /tmp/task-details.json)" = "1"
           test "$(jq ".attachments | length" /tmp/task-details.json)" = "1"
+          test "$(jq ".materials | length" /tmp/task-details.json)" = "1"
+          test "$(jq --raw-output ".materials[0].isPrepared" /tmp/task-details.json)" = "false"
           test "$(jq --raw-output ".attachments[0].thumbnailUrl" /tmp/task-details.json)" != "null"
+          material_id=$(jq --raw-output ".materials[0].id" /tmp/task-details.json)
+          material_token=$(jq --raw-output ".materials[0].concurrencyToken" /tmp/task-details.json)
+          curl --fail --silent \
+            --request PATCH \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_b_token" \
+            --data "{\"isPrepared\":true,\"concurrencyToken\":\"$material_token\"}" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/tasks/$task_id/materials/$material_id" \
+            > /tmp/task-material.json
+          test "$(jq --raw-output ".isPrepared" /tmp/task-material.json)" = "true"
 
           curl --fail --silent \
             --header "Authorization: Bearer $user_a_token" \
@@ -411,6 +423,9 @@ jobs:
           test "$(jq ".openTaskCount" /tmp/dashboard.json)" = "2"
           test "$(jq ".activeProjectCount" /tmp/dashboard.json)" = "1"
           test "$(jq ".openIncidentCount" /tmp/dashboard.json)" = "1"
+          test "$(jq --raw-output ".focusProject.name" /tmp/dashboard.json)" = "Phase 6 Factory"
+          test "$(jq ".priorityTasks | length" /tmp/dashboard.json)" -ge 1
+          test "$(jq ".weeklyPulse.createdTaskCount" /tmp/dashboard.json)" = "2"
           test "$(jq --raw-output ".currentAward.name" /tmp/dashboard.json)" = "CI Officer"
 
           curl --fail --silent \

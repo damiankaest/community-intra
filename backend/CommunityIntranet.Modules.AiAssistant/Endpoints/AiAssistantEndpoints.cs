@@ -490,7 +490,15 @@ public static class AiAssistantEndpoints
         if (payload is null
             || string.IsNullOrWhiteSpace(payload.Title)
             || payload.Title.Trim().Length > 200
-            || payload.Description?.Length > 4000)
+            || payload.Description?.Length > 4000
+            || payload.Materials is null
+            || payload.Materials.Count > 24
+            || payload.Materials.Any(material =>
+                string.IsNullOrWhiteSpace(material.Name)
+                || material.Name.Trim().Length > 160
+                || string.IsNullOrWhiteSpace(material.Quantity)
+                || material.Quantity.Trim().Length > 80
+                || material.Notes?.Length > 300))
         {
             return InvalidAction("Die vorbereitete Aufgabe ist ungültig.");
         }
@@ -559,6 +567,14 @@ public static class AiAssistantEndpoints
             ConcurrencyToken = Guid.NewGuid()
         };
         dbContext.WorkTasks.Add(task);
+        dbContext.TaskMaterialItems.AddRange(
+            payload.Materials.Select((material, index) =>
+                CreateMaterialItem(
+                    organizationId,
+                    task.Id,
+                    material,
+                    index,
+                    now)));
         activityWriter.Add(new ActivityDraft(
             organizationId,
             "task.created",
@@ -1187,8 +1203,20 @@ public static class AiAssistantEndpoints
                 task,
                 now))
             .ToArray();
+        var taskMaterials = normalizedProposal.Tasks
+            .Zip(tasks)
+            .SelectMany(pair =>
+                pair.First.Materials.Select((material, index) =>
+                    CreateMaterialItem(
+                        organizationId,
+                        pair.Second.Id,
+                        material,
+                        index,
+                        now)))
+            .ToArray();
         dbContext.Projects.Add(project);
         dbContext.WorkTasks.AddRange(tasks);
+        dbContext.TaskMaterialItems.AddRange(taskMaterials);
 
         draft.ProjectId = project.Id;
         draft.ConfirmedAt = now;
@@ -1253,6 +1281,26 @@ public static class AiAssistantEndpoints
             Status = WorkTaskStatus.Open,
             Priority = task.Priority,
             CreatedByMemberId = memberId,
+            CreatedAt = now,
+            UpdatedAt = now,
+            ConcurrencyToken = Guid.NewGuid()
+        };
+
+    private static TaskMaterialItem CreateMaterialItem(
+        Guid organizationId,
+        Guid taskId,
+        WorkPlanMaterial material,
+        int sortOrder,
+        DateTimeOffset now) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            TaskId = taskId,
+            Name = material.Name.Trim(),
+            Quantity = material.Quantity.Trim(),
+            Notes = Normalize(material.Notes),
+            SortOrder = sortOrder,
             CreatedAt = now,
             UpdatedAt = now,
             ConcurrencyToken = Guid.NewGuid()

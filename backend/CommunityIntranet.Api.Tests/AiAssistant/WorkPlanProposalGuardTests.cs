@@ -20,7 +20,8 @@ public sealed class WorkPlanProposalGuardTests
                     " Raffinerie bauen ",
                     " Produktionslinie errichten. ",
                     WorkTaskPriority.High,
-                    ["Aluminiumoxid wird produziert.", "Aluminiumoxid wird produziert."])
+                    ["Aluminiumoxid wird produziert.", "Aluminiumoxid wird produziert."],
+                    [new WorkPlanMaterial(" Raffinerie ", " 1 ", " Bauplatz prüfen ")])
             ]);
 
         var result = WorkPlanProposalGuard.ValidateAndNormalize(proposal);
@@ -29,6 +30,7 @@ public sealed class WorkPlanProposalGuardTests
         Assert.Equal("Aluminiumversorgung", result.Proposal!.Title);
         Assert.Single(result.Proposal.Tasks[0].AcceptanceCriteria);
         Assert.Equal("Bauxit", result.Proposal.Materials[0].Name);
+        Assert.Equal("Raffinerie", result.Proposal.Tasks[0].Materials[0].Name);
     }
 
     [Fact]
@@ -78,7 +80,8 @@ public sealed class WorkPlanProposalGuardTests
                     WorkTaskPriority.Normal,
                     Enumerable.Range(1, 12)
                         .Select(index => $"Kriterium {index}")
-                        .ToArray())
+                        .ToArray(),
+                    [])
             ]);
 
         var result = WorkPlanProposalGuard.ValidateAndNormalize(proposal);

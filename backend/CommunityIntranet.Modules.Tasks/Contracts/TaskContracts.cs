@@ -11,7 +11,8 @@ public sealed record SaveTaskRequest(
     Guid? ParentTaskId,
     Guid? AssignedMemberId,
     DateOnly? DueDate,
-    Guid? ConcurrencyToken = null);
+    Guid? ConcurrencyToken = null,
+    IReadOnlyList<CreateTaskMaterialRequest>? Materials = null);
 
 public sealed record ChangeTaskStatusRequest(
     WorkTaskStatus Status,
@@ -37,6 +38,27 @@ public sealed record AddTaskCommentRequest(
     string? Body,
     IReadOnlyList<Guid>? MentionedMemberIds = null);
 
+public sealed record CreateTaskMaterialRequest(
+    string? Name,
+    string? Quantity,
+    string? Notes = null);
+
+public sealed record ChangeTaskMaterialStateRequest(
+    bool IsPrepared,
+    Guid ConcurrencyToken);
+
+public sealed record TaskMaterialResponse(
+    Guid Id,
+    Guid TaskId,
+    string Name,
+    string Quantity,
+    string? Notes,
+    bool IsPrepared,
+    Guid? PreparedByMemberId,
+    DateTimeOffset? PreparedAt,
+    int SortOrder,
+    Guid ConcurrencyToken);
+
 public sealed record TaskCommentResponse(
     Guid Id,
     Guid TaskId,
@@ -60,5 +82,6 @@ public sealed record TaskAttachmentResponse(
 public sealed record TaskDetailsResponse(
     TaskResponse Task,
     IReadOnlyList<TaskResponse> Subtasks,
+    IReadOnlyList<TaskMaterialResponse> Materials,
     IReadOnlyList<TaskCommentResponse> Comments,
     IReadOnlyList<TaskAttachmentResponse> Attachments);

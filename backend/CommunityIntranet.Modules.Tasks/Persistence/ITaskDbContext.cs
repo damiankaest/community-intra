@@ -11,5 +11,7 @@ public interface ITaskDbContext
 
     DbSet<TaskAttachment> TaskAttachments { get; }
 
+    DbSet<TaskMaterialItem> TaskMaterialItems { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

@@ -63,6 +63,26 @@ export interface SaveTaskInput {
   assignedMemberId?: string
   dueDate?: string
   concurrencyToken?: string
+  materials?: SaveTaskMaterialInput[]
+}
+
+export interface SaveTaskMaterialInput {
+  name: string
+  quantity: string
+  notes?: string
+}
+
+export interface TaskMaterial {
+  id: string
+  taskId: string
+  name: string
+  quantity: string
+  notes?: string
+  isPrepared: boolean
+  preparedByMemberId?: string
+  preparedAt?: string
+  sortOrder: number
+  concurrencyToken: string
 }
 
 export interface TaskComment {
@@ -90,6 +110,7 @@ export interface TaskAttachment {
 export interface TaskDetails {
   task: WorkTask
   subtasks: WorkTask[]
+  materials: TaskMaterial[]
   comments: TaskComment[]
   attachments: TaskAttachment[]
 }
@@ -178,9 +199,40 @@ export interface Dashboard {
   openTaskCount: number
   activeProjectCount: number
   openIncidentCount: number
+  focusProject?: DashboardFocusProject
+  priorityTasks: DashboardTask[]
+  weeklyPulse: WeeklyPulse
   currentAward?: CurrentAward
   recentActivities: Activity[]
   systemMessage: string
+}
+
+export interface DashboardFocusProject {
+  id: string
+  name: string
+  status: ProjectStatus
+  priority: Priority
+  completedTaskCount: number
+  totalTaskCount: number
+}
+
+export interface DashboardTask {
+  id: string
+  title: string
+  status: TaskStatus
+  priority: Priority
+  assignedToDisplayName?: string
+  dueDate?: string
+  preparedMaterialCount: number
+  materialCount: number
+}
+
+export interface WeeklyPulse {
+  createdTaskCount: number
+  completedTaskCount: number
+  commentCount: number
+  screenshotCount: number
+  activeContributorCount: number
 }
 
 const base = (organizationId: string, resource: string) =>
@@ -248,6 +300,44 @@ export function addTaskComment(
       method: 'POST',
       body: JSON.stringify({ body, mentionedMemberIds }),
     },
+  )
+}
+
+export function addTaskMaterial(
+  organizationId: string,
+  taskId: string,
+  input: SaveTaskMaterialInput,
+) {
+  return apiRequest<TaskMaterial>(
+    `${base(organizationId, 'tasks')}/${taskId}/materials`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+}
+
+export function changeTaskMaterialState(
+  organizationId: string,
+  taskId: string,
+  materialItemId: string,
+  isPrepared: boolean,
+  concurrencyToken: string,
+) {
+  return apiRequest<TaskMaterial>(
+    `${base(organizationId, 'tasks')}/${taskId}/materials/${materialItemId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ isPrepared, concurrencyToken }),
+    },
+  )
+}
+
+export function deleteTaskMaterial(
+  organizationId: string,
+  taskId: string,
+  materialItemId: string,
+) {
+  return apiRequest<void>(
+    `${base(organizationId, 'tasks')}/${taskId}/materials/${materialItemId}`,
+    { method: 'DELETE' },
   )
 }
 

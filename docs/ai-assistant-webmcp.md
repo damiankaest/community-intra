@@ -24,7 +24,8 @@ mehrere Schritte gewünscht sind.
 
 Der Tonfall verändert nur den Begleittext. Aufgabentitel und -beschreibungen
 müssen in beiden Modi Ziel, konkrete Arbeit und ein erkennbares
-Fertig-Kriterium enthalten.
+Fertig-Kriterium enthalten. Aufgaben erhalten nur dann eine Materialliste,
+wenn vor ihrem Start tatsächlich Ressourcen oder Werkzeuge bereitzulegen sind.
 
 ## OpenAI Responses API
 
@@ -63,6 +64,7 @@ Weiterführende offizielle Dokumentation:
 - `community_get_task`
 - `community_create_task`
 - `community_change_task_status`
+- `community_set_task_material_state`
 - `community_assign_task`
 - `community_add_task_comment`
 

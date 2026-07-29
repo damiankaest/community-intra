@@ -14,6 +14,7 @@ export interface WorkPlanTask {
   description: string
   priority: Priority
   acceptanceCriteria: string[]
+  materials: WorkPlanMaterial[]
 }
 
 export interface WorkPlanProposal {
@@ -74,6 +75,7 @@ export interface AssistantActionPayload {
   dueDate?: string
   body?: string
   mentionedMemberIds?: string[]
+  materials?: WorkPlanMaterial[]
 }
 
 export interface AssistantAction {
