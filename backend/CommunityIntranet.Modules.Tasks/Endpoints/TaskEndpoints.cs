@@ -48,7 +48,7 @@ public static class TaskEndpoints
         group.MapGet(
             "/{taskId:guid}/attachments/{attachmentId:guid}/thumbnail",
             GetAttachmentThumbnailAsync);
-        group.MapDelete("/{taskId:guid}", CancelAsync);
+        group.MapDelete("/{taskId:guid}", DeleteAsync);
         return endpoints;
     }
 
@@ -735,15 +735,13 @@ public static class TaskEndpoints
         return Results.Ok(ToResponse(task));
     }
 
-    private static async Task<IResult> CancelAsync(
+    private static async Task<IResult> DeleteAsync(
         Guid organizationId,
         Guid taskId,
         ClaimsPrincipal principal,
         ITaskDbContext dbContext,
         IOrganizationAccessService accessService,
         IActivityWriter activityWriter,
-        INotificationWriter notificationWriter,
-        TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
         var access = await GetAccessAsync(
@@ -770,20 +768,14 @@ public static class TaskEndpoints
             return Results.Forbid();
         }
 
-        var previousStatus = task.Status;
-        SetStatus(
-            task,
-            WorkTaskStatus.Cancelled,
+        activityWriter.Add(new ActivityDraft(
             organizationId,
-            access.Membership!,
-            activityWriter,
-            timeProvider);
-        AddChangeNotifications(
-            notificationWriter,
-            task,
-            task.AssignedMemberId,
-            previousStatus,
-            access.Membership!.MemberId);
+            "task.deleted",
+            access.Membership!.MemberId,
+            "task",
+            task.Id,
+            new Dictionary<string, string?> { ["taskTitle"] = task.Title }));
+        dbContext.WorkTasks.Remove(task);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }

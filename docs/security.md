@@ -165,6 +165,12 @@ Secret Store beziehungsweise sichere Umgebungsvariablen.
 `OPENAI_API_KEY` wird als GitHub-Environment-Secret übertragen und auf der VM
 nur in der zugriffsgeschützten Produktions-Environment-Datei gespeichert.
 
+Satisfactory-Application-Tokens werden pro Organisation mit ASP.NET Data
+Protection verschlüsselt in PostgreSQL gespeichert. Die Schlüssel liegen in
+Produktion in einem separaten Docker-Volume und werden weder an das Frontend
+noch an den Chat zurückgegeben. Die Serveranbindung blockiert interne
+Zielnetze, Redirects und nicht bestätigte selbstsignierte Zertifikate.
+
 Die lokale Entwicklungsroutine und GitHub Actions erzeugen flüchtige
 JWT-Schlüssel zur Laufzeit. Im Repository liegt kein verwendbarer
 JWT-Signaturschlüssel.

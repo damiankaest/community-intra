@@ -113,7 +113,7 @@ Die implementierten Endpunkte sind:
 | GET/POST       | `/projects`                                          | Projekte filtern oder erstellen                    |
 | GET/PUT/DELETE | `/projects/{projectId}`                              | Projekt lesen, bearbeiten oder abbrechen           |
 | GET/POST       | `/tasks`                                             | Aufgaben filtern oder erstellen                    |
-| GET/PUT/DELETE | `/tasks/{taskId}`                                    | Aufgabe lesen, bearbeiten oder abbrechen           |
+| GET/PUT/DELETE | `/tasks/{taskId}`                                    | Aufgabe lesen, bearbeiten oder dauerhaft löschen   |
 | PATCH          | `/tasks/{taskId}/status`                             | Aufgabenstatus ändern                              |
 | GET            | `/tasks/{taskId}/details`                            | Subtasks, Kommentare und Screenshot-Metadaten      |
 | POST           | `/tasks/{taskId}/comments`                           | Kommentar hinzufügen                               |
@@ -185,6 +185,23 @@ enthalten. Das Frontend verkleinert übliche Bilder auf maximal 1920 Pixel und
 erzeugt eine Vorschau mit maximal 480 Pixel. GIF-Dateien bleiben unverändert.
 Die Vorschau ist über
 `/tasks/{taskId}/attachments/{attachmentId}/thumbnail` abrufbar.
+
+## Live Operations (Phase 10)
+
+Alle Routen liegen unter
+`/organizations/{organizationId}/live-operations/server`:
+
+| Methode | Route            | Permission               | Zweck                                  |
+| ------- | ---------------- | ------------------------ | -------------------------------------- |
+| GET     | `/status`        | aktives Mitglied         | gecachten Gameserver-Status laden      |
+| GET     | `/configuration` | Owner oder Administrator | maskierte Konfiguration laden          |
+| PUT     | `/configuration` | Owner oder Administrator | Verbindung verschlüsselt speichern     |
+| DELETE  | `/configuration` | Owner oder Administrator | Verbindung aus dem Intranet entfernen  |
+| POST    | `/test`          | Owner oder Administrator | Verbindung ohne Speicherung überprüfen |
+
+Für Owner und Administratoren umgeht `status?forceRefresh=true` den kurzen
+Status-Cache. API-Tokens werden niemals zurückgegeben. Selbstsignierte
+TLS-Zertifikate benötigen einen bewusst bestätigten SHA-256-Fingerprint.
 
 ## Statuscodes
 

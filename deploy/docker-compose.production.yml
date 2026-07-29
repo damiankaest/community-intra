@@ -37,6 +37,7 @@ services:
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
       AiAssistant__ApiKey: ${OPENAI_API_KEY}
       AiAssistant__Model: ${AI_MODEL:-gpt-5.6}
+      DataProtection__KeysPath: /app/data-protection-keys
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,6 +60,7 @@ services:
       - "8080"
     volumes:
       - backend-logs:/app/logs
+      - backend-data-protection:/app/data-protection-keys
     networks:
       - internal
 
@@ -107,5 +109,6 @@ networks:
 volumes:
   postgres-data:
   backend-logs:
+  backend-data-protection:
   caddy-data:
   caddy-config:

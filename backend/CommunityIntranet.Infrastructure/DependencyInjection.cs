@@ -4,6 +4,7 @@ using CommunityIntranet.Modules.Identity.Persistence;
 using CommunityIntranet.Modules.ActivityFeed.Persistence;
 using CommunityIntranet.Modules.Awards.Persistence;
 using CommunityIntranet.Modules.Incidents.Persistence;
+using CommunityIntranet.Modules.LiveOperations.Persistence;
 using CommunityIntranet.Modules.Members.Persistence;
 using CommunityIntranet.Modules.Notifications.Persistence;
 using CommunityIntranet.Modules.Organizations.Persistence;
@@ -55,6 +56,8 @@ public static class DependencyInjection
         services.AddScoped<IAiAssistantDbContext>(
             provider => provider.GetRequiredService<CommunityIntranetDbContext>());
         services.AddScoped<INotificationDbContext>(
+            provider => provider.GetRequiredService<CommunityIntranetDbContext>());
+        services.AddScoped<ILiveOperationsDbContext>(
             provider => provider.GetRequiredService<CommunityIntranetDbContext>());
 
         return services;

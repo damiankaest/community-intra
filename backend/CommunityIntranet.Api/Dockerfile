@@ -13,7 +13,7 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /app/logs \
+    && mkdir -p /app/logs /app/data-protection-keys \
     && chown -R app:app /app
 COPY --from=build --chown=app:app /app/publish .
 USER app

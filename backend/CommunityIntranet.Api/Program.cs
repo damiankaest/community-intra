@@ -16,6 +16,8 @@ using CommunityIntranet.Modules.Awards;
 using CommunityIntranet.Modules.Awards.Endpoints;
 using CommunityIntranet.Modules.Incidents;
 using CommunityIntranet.Modules.Incidents.Endpoints;
+using CommunityIntranet.Modules.LiveOperations;
+using CommunityIntranet.Modules.LiveOperations.Endpoints;
 using CommunityIntranet.Modules.Members;
 using CommunityIntranet.Modules.Members.Endpoints;
 using CommunityIntranet.Modules.Notifications;
@@ -116,6 +118,7 @@ try
     builder.Services.AddActivityFeedModule();
     builder.Services.AddAiAssistantModule(builder.Configuration);
     builder.Services.AddNotificationsModule();
+    builder.Services.AddLiveOperationsModule(builder.Configuration);
     builder.Services.AddScoped<DatabaseInitializer>();
     builder.Services.AddRateLimiter(options =>
     {
@@ -221,6 +224,7 @@ try
     app.MapActivityFeedEndpoints();
     app.MapAiAssistantEndpoints();
     app.MapNotificationEndpoints();
+    app.MapLiveOperationsEndpoints();
 
     await app.RunAsync();
 }

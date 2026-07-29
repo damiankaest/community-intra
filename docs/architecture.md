@@ -180,6 +180,7 @@ im Backend.
 | humorvolle Drittanbieter-Themes verletzen Rechte | rechtliches Risiko                     | eigene Icons/Assets, Autorenangabe, Moderation und Exportprüfung              |
 | Prompt Injection oder fehlerhafte KI-Pläne       | ungeeignete oder schädliche Änderungen | striktes Ausgabeschema, serverseitige Normalisierung, Entwurf und Bestätigung |
 | experimenteller WebMCP-Standard ändert sich      | Browser-Integration fällt aus          | optionaler Adapter, REST-API bleibt kanonisch                                 |
+| Serverintegration wird für SSRF missbraucht      | Zugriff auf interne Dienste            | öffentliche Zielnetze, gepinnte Auflösung, keine Redirects, TLS-Pinning        |
 
 ## Umsetzungsreihenfolge
 
@@ -192,3 +193,4 @@ im Backend.
 7. Activity Feed und Dashboard (Phase 6)
 8. Isolationstests und responsive Stabilisierung (Phase 7)
 9. KI-Arbeitsplanung und WebMCP über bestätigte, mandantengebundene Entwürfe
+10. optionale Live-Operations-Adapter mit read-only Satisfactory-Status

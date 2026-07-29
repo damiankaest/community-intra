@@ -9,12 +9,16 @@ import {
   ClipboardCheck,
   FolderKanban,
   Gauge,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   ScrollText,
+  Server,
+  UserRound,
   Users,
   X,
 } from 'lucide-react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, NavLink, useParams, useSearchParams } from 'react-router-dom'
 import type { CurrentUser } from '../api/auth'
 import {
   changeTaskStatus,
@@ -113,7 +117,7 @@ function usePhaseSixContext() {
   return { organizationId, organization, themePack }
 }
 
-function FeatureLayout({
+export function FeatureLayout({
   user,
   title,
   subtitle,
@@ -124,9 +128,20 @@ function FeatureLayout({
   children: ReactNode
 }) {
   const { organizationId, organization, themePack } = usePhaseSixContext()
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem('community-sidebar-collapsed') === 'true',
+  )
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((current) => {
+      const next = !current
+      localStorage.setItem('community-sidebar-collapsed', String(next))
+      return next
+    })
+  }
 
   return (
-    <div className="min-h-screen bg-[var(--theme-background)] text-[var(--theme-text)]">
+    <div className="app-workspace min-h-screen bg-[var(--theme-background)] text-[var(--theme-text)]">
       <div className="industrial-grid pointer-events-none fixed inset-0 opacity-40" />
       <header className="relative border-b border-white/10 bg-black/20">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4">
@@ -144,49 +159,82 @@ function FeatureLayout({
           </div>
         </div>
       </header>
-      <div className="relative mx-auto grid max-w-7xl gap-8 px-5 py-8 lg:grid-cols-[220px_1fr]">
-        <nav className="flex gap-2 overflow-x-auto lg:flex-col">
-          <FeatureLink to="" label="Dashboard" icon={<Gauge size={17} />} />
-          <FeatureLink
-            to="projects"
-            label="Projekte"
-            icon={<FolderKanban size={17} />}
-          />
-          <FeatureLink
-            to="tasks"
-            label="Aufgaben"
-            icon={<ClipboardCheck size={17} />}
-          />
-          <FeatureLink
-            to="incidents"
-            label="Incidents"
-            icon={<AlertTriangle size={17} />}
-          />
-          <FeatureLink
-            to="awards"
-            label="Auszeichnungen"
-            icon={<AwardIcon size={17} />}
-          />
-          <FeatureLink
-            to="activities"
-            label="Aktivitäten"
-            icon={<ScrollText size={17} />}
-          />
-          <FeatureLink
-            to="members"
-            label="Mitglieder"
-            icon={<Users size={17} />}
-          />
-        </nav>
-        <main>
+      <div
+        className={`feature-workspace-layout ${
+          sidebarCollapsed ? 'is-sidebar-collapsed' : ''
+        }`}
+      >
+        <aside className="feature-sidebar">
+          <button
+            type="button"
+            className="feature-sidebar-toggle"
+            aria-label={
+              sidebarCollapsed
+                ? 'Navigation ausklappen'
+                : 'Navigation einklappen'
+            }
+            title={
+              sidebarCollapsed
+                ? 'Navigation ausklappen'
+                : 'Navigation einklappen'
+            }
+            onClick={toggleSidebar}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen size={17} />
+            ) : (
+              <PanelLeftClose size={17} />
+            )}
+            <span>Menü einklappen</span>
+          </button>
+          <nav className="feature-navigation" aria-label="Hauptnavigation">
+            <FeatureLink to="" label="Dashboard" icon={<Gauge size={17} />} />
+            <FeatureLink
+              to="projects"
+              label="Projekte"
+              icon={<FolderKanban size={17} />}
+            />
+            <FeatureLink
+              to="tasks"
+              label="Aufgaben"
+              icon={<ClipboardCheck size={17} />}
+            />
+            <FeatureLink
+              to="incidents"
+              label="Incidents"
+              icon={<AlertTriangle size={17} />}
+            />
+            <FeatureLink
+              to="awards"
+              label="Auszeichnungen"
+              icon={<AwardIcon size={17} />}
+            />
+            <FeatureLink
+              to="activities"
+              label="Aktivitäten"
+              icon={<ScrollText size={17} />}
+            />
+            <FeatureLink
+              to="server"
+              label="Gameserver"
+              icon={<Server size={17} />}
+            />
+            <FeatureLink
+              to="members"
+              label="Mitglieder"
+              icon={<Users size={17} />}
+            />
+          </nav>
+        </aside>
+        <main className="min-w-0">
           <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
             Eure gemeinsame Werkbank
           </p>
-          <h1 className="mt-2 text-4xl font-black tracking-tight text-white">
+          <h1 className="mt-1 text-3xl font-black tracking-tight text-white">
             {title}
           </h1>
-          <p className="mt-3 text-[var(--theme-muted)]">{subtitle}</p>
-          <div className="mt-8">{children}</div>
+          <p className="mt-2 text-sm text-[var(--theme-muted)]">{subtitle}</p>
+          <div className="mt-5">{children}</div>
         </main>
       </div>
       <AiAssistantPanel
@@ -210,13 +258,18 @@ function FeatureLink({
   const { organizationId = '' } = useParams()
   const target = `/organizations/${organizationId}${to ? `/${to}` : ''}`
   return (
-    <Link
+    <NavLink
       to={target}
-      className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white hover:border-[var(--theme-primary)]/50"
+      end={!to}
+      aria-label={label}
+      title={label}
+      className={({ isActive }) =>
+        `feature-navigation-link ${isActive ? 'is-active' : ''}`
+      }
     >
       {icon}
-      {label}
-    </Link>
+      <span>{label}</span>
+    </NavLink>
   )
 }
 
@@ -644,28 +697,15 @@ export function TasksPage({ user }: PhaseSixPageProps) {
                     onDragEnd={() => setDraggedTaskId(undefined)}
                   >
                     <button type="button" onClick={() => selectTask(task.id)}>
-                      <StatusLine
-                        status={task.status}
-                        priority={task.priority}
-                      />
                       <span className="kanban-title">
                         {task.title}
                         <ChevronRight size={17} />
                       </span>
-                      <span className="kanban-description">
-                        {task.description ??
-                          'Noch nicht beschrieben – klick rein und macht klar, was fertig bedeutet.'}
-                      </span>
-                      <span className="kanban-meta">
-                        {
-                          tasks.data?.filter(
-                            (subtask) => subtask.parentTaskId === task.id,
-                          ).length
-                        }{' '}
-                        Schritte
-                        {task.dueDate
-                          ? ` · bis ${new Date(`${task.dueDate}T00:00:00`).toLocaleDateString('de-DE')}`
-                          : ''}
+                      <span className="kanban-assignee">
+                        <UserRound size={14} />
+                        {members.data?.find(
+                          (member) => member.id === task.assignedMemberId,
+                        )?.displayName ?? 'Nicht zugewiesen'}
                       </span>
                     </button>
                   </article>
@@ -1078,6 +1118,8 @@ function renderActivity(activity: Activity) {
       return `Aufgabe „${activity.data.taskTitle ?? 'Unbenannt'}“ wurde angelegt.`
     case 'task.completed':
       return `Aufgabe „${activity.data.taskTitle ?? 'Unbenannt'}“ wurde erledigt.`
+    case 'task.deleted':
+      return `Aufgabe „${activity.data.taskTitle ?? 'Unbenannt'}“ wurde gelöscht.`
     case 'incident.reported':
       return `Incident „${activity.data.incidentTitle ?? 'Unbenannt'}“ wurde gemeldet.`
     case 'incident.resolved':

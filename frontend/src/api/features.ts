@@ -290,6 +290,12 @@ export function changeTaskStatus(
   )
 }
 
+export function deleteTask(organizationId: string, taskId: string) {
+  return apiRequest<void>(`${base(organizationId, 'tasks')}/${taskId}`, {
+    method: 'DELETE',
+  })
+}
+
 export function listIncidents(organizationId: string) {
   return apiRequest<Incident[]>(base(organizationId, 'incidents'))
 }
