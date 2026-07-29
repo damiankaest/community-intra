@@ -22,6 +22,8 @@ using CommunityIntranet.Modules.Tasks.Domain;
 using CommunityIntranet.Modules.Tasks.Persistence;
 using CommunityIntranet.Modules.ThemePacks.Domain;
 using CommunityIntranet.Modules.ThemePacks.Persistence;
+using CommunityIntranet.Modules.TimeTracking.Domain;
+using CommunityIntranet.Modules.TimeTracking.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -42,7 +44,8 @@ public sealed class CommunityIntranetDbContext(
         IActivityDbContext,
         IAiAssistantDbContext,
         INotificationDbContext,
-        ILiveOperationsDbContext
+        ILiveOperationsDbContext,
+        ITimeTrackingDbContext
 {
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
@@ -89,6 +92,10 @@ public sealed class CommunityIntranetDbContext(
     public DbSet<GameServerConnection> GameServerConnections =>
         Set<GameServerConnection>();
 
+    public DbSet<WorkShift> WorkShifts => Set<WorkShift>();
+
+    public DbSet<WorkLogEntry> WorkLogEntries => Set<WorkLogEntry>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -105,6 +112,7 @@ public sealed class CommunityIntranetDbContext(
         builder.ApplyConfigurationsFromAssembly(typeof(WorkPlanDraft).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(MemberNotification).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(GameServerConnection).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(WorkShift).Assembly);
 
         builder.Entity<IdentityRole<Guid>>().ToTable("roles", "identity");
         builder.Entity<IdentityUserClaim<Guid>>()
@@ -327,6 +335,31 @@ public sealed class CommunityIntranetDbContext(
             .HasOne<Organization>()
             .WithMany()
             .HasForeignKey(connection => connection.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<WorkShift>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(shift => shift.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<WorkShift>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(shift => shift.MemberId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<WorkLogEntry>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(entry => entry.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<WorkLogEntry>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(entry => entry.MemberId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<WorkLogEntry>()
+            .HasOne<WorkShift>()
+            .WithMany()
+            .HasForeignKey(entry => entry.WorkShiftId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
