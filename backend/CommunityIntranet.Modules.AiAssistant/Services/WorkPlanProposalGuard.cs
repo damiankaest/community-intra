@@ -86,7 +86,7 @@ public static class WorkPlanProposalGuard
             tasks));
     }
 
-    private static IReadOnlyList<WorkPlanMaterial>? NormalizeMaterials(
+    private static List<WorkPlanMaterial>? NormalizeMaterials(
         IReadOnlyList<WorkPlanMaterial> source)
     {
         var materials = new List<WorkPlanMaterial>(source.Count);
