@@ -10,6 +10,8 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations;
 [Migration("20260729170000_Phase11TaskMaterials")]
 public partial class Phase11TaskMaterials : Migration
 {
+private static readonly string[] OrganizationTaskColumns =
+    ["OrganizationId", "TaskId"];
     protected override void Up(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.CreateTable(
@@ -96,7 +98,7 @@ public partial class Phase11TaskMaterials : Migration
             name: "IX_task_material_items_OrganizationId_TaskId",
             schema: "tasks",
             table: "task_material_items",
-            columns: new[] { "OrganizationId", "TaskId" });
+            columns: OrganizationTaskColumns);
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
