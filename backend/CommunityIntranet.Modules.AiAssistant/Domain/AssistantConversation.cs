@@ -10,11 +10,15 @@ public sealed class AssistantConversation
 
     public Guid MemberId { get; set; }
 
+    public string? Title { get; set; }
+
     public AssistantTone Tone { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
+
+    public DateTimeOffset? ArchivedAt { get; set; }
 }
 
 public sealed class AssistantMessage
