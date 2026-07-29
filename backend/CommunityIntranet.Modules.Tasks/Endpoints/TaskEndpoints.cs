@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using CommunityIntranet.BuildingBlocks.ActivityFeed;
 using CommunityIntranet.BuildingBlocks.Authorization;
+using CommunityIntranet.BuildingBlocks.Notifications;
 using CommunityIntranet.BuildingBlocks.Tenancy;
 using CommunityIntranet.Modules.Projects.Services;
 using CommunityIntranet.Modules.Tasks.Contracts;
@@ -16,6 +17,7 @@ namespace CommunityIntranet.Modules.Tasks.Endpoints;
 public static class TaskEndpoints
 {
     private const long MaximumScreenshotSize = 5 * 1024 * 1024;
+    private const long MaximumThumbnailSize = 512 * 1024;
     private static readonly HashSet<string> AllowedScreenshotMediaTypes =
     [
         "image/png",
@@ -43,6 +45,9 @@ public static class TaskEndpoints
         group.MapGet(
             "/{taskId:guid}/attachments/{attachmentId:guid}/content",
             GetAttachmentContentAsync);
+        group.MapGet(
+            "/{taskId:guid}/attachments/{attachmentId:guid}/thumbnail",
+            GetAttachmentThumbnailAsync);
         group.MapDelete("/{taskId:guid}", CancelAsync);
         return endpoints;
     }
@@ -196,7 +201,10 @@ public static class TaskEndpoints
                 item.MediaType,
                 item.Size,
                 item.CreatedAt,
-                $"/api/organizations/{organizationId}/tasks/{taskId}/attachments/{item.Id}/content"))
+                $"/api/organizations/{organizationId}/tasks/{taskId}/attachments/{item.Id}/content",
+                item.ThumbnailContent == null
+                    ? null
+                    : $"/api/organizations/{organizationId}/tasks/{taskId}/attachments/{item.Id}/thumbnail"))
             .ToArrayAsync(cancellationToken);
 
         return Results.Ok(new TaskDetailsResponse(
@@ -214,6 +222,7 @@ public static class TaskEndpoints
         IProjectLookup projectLookup,
         IOrganizationAccessService accessService,
         IActivityWriter activityWriter,
+        INotificationWriter notificationWriter,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -272,6 +281,18 @@ public static class TaskEndpoints
             "task",
             task.Id,
             new Dictionary<string, string?> { ["taskTitle"] = task.Title }));
+        if (task.AssignedMemberId is not null)
+        {
+            AddNotification(
+                notificationWriter,
+                task,
+                task.AssignedMemberId.Value,
+                access.Membership.MemberId,
+                "task.assigned",
+                "Neue Aufgabe für dich",
+                task.Title);
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Created(
             $"/api/organizations/{organizationId}/tasks/{task.Id}",
@@ -287,6 +308,7 @@ public static class TaskEndpoints
         IProjectLookup projectLookup,
         IOrganizationAccessService accessService,
         IActivityWriter activityWriter,
+        INotificationWriter notificationWriter,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -332,6 +354,8 @@ public static class TaskEndpoints
             return validation;
         }
 
+        var previousAssignee = task.AssignedMemberId;
+        var previousStatus = task.Status;
         task.ProjectId = request.ProjectId;
         task.ParentTaskId = request.ParentTaskId;
         task.Title = request.Title.Trim();
@@ -346,6 +370,12 @@ public static class TaskEndpoints
             access.Membership!,
             activityWriter,
             timeProvider);
+        AddChangeNotifications(
+            notificationWriter,
+            task,
+            previousAssignee,
+            previousStatus,
+            access.Membership!.MemberId);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Ok(ToResponse(task));
     }
@@ -357,6 +387,7 @@ public static class TaskEndpoints
         ClaimsPrincipal principal,
         ITaskDbContext dbContext,
         IOrganizationAccessService accessService,
+        INotificationWriter notificationWriter,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -370,11 +401,11 @@ public static class TaskEndpoints
             return access.Result;
         }
 
-        if (!await TaskExistsAsync(
-                dbContext,
-                organizationId,
-                taskId,
-                cancellationToken))
+        var task = await dbContext.WorkTasks.SingleOrDefaultAsync(
+            item =>
+                item.OrganizationId == organizationId && item.Id == taskId,
+            cancellationToken);
+        if (task is null)
         {
             return Results.NotFound();
         }
@@ -387,16 +418,69 @@ public static class TaskEndpoints
                 "Ein Kommentar muss zwischen 1 und 2000 Zeichen enthalten.");
         }
 
+        var mentionedMemberIds = request.MentionedMemberIds?
+            .Distinct()
+            .ToArray() ?? [];
+        if (mentionedMemberIds.Length > 10)
+        {
+            return Validation(
+                "MentionedMemberIds",
+                "Pro Kommentar sind maximal 10 Erwähnungen möglich.");
+        }
+
+        foreach (var memberId in mentionedMemberIds)
+        {
+            if (!await accessService.IsActiveMemberAsync(
+                    organizationId,
+                    memberId,
+                    cancellationToken))
+            {
+                return Validation(
+                    "MentionedMemberIds",
+                    "Eine erwähnte Person ist kein aktives Mitglied.");
+            }
+        }
+
+        var actorMemberId = access.Membership!.MemberId;
         var comment = new TaskComment
         {
             Id = Guid.NewGuid(),
             OrganizationId = organizationId,
             TaskId = taskId,
-            AuthorMemberId = access.Membership!.MemberId,
+            AuthorMemberId = actorMemberId,
             Body = body,
             CreatedAt = timeProvider.GetUtcNow()
         };
         dbContext.TaskComments.Add(comment);
+        foreach (var memberId in mentionedMemberIds)
+        {
+            AddNotification(
+                notificationWriter,
+                task,
+                memberId,
+                actorMemberId,
+                "task.mentioned",
+                "Du wurdest erwähnt",
+                $"{task.Title}: {body}");
+        }
+
+        var watchers = new[] { task.CreatedByMemberId, task.AssignedMemberId }
+            .Where(memberId => memberId is not null)
+            .Select(memberId => memberId!.Value)
+            .Except(mentionedMemberIds)
+            .Distinct();
+        foreach (var memberId in watchers)
+        {
+            AddNotification(
+                notificationWriter,
+                task,
+                memberId,
+                actorMemberId,
+                "task.commented",
+                "Neuer Kommentar",
+                $"{task.Title}: {body}");
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Created(
             $"/api/organizations/{organizationId}/tasks/{taskId}/details",
@@ -413,6 +497,7 @@ public static class TaskEndpoints
         Guid organizationId,
         Guid taskId,
         IFormFile file,
+        IFormFile? thumbnail,
         ClaimsPrincipal principal,
         ITaskDbContext dbContext,
         IOrganizationAccessService accessService,
@@ -446,6 +531,15 @@ public static class TaskEndpoints
                 "Erlaubt sind PNG, JPEG, WebP oder GIF bis maximal 5 MB.");
         }
 
+        if (thumbnail is not null
+            && (thumbnail.Length is <= 0 or > MaximumThumbnailSize
+                || !AllowedScreenshotMediaTypes.Contains(thumbnail.ContentType)))
+        {
+            return Validation(
+                "Thumbnail",
+                "Das Vorschaubild muss ein unterstütztes Bild bis 512 KB sein.");
+        }
+
         var attachmentCount = await dbContext.TaskAttachments
             .AsNoTracking()
             .CountAsync(
@@ -463,6 +557,17 @@ public static class TaskEndpoints
         await using var input = file.OpenReadStream();
         using var buffer = new MemoryStream((int)file.Length);
         await input.CopyToAsync(buffer, cancellationToken);
+        byte[]? thumbnailContent = null;
+        if (thumbnail is not null)
+        {
+            await using var thumbnailInput = thumbnail.OpenReadStream();
+            using var thumbnailBuffer = new MemoryStream((int)thumbnail.Length);
+            await thumbnailInput.CopyToAsync(
+                thumbnailBuffer,
+                cancellationToken);
+            thumbnailContent = thumbnailBuffer.ToArray();
+        }
+
         var attachment = new TaskAttachment
         {
             Id = Guid.NewGuid(),
@@ -473,6 +578,8 @@ public static class TaskEndpoints
             MediaType = file.ContentType,
             Size = file.Length,
             Content = buffer.ToArray(),
+            ThumbnailContent = thumbnailContent,
+            ThumbnailMediaType = thumbnail?.ContentType,
             CreatedAt = timeProvider.GetUtcNow()
         };
         dbContext.TaskAttachments.Add(attachment);
@@ -488,7 +595,10 @@ public static class TaskEndpoints
                 attachment.MediaType,
                 attachment.Size,
                 attachment.CreatedAt,
-                $"/api/organizations/{organizationId}/tasks/{taskId}/attachments/{attachment.Id}/content"));
+                $"/api/organizations/{organizationId}/tasks/{taskId}/attachments/{attachment.Id}/content",
+                attachment.ThumbnailContent is null
+                    ? null
+                    : $"/api/organizations/{organizationId}/tasks/{taskId}/attachments/{attachment.Id}/thumbnail"));
     }
 
     private static async Task<IResult> GetAttachmentContentAsync(
@@ -526,6 +636,41 @@ public static class TaskEndpoints
                 enableRangeProcessing: false);
     }
 
+    private static async Task<IResult> GetAttachmentThumbnailAsync(
+        Guid organizationId,
+        Guid taskId,
+        Guid attachmentId,
+        ClaimsPrincipal principal,
+        ITaskDbContext dbContext,
+        IOrganizationAccessService accessService,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        var attachment = await dbContext.TaskAttachments
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                item =>
+                    item.OrganizationId == organizationId
+                    && item.TaskId == taskId
+                    && item.Id == attachmentId,
+                cancellationToken);
+        return attachment?.ThumbnailContent is null
+            ? Results.NotFound()
+            : Results.File(
+                attachment.ThumbnailContent,
+                attachment.ThumbnailMediaType ?? attachment.MediaType,
+                enableRangeProcessing: false);
+    }
+
     private static async Task<IResult> ChangeStatusAsync(
         Guid organizationId,
         Guid taskId,
@@ -534,6 +679,7 @@ public static class TaskEndpoints
         ITaskDbContext dbContext,
         IOrganizationAccessService accessService,
         IActivityWriter activityWriter,
+        INotificationWriter notificationWriter,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -571,6 +717,7 @@ public static class TaskEndpoints
             return Conflict();
         }
 
+        var previousStatus = task.Status;
         SetStatus(
             task,
             request.Status,
@@ -578,6 +725,12 @@ public static class TaskEndpoints
             access.Membership!,
             activityWriter,
             timeProvider);
+        AddChangeNotifications(
+            notificationWriter,
+            task,
+            task.AssignedMemberId,
+            previousStatus,
+            access.Membership!.MemberId);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Ok(ToResponse(task));
     }
@@ -589,6 +742,7 @@ public static class TaskEndpoints
         ITaskDbContext dbContext,
         IOrganizationAccessService accessService,
         IActivityWriter activityWriter,
+        INotificationWriter notificationWriter,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -616,6 +770,7 @@ public static class TaskEndpoints
             return Results.Forbid();
         }
 
+        var previousStatus = task.Status;
         SetStatus(
             task,
             WorkTaskStatus.Cancelled,
@@ -623,6 +778,12 @@ public static class TaskEndpoints
             access.Membership!,
             activityWriter,
             timeProvider);
+        AddChangeNotifications(
+            notificationWriter,
+            task,
+            task.AssignedMemberId,
+            previousStatus,
+            access.Membership!.MemberId);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }
@@ -654,6 +815,79 @@ public static class TaskEndpoints
                 new Dictionary<string, string?> { ["taskTitle"] = task.Title }));
         }
     }
+
+    private static void AddChangeNotifications(
+        INotificationWriter notificationWriter,
+        WorkTask task,
+        Guid? previousAssignee,
+        WorkTaskStatus previousStatus,
+        Guid actorMemberId)
+    {
+        if (task.AssignedMemberId is not null
+            && task.AssignedMemberId != previousAssignee)
+        {
+            AddNotification(
+                notificationWriter,
+                task,
+                task.AssignedMemberId.Value,
+                actorMemberId,
+                "task.assigned",
+                "Neue Aufgabe für dich",
+                task.Title);
+        }
+
+        if (task.Status == previousStatus)
+        {
+            return;
+        }
+
+        var recipients = new[] { task.CreatedByMemberId, task.AssignedMemberId }
+            .Where(memberId => memberId is not null)
+            .Select(memberId => memberId!.Value)
+            .Distinct();
+        foreach (var recipientMemberId in recipients)
+        {
+            AddNotification(
+                notificationWriter,
+                task,
+                recipientMemberId,
+                actorMemberId,
+                "task.status_changed",
+                "Aufgabenstatus geändert",
+                $"{task.Title} ist jetzt {StatusLabel(task.Status)}.");
+        }
+    }
+
+    private static void AddNotification(
+        INotificationWriter notificationWriter,
+        WorkTask task,
+        Guid recipientMemberId,
+        Guid actorMemberId,
+        string notificationType,
+        string title,
+        string body)
+    {
+        notificationWriter.Add(new NotificationDraft(
+            task.OrganizationId,
+            recipientMemberId,
+            actorMemberId,
+            notificationType,
+            title,
+            body,
+            "task",
+            task.Id));
+    }
+
+    private static string StatusLabel(WorkTaskStatus status) =>
+        status switch
+        {
+            WorkTaskStatus.Open => "offen",
+            WorkTaskStatus.InProgress => "in Arbeit",
+            WorkTaskStatus.Blocked => "blockiert",
+            WorkTaskStatus.Done => "erledigt",
+            WorkTaskStatus.Cancelled => "abgebrochen",
+            _ => status.ToString()
+        };
 
     private static bool CanEdit(
         WorkTask task,

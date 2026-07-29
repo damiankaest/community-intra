@@ -381,6 +381,81 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
                 });
 
+            modelBuilder.Entity("CommunityIntranet.Modules.Notifications.Domain.MemberNotification", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Members.Domain.OrganizationMember", null)
+                        .WithMany()
+                        .HasForeignKey("ActorMemberId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("CommunityIntranet.Modules.Organizations.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CommunityIntranet.Modules.Members.Domain.OrganizationMember", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientMemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Notifications.Domain.MemberNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ActorMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("NotificationType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RecipientMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorMemberId");
+
+                    b.HasIndex("RecipientMemberId");
+
+                    b.HasIndex("OrganizationId", "RecipientMemberId", "ReadAt", "CreatedAt");
+
+                    b.ToTable("notifications", "notifications");
+                });
+
             modelBuilder.Entity("CommunityIntranet.Modules.Tasks.Domain.TaskAttachment", b =>
                 {
                     b.HasOne("CommunityIntranet.Modules.Organizations.Domain.Organization", null)
@@ -451,6 +526,13 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
 
                     b.Property<long>("Size")
                         .HasColumnType("bigint");
+
+                    b.Property<byte[]>("ThumbnailContent")
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("ThumbnailMediaType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<Guid>("TaskId")
                         .HasColumnType("uuid");

@@ -252,6 +252,9 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
                 organizationId,
                 root,
                 cancellationToken),
+            "list_members" => await ListMembersAsync(
+                organizationId,
+                cancellationToken),
             "get_task_details" => await GetTaskDetailsAsync(
                 organizationId,
                 root,
@@ -271,6 +274,13 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
                 canCreateContent,
                 cancellationToken),
             "propose_create_project" => await ProposeCreateProjectAsync(
+                organizationId,
+                memberId,
+                conversationId,
+                root,
+                canCreateContent,
+                cancellationToken),
+            "propose_add_task_comment" => await ProposeAddTaskCommentAsync(
                 organizationId,
                 memberId,
                 conversationId,
@@ -373,6 +383,27 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
         return JsonResult(tasks);
     }
 
+    private async Task<WorkspaceToolResult> ListMembersAsync(
+        Guid organizationId,
+        CancellationToken cancellationToken)
+    {
+        var members = await (
+            from member in dbContext.OrganizationMembers.AsNoTracking()
+            join user in dbContext.Users.AsNoTracking()
+                on member.UserId equals user.Id
+            where member.OrganizationId == organizationId && member.IsActive
+            orderby user.DisplayName
+            select new
+            {
+                member.Id,
+                user.DisplayName,
+                member.VisibleTitle
+            })
+            .Take(100)
+            .ToArrayAsync(cancellationToken);
+        return JsonResult(members);
+    }
+
     private async Task<WorkspaceToolResult> GetTaskDetailsAsync(
         Guid organizationId,
         JsonElement arguments,
@@ -464,7 +495,8 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
             NullableGuid(arguments, "project_id"),
             NullableGuid(arguments, "parent_task_id"),
             RequiredEnum<WorkTaskPriority>(arguments, "priority"),
-            NullableDate(arguments, "due_date"));
+            NullableDate(arguments, "due_date"),
+            NullableGuid(arguments, "assigned_member_id"));
         if (payload.ParentTaskId is not null)
         {
             var parent = await dbContext.WorkTasks
@@ -578,6 +610,49 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
             cancellationToken);
     }
 
+    private async Task<WorkspaceToolResult> ProposeAddTaskCommentAsync(
+        Guid organizationId,
+        Guid memberId,
+        Guid conversationId,
+        JsonElement arguments,
+        bool canCreateContent,
+        CancellationToken cancellationToken)
+    {
+        if (!canCreateContent)
+        {
+            return ForbiddenToolResult();
+        }
+
+        var taskId = RequiredGuid(arguments, "task_id");
+        var exists = await dbContext.WorkTasks
+            .AsNoTracking()
+            .AnyAsync(
+                task =>
+                    task.OrganizationId == organizationId && task.Id == taskId,
+                cancellationToken);
+        if (!exists)
+        {
+            return new WorkspaceToolResult(
+                """{"error":"Aufgabe nicht gefunden."}""");
+        }
+
+        var mentionedMemberIds = GuidArray(
+            arguments,
+            "mentioned_member_ids",
+            10);
+        var payload = new AddTaskCommentActionPayload(
+            taskId,
+            RequiredString(arguments, "body", 2000),
+            mentionedMemberIds);
+        return await CreateActionAsync(
+            organizationId,
+            memberId,
+            conversationId,
+            AssistantActionKind.AddTaskComment,
+            payload,
+            cancellationToken);
+    }
+
     private async Task<WorkspaceToolResult> CreateActionAsync<T>(
         Guid organizationId,
         Guid memberId,
@@ -661,9 +736,10 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
             - Erzeuge genau eine Aufgabe, wenn genau eine Sache gewünscht ist.
             - Teile nur dann in mehrere Aufgaben oder ein Projekt auf, wenn der
               Nutzer ausdrücklich einen Plan oder mehrere Schritte verlangt.
-            - Nutze list_projects, list_tasks oder get_task_details, bevor du
-              Aussagen über vorhandene Daten machst. Erfinde keine IDs oder
-              Zustände.
+            - Nutze list_projects, list_tasks, list_members oder
+              get_task_details, bevor du Aussagen über vorhandene Daten
+              machst. Erfinde keine IDs, Personen oder Zustände.
+            - Nutze list_members, bevor du eine Person zuweist oder erwähnst.
             - Formuliere Aufgaben konkret: Ziel, was zu tun ist und woran man
               „fertig“ erkennt. Vermeide Management-Floskeln in Beschreibungen.
             - Sage nie, eine Änderung sei gespeichert, bevor ein Werkzeug dies
@@ -749,6 +825,28 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
             : null;
     }
 
+    private static Guid[] GuidArray(
+        JsonElement arguments,
+        string name,
+        int maximumCount)
+    {
+        if (!arguments.TryGetProperty(name, out var value)
+            || value.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return value.EnumerateArray()
+            .Select(item =>
+                Guid.TryParse(item.GetString(), out var parsed)
+                    ? parsed
+                    : Guid.Empty)
+            .Where(item => item != Guid.Empty)
+            .Distinct()
+            .Take(maximumCount)
+            .ToArray();
+    }
+
     private static readonly object[] ToolDefinitions =
     [
         Tool(
@@ -786,6 +884,16 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
                 required = new[] { "search", "status", "project_id" }
             }),
         Tool(
+            "list_members",
+            "Lädt aktive Mitglieder mit IDs. Vor Zuweisungen und Erwähnungen verwenden.",
+            new
+            {
+                type = "object",
+                additionalProperties = false,
+                properties = new { },
+                required = Array.Empty<string>()
+            }),
+        Tool(
             "get_task_details",
             "Lädt eine Aufgabe und ihre Subtasks anhand einer bekannten ID.",
             new
@@ -821,7 +929,9 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
                     priority = EnumSchema<WorkTaskPriority>(
                         "Priorität der Aufgabe."),
                     due_date = NullableStringSchema(
-                        "Fälligkeitsdatum als YYYY-MM-DD oder null.")
+                        "Fälligkeitsdatum als YYYY-MM-DD oder null."),
+                    assigned_member_id = NullableStringSchema(
+                        "ID eines aktiven Mitglieds oder null.")
                 },
                 required = new[]
                 {
@@ -830,7 +940,8 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
                     "project_id",
                     "parent_task_id",
                     "priority",
-                    "due_date"
+                    "due_date",
+                    "assigned_member_id"
                 }
             }),
         Tool(
@@ -882,6 +993,33 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
                         "Priorität des Projekts.")
                 },
                 required = new[] { "name", "description", "priority" }
+            }),
+        Tool(
+            "propose_add_task_comment",
+            "Bereitet einen Kommentar an einer vorhandenen Aufgabe zur Bestätigung vor.",
+            new
+            {
+                type = "object",
+                additionalProperties = false,
+                properties = new
+                {
+                    task_id = StringSchema("ID der vorhandenen Aufgabe."),
+                    body = StringSchema("Konkreter Kommentar."),
+                    mentioned_member_ids = new
+                    {
+                        type = "array",
+                        items = new { type = "string" },
+                        maxItems = 10,
+                        description =
+                            "Mitglieds-IDs, die benachrichtigt werden sollen."
+                    }
+                },
+                required = new[]
+                {
+                    "task_id",
+                    "body",
+                    "mentioned_member_ids"
+                }
             })
     ];
 

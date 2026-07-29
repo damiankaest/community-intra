@@ -18,6 +18,8 @@ public sealed class TaskAttachmentConfiguration
             .HasMaxLength(100)
             .IsRequired();
         builder.Property(attachment => attachment.Content).IsRequired();
+        builder.Property(attachment => attachment.ThumbnailMediaType)
+            .HasMaxLength(100);
         builder.HasIndex(attachment => new
         {
             attachment.OrganizationId,

@@ -1,12 +1,15 @@
 import {
+  addTaskComment,
   changeTaskStatus,
   createTask,
   getTaskDetails,
   listProjects,
   listTasks,
+  updateTask,
   type Priority,
   type TaskStatus,
 } from '../api/features'
+import { listMembers } from '../api/members'
 
 interface RegisterAssistantToolsOptions {
   organizationId: string
@@ -102,6 +105,32 @@ export function registerAssistantTools({
           dueDate,
         }),
       )
+    },
+  })
+
+  register({
+    name: 'community_list_members',
+    title: 'Mitglieder laden',
+    description:
+      'Lädt aktive Mitglieder mit ihren IDs. Vor Zuweisungen oder Erwähnungen verwenden.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {},
+    },
+    annotations: {
+      readOnlyHint: true,
+      untrustedContentHint: true,
+    },
+    execute: async () => {
+      onOpenChat()
+      return (await listMembers(organizationId))
+        .filter((member) => member.isActive)
+        .map(({ id, displayName, visibleTitle }) => ({
+          id,
+          displayName,
+          visibleTitle,
+        }))
     },
   })
 
@@ -232,6 +261,93 @@ export function registerAssistantTools({
       )
       onChanged()
       return { confirmed: true, task: updated }
+    },
+  })
+
+  register({
+    name: 'community_assign_task',
+    title: 'Aufgabe zuweisen',
+    description:
+      'Weist nach sichtbarer Bestätigung genau eine Aufgabe einem aktiven Mitglied zu.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        taskId: { type: 'string' },
+        memberId: { type: 'string' },
+      },
+      required: ['taskId', 'memberId'],
+    },
+    annotations: {
+      readOnlyHint: false,
+      untrustedContentHint: false,
+    },
+    execute: async (input) => {
+      onOpenChat()
+      const taskId = String(input.taskId ?? '')
+      const memberId = String(input.memberId ?? '')
+      const [task, member] = await Promise.all([
+        getTaskDetails(organizationId, taskId).then((details) => details.task),
+        listMembers(organizationId).then((members) =>
+          members.find((item) => item.id === memberId && item.isActive),
+        ),
+      ])
+      if (!member) return { confirmed: false, reason: 'Member not found' }
+      if (!window.confirm(`„${task.title}“ an ${member.displayName} geben?`)) {
+        return { confirmed: false, reason: 'User cancelled' }
+      }
+
+      const updated = await updateTask(organizationId, task.id, {
+        ...task,
+        assignedMemberId: member.id,
+      })
+      onChanged()
+      return { confirmed: true, task: updated }
+    },
+  })
+
+  register({
+    name: 'community_add_task_comment',
+    title: 'Kommentar schreiben',
+    description:
+      'Schreibt nach sichtbarer Bestätigung einen Kommentar und kann Mitglieder erwähnen.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        taskId: { type: 'string' },
+        body: { type: 'string' },
+        mentionedMemberIds: {
+          type: 'array',
+          items: { type: 'string' },
+          maxItems: 10,
+        },
+      },
+      required: ['taskId', 'body', 'mentionedMemberIds'],
+    },
+    annotations: {
+      readOnlyHint: false,
+      untrustedContentHint: true,
+    },
+    execute: async (input) => {
+      onOpenChat()
+      const taskId = String(input.taskId ?? '')
+      const body = String(input.body ?? '').trim()
+      if (!window.confirm(`Kommentar wirklich schreiben?\n\n${body}`)) {
+        return { confirmed: false, reason: 'User cancelled' }
+      }
+
+      const mentionedMemberIds = Array.isArray(input.mentionedMemberIds)
+        ? input.mentionedMemberIds.map(String).slice(0, 10)
+        : []
+      const comment = await addTaskComment(
+        organizationId,
+        taskId,
+        body,
+        mentionedMemberIds,
+      )
+      onChanged()
+      return { confirmed: true, comment }
     },
   })
 

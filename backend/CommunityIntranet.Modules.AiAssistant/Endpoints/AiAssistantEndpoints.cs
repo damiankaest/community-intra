@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using CommunityIntranet.BuildingBlocks.ActivityFeed;
 using CommunityIntranet.BuildingBlocks.Authorization;
+using CommunityIntranet.BuildingBlocks.Notifications;
 using CommunityIntranet.BuildingBlocks.Tenancy;
 using CommunityIntranet.Modules.AiAssistant.Contracts;
 using CommunityIntranet.Modules.AiAssistant.Domain;
@@ -352,6 +353,7 @@ public static class AiAssistantEndpoints
         IAiAssistantDbContext dbContext,
         IOrganizationAccessService accessService,
         IActivityWriter activityWriter,
+        INotificationWriter notificationWriter,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -418,7 +420,9 @@ public static class AiAssistantEndpoints
                 membership,
                 action,
                 dbContext,
+                accessService,
                 activityWriter,
+                notificationWriter,
                 now,
                 cancellationToken),
             AssistantActionKind.UpdateTask => await ConfirmUpdateTaskAsync(
@@ -428,6 +432,7 @@ public static class AiAssistantEndpoints
                 dbContext,
                 accessService,
                 activityWriter,
+                notificationWriter,
                 now,
                 cancellationToken),
             AssistantActionKind.CreateProject => ConfirmCreateProject(
@@ -437,6 +442,16 @@ public static class AiAssistantEndpoints
                 dbContext,
                 activityWriter,
                 now),
+            AssistantActionKind.AddTaskComment =>
+                await ConfirmAddTaskCommentAsync(
+                    organizationId,
+                    membership,
+                    action,
+                    dbContext,
+                    accessService,
+                    notificationWriter,
+                    now,
+                    cancellationToken),
             _ => new ActionConfirmationResult(
                 null,
                 Results.Problem(
@@ -465,7 +480,9 @@ public static class AiAssistantEndpoints
         OrganizationMembership membership,
         AssistantAction action,
         IAiAssistantDbContext dbContext,
+        IOrganizationAccessService accessService,
         IActivityWriter activityWriter,
+        INotificationWriter notificationWriter,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
@@ -489,6 +506,16 @@ public static class AiAssistantEndpoints
         {
             return InvalidAction(
                 "Das ausgewählte Projekt existiert nicht mehr.");
+        }
+
+        if (payload.AssignedMemberId is not null
+            && !await accessService.IsActiveMemberAsync(
+                organizationId,
+                payload.AssignedMemberId.Value,
+                cancellationToken))
+        {
+            return InvalidAction(
+                "Das ausgewählte Mitglied ist nicht mehr aktiv.");
         }
 
         if (payload.ParentTaskId is not null)
@@ -524,6 +551,7 @@ public static class AiAssistantEndpoints
             Description = Normalize(payload.Description),
             Status = WorkTaskStatus.Open,
             Priority = payload.Priority,
+            AssignedMemberId = payload.AssignedMemberId,
             CreatedByMemberId = membership.MemberId,
             DueDate = payload.DueDate,
             CreatedAt = now,
@@ -538,6 +566,18 @@ public static class AiAssistantEndpoints
             "task",
             task.Id,
             new Dictionary<string, string?> { ["taskTitle"] = task.Title }));
+        if (task.AssignedMemberId is not null)
+        {
+            AddNotification(
+                notificationWriter,
+                task,
+                task.AssignedMemberId.Value,
+                membership.MemberId,
+                "task.assigned",
+                "Neue Aufgabe für dich",
+                task.Title);
+        }
+
         return new ActionConfirmationResult(task.Id, null);
     }
 
@@ -548,6 +588,7 @@ public static class AiAssistantEndpoints
         IAiAssistantDbContext dbContext,
         IOrganizationAccessService accessService,
         IActivityWriter activityWriter,
+        INotificationWriter notificationWriter,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
@@ -574,6 +615,8 @@ public static class AiAssistantEndpoints
             return new ActionConfirmationResult(null, Results.Forbid());
         }
 
+        var previousAssignee = task.AssignedMemberId;
+        var previousStatus = task.Status;
         if (payload.Title is not null)
         {
             var title = payload.Title.Trim();
@@ -646,7 +689,101 @@ public static class AiAssistantEndpoints
 
         task.UpdatedAt = now;
         task.ConcurrencyToken = Guid.NewGuid();
+        AddChangeNotifications(
+            notificationWriter,
+            task,
+            previousAssignee,
+            previousStatus,
+            membership.MemberId);
         return new ActionConfirmationResult(task.Id, null);
+    }
+
+    private static async Task<ActionConfirmationResult>
+        ConfirmAddTaskCommentAsync(
+            Guid organizationId,
+            OrganizationMembership membership,
+            AssistantAction action,
+            IAiAssistantDbContext dbContext,
+            IOrganizationAccessService accessService,
+            INotificationWriter notificationWriter,
+            DateTimeOffset now,
+            CancellationToken cancellationToken)
+    {
+        var payload = DeserializePayload<AddTaskCommentActionPayload>(action);
+        if (payload is null
+            || string.IsNullOrWhiteSpace(payload.Body)
+            || payload.Body.Trim().Length > 2000
+            || payload.MentionedMemberIds.Count > 10)
+        {
+            return InvalidAction("Der vorbereitete Kommentar ist ungültig.");
+        }
+
+        var task = await dbContext.WorkTasks.SingleOrDefaultAsync(
+            item =>
+                item.OrganizationId == organizationId
+                && item.Id == payload.TaskId,
+            cancellationToken);
+        if (task is null)
+        {
+            return InvalidAction("Die Aufgabe existiert nicht mehr.");
+        }
+
+        var mentionedMemberIds = payload.MentionedMemberIds
+            .Distinct()
+            .ToArray();
+        foreach (var memberId in mentionedMemberIds)
+        {
+            if (!await accessService.IsActiveMemberAsync(
+                    organizationId,
+                    memberId,
+                    cancellationToken))
+            {
+                return InvalidAction(
+                    "Eine erwähnte Person ist nicht mehr aktiv.");
+            }
+        }
+
+        var body = payload.Body.Trim();
+        var comment = new TaskComment
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            TaskId = task.Id,
+            AuthorMemberId = membership.MemberId,
+            Body = body,
+            CreatedAt = now
+        };
+        dbContext.TaskComments.Add(comment);
+        foreach (var memberId in mentionedMemberIds)
+        {
+            AddNotification(
+                notificationWriter,
+                task,
+                memberId,
+                membership.MemberId,
+                "task.mentioned",
+                "Du wurdest erwähnt",
+                $"{task.Title}: {body}");
+        }
+
+        var watchers = new[] { task.CreatedByMemberId, task.AssignedMemberId }
+            .Where(memberId => memberId is not null)
+            .Select(memberId => memberId!.Value)
+            .Except(mentionedMemberIds)
+            .Distinct();
+        foreach (var memberId in watchers)
+        {
+            AddNotification(
+                notificationWriter,
+                task,
+                memberId,
+                membership.MemberId,
+                "task.commented",
+                "Neuer Kommentar",
+                $"{task.Title}: {body}");
+        }
+
+        return new ActionConfirmationResult(comment.Id, null);
     }
 
     private static ActionConfirmationResult ConfirmCreateProject(
@@ -747,6 +884,71 @@ public static class AiAssistantEndpoints
 
     private static string? Normalize(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static void AddChangeNotifications(
+        INotificationWriter notificationWriter,
+        WorkTask task,
+        Guid? previousAssignee,
+        WorkTaskStatus previousStatus,
+        Guid actorMemberId)
+    {
+        if (task.AssignedMemberId is not null
+            && task.AssignedMemberId != previousAssignee)
+        {
+            AddNotification(
+                notificationWriter,
+                task,
+                task.AssignedMemberId.Value,
+                actorMemberId,
+                "task.assigned",
+                "Neue Aufgabe für dich",
+                task.Title);
+        }
+
+        if (task.Status == previousStatus)
+        {
+            return;
+        }
+
+        foreach (var recipientMemberId in new[]
+                 {
+                     task.CreatedByMemberId,
+                     task.AssignedMemberId
+                 }
+                 .Where(memberId => memberId is not null)
+                 .Select(memberId => memberId!.Value)
+                 .Distinct())
+        {
+            AddNotification(
+                notificationWriter,
+                task,
+                recipientMemberId,
+                actorMemberId,
+                "task.status_changed",
+                "Aufgabenstatus geändert",
+                $"{task.Title} ist jetzt {task.Status}.");
+        }
+    }
+
+    private static void AddNotification(
+        INotificationWriter notificationWriter,
+        WorkTask task,
+        Guid recipientMemberId,
+        Guid actorMemberId,
+        string notificationType,
+        string title,
+        string body)
+    {
+        notificationWriter.Add(new NotificationDraft(
+            task.OrganizationId,
+            recipientMemberId,
+            actorMemberId,
+            notificationType,
+            title,
+            body,
+            "task",
+            task.Id));
+    }
 
     private static async Task<IResult> GetAvailabilityAsync(
         Guid organizationId,

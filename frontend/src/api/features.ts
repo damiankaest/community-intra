@@ -84,6 +84,7 @@ export interface TaskAttachment {
   size: number
   createdAt: string
   contentUrl: string
+  thumbnailUrl?: string
 }
 
 export interface TaskDetails {
@@ -218,6 +219,17 @@ export function createTask(organizationId: string, input: SaveTaskInput) {
   })
 }
 
+export function updateTask(
+  organizationId: string,
+  taskId: string,
+  input: SaveTaskInput,
+) {
+  return apiRequest<WorkTask>(`${base(organizationId, 'tasks')}/${taskId}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+}
+
 export function getTaskDetails(organizationId: string, taskId: string) {
   return apiRequest<TaskDetails>(
     `${base(organizationId, 'tasks')}/${taskId}/details`,
@@ -228,12 +240,13 @@ export function addTaskComment(
   organizationId: string,
   taskId: string,
   body: string,
+  mentionedMemberIds: string[] = [],
 ) {
   return apiRequest<TaskComment>(
     `${base(organizationId, 'tasks')}/${taskId}/comments`,
     {
       method: 'POST',
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, mentionedMemberIds }),
     },
   )
 }
@@ -242,9 +255,11 @@ export function uploadTaskScreenshot(
   organizationId: string,
   taskId: string,
   file: File,
+  thumbnail?: File,
 ) {
   const body = new FormData()
   body.set('file', file)
+  if (thumbnail) body.set('thumbnail', thumbnail)
   return apiRequest<TaskAttachment>(
     `${base(organizationId, 'tasks')}/${taskId}/attachments`,
     { method: 'POST', body },

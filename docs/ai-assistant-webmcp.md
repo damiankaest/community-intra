@@ -37,10 +37,12 @@ Folgende serverseitige Werkzeuge stehen dem Modell zur Verfügung:
 
 - `list_projects`
 - `list_tasks`
+- `list_members`
 - `get_task_details`
 - `propose_create_task`
 - `propose_update_task`
 - `propose_create_project`
+- `propose_add_task_comment`
 
 Lesewerkzeuge geben nur Daten der aktiven Organisation zurück. Schreibwerkzeuge
 speichern ausschließlich eine `AssistantAction` im Status `Pending`. Die
@@ -57,13 +59,17 @@ Weiterführende offizielle Dokumentation:
 
 - `community_list_projects`
 - `community_list_tasks`
+- `community_list_members`
 - `community_get_task`
 - `community_create_task`
 - `community_change_task_status`
+- `community_assign_task`
+- `community_add_task_comment`
 
-Die letzten beiden Werkzeuge zeigen vor dem Schreiben eine Browser-Bestätigung.
-Alle Werkzeuge verwenden dieselben REST-Endpunkte wie die sichtbare Oberfläche;
-WebMCP enthält keine zweite Geschäftslogik.
+Alle schreibenden Werkzeuge zeigen vor dem Schreiben eine Browser-Bestätigung.
+Mitglieder werden vor Zuweisungen oder Erwähnungen über das Lesewerkzeug
+aufgelöst. Alle Werkzeuge verwenden dieselben REST-Endpunkte wie die sichtbare
+Oberfläche; WebMCP enthält keine zweite Geschäftslogik.
 
 WebMCP ist eine experimentelle Browser-Schnittstelle. Fehlt
 `document.modelContext`, funktioniert der eingebaute Chat trotzdem vollständig

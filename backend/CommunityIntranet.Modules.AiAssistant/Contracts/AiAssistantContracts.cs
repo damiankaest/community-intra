@@ -96,7 +96,8 @@ public sealed record CreateTaskActionPayload(
     Guid? ProjectId,
     Guid? ParentTaskId,
     WorkTaskPriority Priority,
-    DateOnly? DueDate);
+    DateOnly? DueDate,
+    Guid? AssignedMemberId = null);
 
 public sealed record UpdateTaskActionPayload(
     Guid TaskId,
@@ -111,3 +112,8 @@ public sealed record CreateProjectActionPayload(
     string Name,
     string? Description,
     CommunityIntranet.Modules.Projects.Domain.ProjectPriority Priority);
+
+public sealed record AddTaskCommentActionPayload(
+    Guid TaskId,
+    string Body,
+    IReadOnlyList<Guid> MentionedMemberIds);

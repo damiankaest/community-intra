@@ -167,6 +167,25 @@ Screenshot-Anhänge mit jeweils maximal 5 MB. Erlaubt sind PNG, JPEG, WebP und
 GIF. Binärdaten liegen in PostgreSQL und werden nur nach erneuter
 Mitgliedschaftsprüfung ausgeliefert.
 
+## Zusammenarbeit im Alltag (Phase 9)
+
+| Methode | Route                                                   | Zweck                              |
+| ------- | ------------------------------------------------------- | ---------------------------------- |
+| GET     | `/organizations/{organizationId}/notifications`         | eigene Benachrichtigungen laden    |
+| GET     | `/organizations/{organizationId}/notifications/summary` | Zahl ungelesener Meldungen laden   |
+| POST    | `/organizations/{organizationId}/notifications/{id}/read` | Meldung als gelesen markieren    |
+| POST    | `/organizations/{organizationId}/notifications/read-all` | alle Meldungen als gelesen markieren |
+
+Zuweisungen, Kommentare, `@Person`-Erwähnungen und Statusänderungen erzeugen
+mandantengebundene In-App-Benachrichtigungen. Der Empfänger wird immer aus der
+aktiven Mitgliedschaft abgeleitet; Eigenbenachrichtigungen werden verworfen.
+
+Screenshot-Uploads dürfen zusätzlich ein maximal 512 KB großes Vorschaubild
+enthalten. Das Frontend verkleinert übliche Bilder auf maximal 1920 Pixel und
+erzeugt eine Vorschau mit maximal 480 Pixel. GIF-Dateien bleiben unverändert.
+Die Vorschau ist über
+`/tasks/{taskId}/attachments/{attachmentId}/thumbnail` abrufbar.
+
 ## Statuscodes
 
 | Code | Verwendung                                                  |

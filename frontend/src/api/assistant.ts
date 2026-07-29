@@ -50,7 +50,8 @@ export interface AiAssistantAvailability {
 }
 
 export type AssistantMessageRole = 'User' | 'Assistant'
-export type AssistantActionKind = 'CreateTask' | 'UpdateTask' | 'CreateProject'
+export type AssistantActionKind =
+  'CreateTask' | 'UpdateTask' | 'CreateProject' | 'AddTaskComment'
 export type AssistantActionStatus = 'Pending' | 'Confirmed' | 'Rejected'
 
 export interface AssistantMessage {
@@ -71,6 +72,8 @@ export interface AssistantActionPayload {
   priority?: Priority
   assignedMemberId?: string
   dueDate?: string
+  body?: string
+  mentionedMemberIds?: string[]
 }
 
 export interface AssistantAction {

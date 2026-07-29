@@ -18,5 +18,9 @@ public sealed class TaskAttachment
 
     public required byte[] Content { get; set; }
 
+    public byte[]? ThumbnailContent { get; set; }
+
+    public string? ThumbnailMediaType { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 }

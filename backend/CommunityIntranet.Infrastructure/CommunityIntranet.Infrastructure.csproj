@@ -20,5 +20,6 @@
     <ProjectReference Include="../CommunityIntranet.Modules.Awards/CommunityIntranet.Modules.Awards.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.ActivityFeed/CommunityIntranet.Modules.ActivityFeed.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.AiAssistant/CommunityIntranet.Modules.AiAssistant.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Notifications/CommunityIntranet.Modules.Notifications.csproj" />
   </ItemGroup>
 </Project>
