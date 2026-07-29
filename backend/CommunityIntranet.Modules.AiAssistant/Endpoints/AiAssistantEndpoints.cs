@@ -68,11 +68,12 @@ public static class AiAssistantEndpoints
             return access.Result;
         }
 
+        var membership = access.Membership!;
         var conversation = await dbContext.AssistantConversations
             .AsNoTracking()
             .Where(item =>
                 item.OrganizationId == organizationId
-                && item.MemberId == access.Membership!.MemberId)
+                && item.MemberId == membership.MemberId)
             .OrderByDescending(item => item.UpdatedAt)
             .FirstOrDefaultAsync(cancellationToken);
         if (conversation is null)
@@ -89,7 +90,7 @@ public static class AiAssistantEndpoints
             .Where(item =>
                 item.OrganizationId == organizationId
                 && item.ConversationId == conversation.Id
-                && item.MemberId == access.Membership.MemberId)
+                && item.MemberId == membership.MemberId)
             .OrderByDescending(item => item.CreatedAt)
             .Take(40)
             .OrderBy(item => item.CreatedAt)
@@ -104,7 +105,7 @@ public static class AiAssistantEndpoints
             .Where(item =>
                 item.OrganizationId == organizationId
                 && item.ConversationId == conversation.Id
-                && item.RequestedByMemberId == access.Membership.MemberId)
+                && item.RequestedByMemberId == membership.MemberId)
             .OrderByDescending(item => item.CreatedAt)
             .Take(20)
             .ToArrayAsync(cancellationToken);
@@ -139,6 +140,7 @@ public static class AiAssistantEndpoints
             return;
         }
 
+        var membership = access.Membership!;
         var content = request.Message?.Trim();
         if (string.IsNullOrWhiteSpace(content) || content.Length > 2000)
         {
@@ -197,7 +199,7 @@ public static class AiAssistantEndpoints
         var conversation = await dbContext.AssistantConversations
             .Where(item =>
                 item.OrganizationId == organizationId
-                && item.MemberId == access.Membership!.MemberId)
+                && item.MemberId == membership.MemberId)
             .OrderByDescending(item => item.UpdatedAt)
             .FirstOrDefaultAsync(cancellationToken);
         if (conversation is null)
@@ -206,7 +208,7 @@ public static class AiAssistantEndpoints
             {
                 Id = Guid.NewGuid(),
                 OrganizationId = organizationId,
-                MemberId = access.Membership.MemberId,
+                MemberId = membership.MemberId,
                 Tone = request.Tone,
                 CreatedAt = now,
                 UpdatedAt = now
@@ -224,7 +226,7 @@ public static class AiAssistantEndpoints
             Id = Guid.NewGuid(),
             OrganizationId = organizationId,
             ConversationId = conversation.Id,
-            MemberId = access.Membership.MemberId,
+            MemberId = membership.MemberId,
             Role = AssistantMessageRole.User,
             Content = content,
             CreatedAt = now
@@ -255,7 +257,7 @@ public static class AiAssistantEndpoints
             .Where(item =>
                 item.OrganizationId == organizationId
                 && item.ConversationId == conversation.Id
-                && item.MemberId == access.Membership.MemberId)
+                && item.MemberId == membership.MemberId)
             .OrderByDescending(item => item.CreatedAt)
             .Take(30)
             .OrderBy(item => item.CreatedAt)
@@ -265,12 +267,12 @@ public static class AiAssistantEndpoints
         {
             await foreach (var chatEvent in generator.StreamAsync(
                 organizationId,
-                access.Membership.MemberId,
+                membership.MemberId,
                 conversation.Id,
                 request.Tone,
                 theme.Configuration,
                 history,
-                access.Membership.PermissionRole.CanCreateContent(),
+                membership.PermissionRole.CanCreateContent(),
                 cancellationToken))
             {
                 if (chatEvent.Delta is not null)
@@ -307,7 +309,7 @@ public static class AiAssistantEndpoints
                 Id = Guid.NewGuid(),
                 OrganizationId = organizationId,
                 ConversationId = conversation.Id,
-                MemberId = access.Membership.MemberId,
+                MemberId = membership.MemberId,
                 Role = AssistantMessageRole.Assistant,
                 Content = Truncate(finalText, 12000),
                 Model = generator.Model,
@@ -363,11 +365,12 @@ public static class AiAssistantEndpoints
             return access.Result;
         }
 
+        var membership = access.Membership!;
         var action = await dbContext.AssistantActions.SingleOrDefaultAsync(
             item =>
                 item.OrganizationId == organizationId
                 && item.Id == actionId
-                && item.RequestedByMemberId == access.Membership!.MemberId,
+                && item.RequestedByMemberId == membership.MemberId,
             cancellationToken);
         if (action is null)
         {
@@ -402,7 +405,7 @@ public static class AiAssistantEndpoints
             });
         }
 
-        if (!access.Membership.PermissionRole.CanCreateContent())
+        if (!membership.PermissionRole.CanCreateContent())
         {
             return Results.Forbid();
         }
@@ -412,7 +415,7 @@ public static class AiAssistantEndpoints
         {
             AssistantActionKind.CreateTask => await ConfirmCreateTaskAsync(
                 organizationId,
-                access.Membership,
+                membership,
                 action,
                 dbContext,
                 activityWriter,
@@ -420,7 +423,7 @@ public static class AiAssistantEndpoints
                 cancellationToken),
             AssistantActionKind.UpdateTask => await ConfirmUpdateTaskAsync(
                 organizationId,
-                access.Membership,
+                membership,
                 action,
                 dbContext,
                 accessService,
@@ -429,7 +432,7 @@ public static class AiAssistantEndpoints
                 cancellationToken),
             AssistantActionKind.CreateProject => ConfirmCreateProject(
                 organizationId,
-                access.Membership,
+                membership,
                 action,
                 dbContext,
                 activityWriter,

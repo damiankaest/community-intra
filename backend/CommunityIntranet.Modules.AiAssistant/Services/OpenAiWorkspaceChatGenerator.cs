@@ -28,6 +28,7 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
     {
         Converters = { new JsonStringEnumConverter() }
     };
+    private static readonly string[] NullableStringTypes = ["string", "null"];
 
     private readonly AiAssistantOptions options = options.Value;
 
@@ -65,7 +66,7 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
 
         for (var round = 0; round < 4; round++)
         {
-            var streamed = await StreamResponseAsync(
+            var streamed = StreamResponseAsync(
                 input,
                 BuildInstructions(tone, theme, canCreateContent),
                 cancellationToken);
@@ -748,7 +749,7 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
             : null;
     }
 
-    private static object[] ToolDefinitions =>
+    private static readonly object[] ToolDefinitions =
     [
         Tool(
             "list_projects",
@@ -898,7 +899,7 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
         new { type = "string", description };
 
     private static object NullableStringSchema(string description) =>
-        new { type = new[] { "string", "null" }, description };
+        new { type = NullableStringTypes, description };
 
     private static object EnumSchema<T>(string description)
         where T : struct, Enum =>
@@ -913,7 +914,7 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
         where T : struct, Enum =>
         new
         {
-            type = new[] { "string", "null" },
+            type = NullableStringTypes,
             @enum = Enum.GetNames<T>().Cast<string?>().Append(null).ToArray(),
             description
         };
