@@ -42,6 +42,7 @@ import { listMembers } from '../api/members'
 import { getOrganization } from '../api/organizations'
 import { getThemePack } from '../api/themePacks'
 import { applyTheme, resetTheme } from '../theme'
+import { AiAssistantPanel } from './AiAssistantPanel'
 
 interface PhaseSixPageProps {
   user: CurrentUser
@@ -101,7 +102,7 @@ function FeatureLayout({
   subtitle: string
   children: ReactNode
 }) {
-  const { organizationId, organization } = usePhaseSixContext()
+  const { organizationId, organization, themePack } = usePhaseSixContext()
 
   return (
     <div className="min-h-screen bg-[var(--theme-background)] text-[var(--theme-text)]">
@@ -155,7 +156,7 @@ function FeatureLayout({
         </nav>
         <main>
           <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
-            Phase 6 · Fachmodule
+            Phase 7 · Agentic Intranet
           </p>
           <h1 className="mt-2 text-4xl font-black tracking-tight text-white">
             {title}
@@ -164,6 +165,10 @@ function FeatureLayout({
           <div className="mt-8">{children}</div>
         </main>
       </div>
+      <AiAssistantPanel
+        organizationId={organizationId}
+        themeName={themePack.data?.name}
+      />
     </div>
   )
 }
@@ -809,6 +814,8 @@ function renderActivity(activity: Activity) {
       return `Incident „${activity.data.incidentTitle ?? 'Unbenannt'}“ wurde gelöst.`
     case 'award.granted':
       return `${activity.data.targetMemberName ?? 'Ein Mitglied'} erhielt „${activity.data.awardName ?? 'eine Auszeichnung'}“.`
+    case 'assistant.work-plan-confirmed':
+      return `KI-Entwurf „${activity.data.projectName ?? 'Unbenannt'}“ wurde mit ${activity.data.taskCount ?? 'mehreren'} Aufgaben bestätigt.`
     default:
       return `Aktivität ${activity.activityType}`
   }

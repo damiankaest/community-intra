@@ -82,6 +82,7 @@ der
 | `HETZNER_KNOWN_HOSTS`     | verifizierte vollständige `ssh-keyscan`-Ausgabe         |
 | `POSTGRES_PASSWORD`       | langes zufälliges Datenbankpasswort                     |
 | `JWT_SIGNING_KEY`         | zufälliger Schlüssel mit mindestens 32 Zeichen          |
+| `OPENAI_API_KEY`          | API-Schlüssel für die serverseitige KI-Arbeitsplanung   |
 
 Geeignete zufällige Werte:
 
@@ -94,10 +95,16 @@ Bei einem abweichenden SSH-Port kann zusätzlich unter
 `Settings → Secrets and variables → Actions → Variables` die Variable
 `HETZNER_SSH_PORT` gesetzt werden. Ohne Variable wird Port `22` verwendet.
 
+Optional kann dort außerdem `AI_MODEL` gesetzt werden. Ohne diese Variable
+verwendet das Backend `gpt-5.6`.
+
 Das Datenbankpasswort darf nach dem ersten Start nicht einfach im GitHub Secret
 geändert werden: Bei einem bestehenden PostgreSQL-Volume muss das Kennwort
 zusätzlich in PostgreSQL rotiert werden. Ein neuer JWT-Schlüssel meldet alle
 aktiven Sitzungen ab.
+
+Eine Änderung von `OPENAI_API_KEY` oder `AI_MODEL` erfordert lediglich ein
+erneutes Deployment; die PostgreSQL-Daten bleiben unverändert.
 
 ## Deployment starten
 

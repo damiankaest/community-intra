@@ -127,6 +127,25 @@ Schreibende Updates verwenden einen `concurrencyToken`; veraltete Änderungen
 antworten mit `409 Conflict`. Projekt-, Mitglieds- und Zuweisungsreferenzen
 werden zusätzlich gegen den aktiven Tenant geprüft.
 
+## KI-Assistent und WebMCP (Phase 7)
+
+| Methode | Route                                                                     | Zweck                                      |
+| ------- | ------------------------------------------------------------------------- | ------------------------------------------ |
+| GET     | `/organizations/{organizationId}/assistant/availability`                  | serverseitige KI-Konfiguration prüfen      |
+| POST    | `/organizations/{organizationId}/assistant/work-plan-drafts`              | unverbindlichen Projektentwurf vorbereiten |
+| POST    | `/organizations/{organizationId}/assistant/work-plan-drafts/{id}/confirm` | Projekt und Aufgaben verbindlich anlegen   |
+
+Ein Entwurf enthält einen Theme- oder Neutral-Ton, Ressourcen, ein bis zwölf
+Aufgaben und Abnahmekriterien. Er läuft standardmäßig nach 30 Minuten ab und ist
+an das erstellende Mitglied und die Organisation gebunden. Die Bestätigung
+benötigt den aktuellen `concurrencyToken`. Wiederholte Bestätigungen erzeugen
+keine Duplikate, sondern geben das bereits angelegte Projekt zurück.
+
+Das Frontend registriert zusätzlich die WebMCP-Tools `prepare_work_plan` und,
+sobald ein Entwurf sichtbar ist, `confirm_current_work_plan`. Sie rufen
+ausschließlich diese APIs auf. Das bestätigende WebMCP-Tool zeigt vor dem
+Schreibzugriff eine sichtbare Browser-Bestätigung.
+
 ## Statuscodes
 
 | Code | Verwendung                                                  |
@@ -143,7 +162,7 @@ werden zusätzlich gegen den aktiven Tenant geprüft.
 |  422 | optionale spätere Nutzung für komplexe Fachvalidierung      |
 |  429 | Rate Limit erreicht                                         |
 |  500 | unerwarteter, intern protokollierter Fehler                 |
-|  503 | Health Check nicht gesund                                   |
+|  503 | Health Check nicht gesund oder KI-Dienst nicht verfügbar    |
 
 Bei Tenant-fremden IDs wird in der Regel `404` statt `403` geliefert, damit die
 Existenz fremder Ressourcen nicht bestätigt wird.

@@ -106,6 +106,26 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                     b.ToTable("users", "identity");
                 });
 
+            modelBuilder.Entity("CommunityIntranet.Modules.AiAssistant.Domain.WorkPlanDraft", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Members.Domain.OrganizationMember", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CommunityIntranet.Modules.Organizations.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CommunityIntranet.Modules.Projects.Domain.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
             modelBuilder.Entity("CommunityIntranet.Modules.ActivityFeed.Domain.ActivityEntry", b =>
                 {
                     b.HasOne("CommunityIntranet.Modules.Members.Domain.OrganizationMember", null)
@@ -499,6 +519,64 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("theme_packs", "theme_packs");
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.AiAssistant.Domain.WorkPlanDraft", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Prompt")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProposalJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Tone")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("OrganizationId", "CreatedByMemberId", "CreatedAt");
+
+                    b.ToTable("work_plan_drafts", "ai");
                 });
 
             modelBuilder.Entity("CommunityIntranet.Modules.ActivityFeed.Domain.ActivityEntry", b =>

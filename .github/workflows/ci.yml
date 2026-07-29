@@ -230,6 +230,19 @@ jobs:
           user_b_token=$(jq --raw-output ".accessToken" /tmp/register-b.json)
 
           curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/assistant/availability" \
+            > /tmp/assistant-availability.json
+          test "$(jq --raw-output ".isConfigured" /tmp/assistant-availability.json)" = "false"
+
+          assistant_tenant_status=$(curl --silent \
+            --output /tmp/assistant-tenant-isolation.json \
+            --write-out "%{http_code}" \
+            --header "Authorization: Bearer $user_b_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/assistant/availability")
+          test "$assistant_tenant_status" = "404"
+
+          curl --fail --silent \
             --request POST \
             --header "Content-Type: application/json" \
             --header "Authorization: Bearer $user_a_token" \

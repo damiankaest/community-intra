@@ -76,6 +76,7 @@ import {
   ProjectsPage,
   TasksPage,
 } from './components/PhaseSixPages'
+import { AiAssistantPanel } from './components/AiAssistantPanel'
 import { ThemeIcon } from './components/ThemeIcon'
 import { applyTheme, getThemeCssVariables, resetTheme } from './theme'
 
@@ -260,7 +261,7 @@ function LandingPage({ user }: { user?: CurrentUser }) {
           <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[var(--theme-surface)] shadow-2xl shadow-black/30">
             <div className="border-b border-white/10 p-6">
               <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
-                Phase 6
+                Phase 7
               </p>
               <h2 className="mt-2 text-2xl font-bold text-white">
                 Ein Kern, viele Welten
@@ -282,7 +283,7 @@ function LandingPage({ user }: { user?: CurrentUser }) {
               />
               <Feature
                 icon={<Sparkles />}
-                text="Projekte, Aufgaben, Incidents und Auszeichnungen"
+                text="KI-Arbeitspläne im Theme- oder Normal-Ton"
               />
             </div>
           </div>
@@ -301,7 +302,7 @@ function PublicHeader({ user }: { user?: CurrentUser }) {
           <div>
             <p className="text-sm font-semibold">Community Intranet</p>
             <p className="text-xs text-[var(--theme-muted)]">
-              Fachmodule & Activity Feed · Phase 6
+              KI-Assistent & WebMCP · Phase 7
             </p>
           </div>
         </a>
@@ -1191,6 +1192,10 @@ function MembersPage({ user }: { user: CurrentUser }) {
           </div>
         </section>
       )}
+      <AiAssistantPanel
+        organizationId={organizationId}
+        themeName={themePack.data?.name}
+      />
     </AppShell>
   )
 }

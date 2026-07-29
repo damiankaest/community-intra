@@ -93,6 +93,30 @@ Autorisierungsentscheidung verwendet.
 - keine API-Antworten im PWA-Cache
 - Begrenzung von Body-, Seiten- und Textgrößen
 
+## KI- und WebMCP-Sicherheit
+
+- der OpenAI-API-Schlüssel liegt nur im Backend und wird nie an den Browser
+  ausgeliefert
+- Requests an die Responses API verwenden `store: false`
+- das Modell erhält nur die konkrete Nutzereingabe und die validierte
+  Theme-Pack-Konfiguration, keine fremden Tenant-Daten
+- Modellantworten müssen einem strengen JSON-Schema entsprechen und werden
+  anschließend erneut serverseitig auf Enum-, Anzahl- und Textgrenzen geprüft
+- generierter Text bleibt unvertrauenswürdig und wird durch React ohne
+  HTML-Ausführung dargestellt
+- das Modell besitzt im ersten Slice keine direkten Schreib-Tools; es erzeugt
+  ausschließlich einen Entwurf
+- Entwürfe sind kurzlebig, organisations- und mitgliedsgebunden sowie durch
+  einen Concurrency-Token geschützt
+- erst der getrennte Bestätigungsendpunkt legt Projekt und Aufgaben atomar an
+- die Bestätigung ist idempotent und erzeugt bei Wiederholung keine Duplikate
+- WebMCP enthält keine Business-Logik und verwendet die normale JWT-Sitzung
+- WebMCP-Tools werden nicht an fremde Origins exponiert und kennzeichnen
+  Schreibzugriffe mit `readOnlyHint: false`
+- der bestätigende WebMCP-Handler fordert zusätzlich eine sichtbare
+  Nutzerbestätigung an
+- der Assistent besitzt ein eigenes Rate Limit
+
 ## Fehler und Logging
 
 Unerwartete Fehler erhalten einen Trace-Identifier und werden intern durch
@@ -122,6 +146,9 @@ Dauer, aber filtert sensible Header und Request-Bodies.
 lediglich `.env.example` mit nicht produktiven Platzhaltern. Produktion liefert
 Connection String, Token-Schlüssel und andere Secrets über den jeweiligen
 Secret Store beziehungsweise sichere Umgebungsvariablen.
+
+`OPENAI_API_KEY` wird als GitHub-Environment-Secret übertragen und auf der VM
+nur in der zugriffsgeschützten Produktions-Environment-Datei gespeichert.
 
 Die lokale Entwicklungsroutine und GitHub Actions erzeugen flüchtige
 JWT-Schlüssel zur Laufzeit. Im Repository liegt kein verwendbarer

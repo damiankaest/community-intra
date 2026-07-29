@@ -1,5 +1,7 @@
 using CommunityIntranet.Modules.Identity.Domain;
 using CommunityIntranet.Modules.Identity.Persistence;
+using CommunityIntranet.Modules.AiAssistant.Domain;
+using CommunityIntranet.Modules.AiAssistant.Persistence;
 using CommunityIntranet.Modules.ActivityFeed.Domain;
 using CommunityIntranet.Modules.ActivityFeed.Persistence;
 using CommunityIntranet.Modules.Awards.Domain;
@@ -33,7 +35,8 @@ public sealed class CommunityIntranetDbContext(
         ITaskDbContext,
         IIncidentDbContext,
         IAwardDbContext,
-        IActivityDbContext
+        IActivityDbContext,
+        IAiAssistantDbContext
 {
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
@@ -59,6 +62,8 @@ public sealed class CommunityIntranetDbContext(
 
     public DbSet<ActivityEntry> Activities => Set<ActivityEntry>();
 
+    public DbSet<WorkPlanDraft> WorkPlanDrafts => Set<WorkPlanDraft>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -72,6 +77,7 @@ public sealed class CommunityIntranetDbContext(
         builder.ApplyConfigurationsFromAssembly(typeof(Incident).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(Award).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(ActivityEntry).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(WorkPlanDraft).Assembly);
 
         builder.Entity<IdentityRole<Guid>>().ToTable("roles", "identity");
         builder.Entity<IdentityUserClaim<Guid>>()
@@ -170,5 +176,20 @@ public sealed class CommunityIntranetDbContext(
             .WithMany()
             .HasForeignKey(activity => activity.ActorMemberId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<WorkPlanDraft>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(draft => draft.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<WorkPlanDraft>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(draft => draft.CreatedByMemberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<WorkPlanDraft>()
+            .HasOne<Project>()
+            .WithMany()
+            .HasForeignKey(draft => draft.ProjectId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

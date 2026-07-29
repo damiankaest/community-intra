@@ -7,7 +7,7 @@ bleibt aber vollständig spielunabhängig.
 
 ## Aktueller Stand
 
-Phase 1 bis 6 liefern die dokumentierte Zielarchitektur, ein startbares
+Phase 1 bis 7 liefern die dokumentierte Zielarchitektur, ein startbares
 Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 
 - modularer ASP.NET-Core-8-Monolith mit Minimal APIs
@@ -27,6 +27,10 @@ Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 - Theme-basierte Auszeichnungen für Mitglieder
 - strukturierter, lokalisierbarer Activity Feed
 - Dashboard-Kennzahlen, aktuelle Auszeichnung und Schnellaktionen
+- ausklappbare KI-Arbeitsplanung mit Theme- und Normal-Ton
+- prüfbare Projektentwürfe mit Ressourcen, Aufgaben und Abnahmekriterien
+- explizite Bestätigung vor dem atomaren Anlegen von Projekt und Aufgaben
+- WebMCP-Tools als dünne Adapter auf dieselben autorisierten APIs
 - PostgreSQL über Docker Compose und eine initiale EF-Core-Migration
 - Serilog, ProblemDetails, Swagger und Health Checks
 - React-PWA mit Authentifizierung, Organisationsanlage und -auswahl
@@ -76,6 +80,11 @@ Danach sind verfügbar:
 Backend und Frontend und schreibt Prozess-IDs nach `.runtime/processes.json`.
 Für jede lokale Laufzeit wird ein temporärer JWT-Schlüssel erzeugt, sofern
 keiner über eine Umgebungsvariable gesetzt wurde.
+
+Für die KI-Arbeitsplanung muss zusätzlich `AiAssistant__ApiKey` in der lokalen
+`.env` gesetzt werden. Der Schlüssel bleibt ausschließlich im Backend. Ohne
+Schlüssel bleibt das übrige Intranet vollständig nutzbar und der Chat zeigt
+seinen nicht konfigurierten Status an.
 
 ## Deployment auf einer Hetzner-VM
 
@@ -163,8 +172,12 @@ versioniert angelegt. Offizielle Spiel-Assets werden nicht verwendet.
 - noch keine Seed-Benutzer oder Demo-Organisation
 - noch keine Passwort-Zurücksetzen- und E-Mail-Bestätigungsstrecke
 - noch kein Versand von Einladungen per E-Mail; Links werden bewusst kopiert
+- KI-Arbeitsplanung ist zunächst ein bestätigungspflichtiger Ein-Turn-Flow,
+  keine dauerhafte Unterhaltung
+- WebMCP benötigt einen Browser beziehungsweise Agenten mit experimenteller
+  WebMCP-Unterstützung
 
 ## Nächster Schritt
 
-Phase 7 vertieft Tenant-Isolationstests, responsive Stabilisierung,
-Barrierefreiheit und den produktiven Einladungs-/Testbetrieb.
+Phase 7 vertieft als Nächstes Tenant-Isolationstests, Agent-Evaluierungen,
+responsive Stabilisierung, Barrierefreiheit und den produktiven Testbetrieb.

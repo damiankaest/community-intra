@@ -35,6 +35,8 @@ services:
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      AiAssistant__ApiKey: ${OPENAI_API_KEY}
+      AiAssistant__Model: ${AI_MODEL:-gpt-5.6}
     depends_on:
       postgres:
         condition: service_healthy

@@ -27,5 +27,6 @@
     <ProjectReference Include="../CommunityIntranet.Modules.Incidents/CommunityIntranet.Modules.Incidents.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.Awards/CommunityIntranet.Modules.Awards.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.ActivityFeed/CommunityIntranet.Modules.ActivityFeed.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.AiAssistant/CommunityIntranet.Modules.AiAssistant.csproj" />
   </ItemGroup>
 </Project>

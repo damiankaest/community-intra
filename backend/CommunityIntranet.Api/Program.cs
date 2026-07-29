@@ -1,6 +1,9 @@
 using System.Globalization;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using CommunityIntranet.Modules.AiAssistant;
+using CommunityIntranet.Modules.AiAssistant.Endpoints;
 using CommunityIntranet.Api.Endpoints;
 using CommunityIntranet.Api.Infrastructure;
 using CommunityIntranet.Infrastructure;
@@ -109,6 +112,7 @@ try
     builder.Services.AddIncidentsModule();
     builder.Services.AddAwardsModule();
     builder.Services.AddActivityFeedModule();
+    builder.Services.AddAiAssistantModule(builder.Configuration);
     builder.Services.AddScoped<DatabaseInitializer>();
     builder.Services.AddRateLimiter(options =>
     {
@@ -131,6 +135,20 @@ try
                 _ => new FixedWindowRateLimiterOptions
                 {
                     PermitLimit = 20,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                }));
+        options.AddPolicy(
+            "assistant",
+            httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                    ?? httpContext.User.FindFirstValue("sub")
+                    ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                    ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
                     Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0,
                     AutoReplenishment = true
@@ -198,6 +216,7 @@ try
     app.MapIncidentEndpoints();
     app.MapAwardEndpoints();
     app.MapActivityFeedEndpoints();
+    app.MapAiAssistantEndpoints();
 
     await app.RunAsync();
 }
