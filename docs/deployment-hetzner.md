@@ -106,6 +106,13 @@ aktiven Sitzungen ab.
 Eine Änderung von `OPENAI_API_KEY` oder `AI_MODEL` erfordert lediglich ein
 erneutes Deployment; die PostgreSQL-Daten bleiben unverändert.
 
+Der Produktions-Stack persistiert zusätzlich die ASP.NET-Data-Protection-Keys
+im Volume `backend-data-protection`. Dieses Volume wird für die verschlüsselte
+Satisfactory-Serverkonfiguration benötigt und darf bei normalen Deployments
+nicht gelöscht werden. Für die Live-Anbindung ist kein weiteres GitHub Secret
+erforderlich; Host, Port, API-Token und bestätigter Zertifikat-Fingerprint
+werden später durch einen Owner in der Intranet-Oberfläche eingetragen.
+
 ## Deployment starten
 
 Unter `Actions → Deploy production → Run workflow` den Workflow auf `main`

@@ -77,6 +77,7 @@ import {
   TasksPage,
 } from './components/PhaseSixPages'
 import { AiAssistantPanel } from './components/AiAssistantPanel'
+import { LiveOperationsPage } from './components/LiveOperationsPage'
 import { ThemeIcon } from './components/ThemeIcon'
 import { applyTheme, getThemeCssVariables, resetTheme } from './theme'
 
@@ -188,6 +189,14 @@ function App() {
         }
       />
       <Route
+        path="/organizations/:organizationId/server"
+        element={
+          <ProtectedRoute query={currentUser}>
+            <LiveOperationsPage user={currentUser.data!} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/organizations/:organizationId/members"
         element={
           <ProtectedRoute query={currentUser}>
@@ -261,7 +270,7 @@ function LandingPage({ user }: { user?: CurrentUser }) {
           <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[var(--theme-surface)] shadow-2xl shadow-black/30">
             <div className="border-b border-white/10 p-6">
               <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
-                Phase 8
+                Phase 10
               </p>
               <h2 className="mt-2 text-2xl font-bold text-white">
                 Ein Kern, viele Welten
@@ -302,7 +311,7 @@ function PublicHeader({ user }: { user?: CurrentUser }) {
           <div>
             <p className="text-sm font-semibold">Community Intranet</p>
             <p className="text-xs text-[var(--theme-muted)]">
-              Community-Chat & Aufgaben · Phase 8
+              Live Operations & Zusammenarbeit · Phase 10
             </p>
           </div>
         </a>

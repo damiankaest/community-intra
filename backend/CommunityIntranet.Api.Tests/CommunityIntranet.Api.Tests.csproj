@@ -15,5 +15,6 @@
     <ProjectReference Include="../CommunityIntranet.Api/CommunityIntranet.Api.csproj" />
     <ProjectReference Include="../CommunityIntranet.BuildingBlocks/CommunityIntranet.BuildingBlocks.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.AiAssistant/CommunityIntranet.Modules.AiAssistant.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.LiveOperations/CommunityIntranet.Modules.LiveOperations.csproj" />
   </ItemGroup>
 </Project>

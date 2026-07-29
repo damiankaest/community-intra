@@ -8,6 +8,8 @@ using CommunityIntranet.Modules.Awards.Domain;
 using CommunityIntranet.Modules.Awards.Persistence;
 using CommunityIntranet.Modules.Incidents.Domain;
 using CommunityIntranet.Modules.Incidents.Persistence;
+using CommunityIntranet.Modules.LiveOperations.Domain;
+using CommunityIntranet.Modules.LiveOperations.Persistence;
 using CommunityIntranet.Modules.Members.Domain;
 using CommunityIntranet.Modules.Members.Persistence;
 using CommunityIntranet.Modules.Notifications.Domain;
@@ -39,7 +41,8 @@ public sealed class CommunityIntranetDbContext(
         IAwardDbContext,
         IActivityDbContext,
         IAiAssistantDbContext,
-        INotificationDbContext
+        INotificationDbContext,
+        ILiveOperationsDbContext
 {
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
@@ -80,6 +83,9 @@ public sealed class CommunityIntranetDbContext(
 
     public DbSet<MemberNotification> Notifications => Set<MemberNotification>();
 
+    public DbSet<GameServerConnection> GameServerConnections =>
+        Set<GameServerConnection>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -95,6 +101,7 @@ public sealed class CommunityIntranetDbContext(
         builder.ApplyConfigurationsFromAssembly(typeof(ActivityEntry).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(WorkPlanDraft).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(MemberNotification).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(GameServerConnection).Assembly);
 
         builder.Entity<IdentityRole<Guid>>().ToTable("roles", "identity");
         builder.Entity<IdentityUserClaim<Guid>>()
@@ -298,5 +305,10 @@ public sealed class CommunityIntranetDbContext(
             .WithMany()
             .HasForeignKey(notification => notification.ActorMemberId)
             .OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<GameServerConnection>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(connection => connection.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

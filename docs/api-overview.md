@@ -186,6 +186,23 @@ erzeugt eine Vorschau mit maximal 480 Pixel. GIF-Dateien bleiben unverändert.
 Die Vorschau ist über
 `/tasks/{taskId}/attachments/{attachmentId}/thumbnail` abrufbar.
 
+## Live Operations (Phase 10)
+
+Alle Routen liegen unter
+`/organizations/{organizationId}/live-operations/server`:
+
+| Methode | Route            | Permission               | Zweck                                  |
+| ------- | ---------------- | ------------------------ | -------------------------------------- |
+| GET     | `/status`        | aktives Mitglied         | gecachten Gameserver-Status laden      |
+| GET     | `/configuration` | Owner oder Administrator | maskierte Konfiguration laden          |
+| PUT     | `/configuration` | Owner oder Administrator | Verbindung verschlüsselt speichern     |
+| DELETE  | `/configuration` | Owner oder Administrator | Verbindung aus dem Intranet entfernen  |
+| POST    | `/test`          | Owner oder Administrator | Verbindung ohne Speicherung überprüfen |
+
+Für Owner und Administratoren umgeht `status?forceRefresh=true` den kurzen
+Status-Cache. API-Tokens werden niemals zurückgegeben. Selbstsignierte
+TLS-Zertifikate benötigen einen bewusst bestätigten SHA-256-Fingerprint.
+
 ## Statuscodes
 
 | Code | Verwendung                                                  |

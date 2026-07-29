@@ -10,6 +10,7 @@ import {
   type TaskStatus,
 } from '../api/features'
 import { listMembers } from '../api/members'
+import { getLiveServerStatus } from '../api/liveOperations'
 
 interface RegisterAssistantToolsOptions {
   organizationId: string
@@ -157,6 +158,26 @@ export function registerAssistantTools({
     execute: async (input) => {
       onOpenChat()
       return getTaskDetails(organizationId, String(input.taskId ?? ''))
+    },
+  })
+
+  register({
+    name: 'community_get_live_server_status',
+    title: 'Gameserver-Status laden',
+    description:
+      'Lädt den aktuellen read-only Status des verbundenen Satisfactory-Servers.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {},
+    },
+    annotations: {
+      readOnlyHint: true,
+      untrustedContentHint: true,
+    },
+    execute: async () => {
+      onOpenChat()
+      return getLiveServerStatus(organizationId)
     },
   })
 

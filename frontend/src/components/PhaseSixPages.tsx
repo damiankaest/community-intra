@@ -11,6 +11,7 @@ import {
   Gauge,
   Plus,
   ScrollText,
+  Server,
   Users,
   X,
 } from 'lucide-react'
@@ -113,7 +114,7 @@ function usePhaseSixContext() {
   return { organizationId, organization, themePack }
 }
 
-function FeatureLayout({
+export function FeatureLayout({
   user,
   title,
   subtitle,
@@ -171,6 +172,11 @@ function FeatureLayout({
             to="activities"
             label="Aktivitäten"
             icon={<ScrollText size={17} />}
+          />
+          <FeatureLink
+            to="server"
+            label="Gameserver"
+            icon={<Server size={17} />}
           />
           <FeatureLink
             to="members"

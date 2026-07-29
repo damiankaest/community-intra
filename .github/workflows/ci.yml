@@ -212,6 +212,12 @@ jobs:
           test "$(jq ".enabledModules | length" /tmp/organization.json)" = "5"
 
           curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/live-operations/server/status" \
+            > /tmp/live-server-status.json
+          test "$(jq --raw-output ".state" /tmp/live-server-status.json)" = "NotConfigured"
+
+          curl --fail --silent \
             --request POST \
             --cookie /tmp/user-a.cookies \
             --cookie-jar /tmp/user-a-rotated.cookies \
