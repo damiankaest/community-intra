@@ -52,7 +52,13 @@ export interface AiAssistantAvailability {
 
 export type AssistantMessageRole = 'User' | 'Assistant'
 export type AssistantActionKind =
-  'CreateTask' | 'UpdateTask' | 'CreateProject' | 'AddTaskComment'
+  | 'CreateTask'
+  | 'UpdateTask'
+  | 'CreateProject'
+  | 'AddTaskComment'
+  | 'ClockIn'
+  | 'ClockOut'
+  | 'LogWork'
 export type AssistantActionStatus = 'Pending' | 'Confirmed' | 'Rejected'
 
 export interface AssistantMessage {
@@ -74,6 +80,8 @@ export interface AssistantActionPayload {
   assignedMemberId?: string
   dueDate?: string
   body?: string
+  kind?: 'Built' | 'Fixed' | 'Optimized' | 'Destroyed'
+  note?: string
   mentionedMemberIds?: string[]
   materials?: WorkPlanMaterial[]
 }
