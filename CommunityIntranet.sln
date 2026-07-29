@@ -32,6 +32,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Modules.N
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Modules.LiveOperations", "backend\CommunityIntranet.Modules.LiveOperations\CommunityIntranet.Modules.LiveOperations.csproj", "{C0000000-0000-4000-8000-000000000012}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Modules.TimeTracking", "backend\CommunityIntranet.Modules.TimeTracking\CommunityIntranet.Modules.TimeTracking.csproj", "{C0000000-0000-4000-8000-000000000013}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityIntranet.Api.Tests", "backend\CommunityIntranet.Api.Tests\CommunityIntranet.Api.Tests.csproj", "{E0000000-0000-4000-8000-000000000001}"
 EndProject
 Global
@@ -100,6 +102,10 @@ Global
         {C0000000-0000-4000-8000-000000000012}.Debug|Any CPU.Build.0 = Debug|Any CPU
         {C0000000-0000-4000-8000-000000000012}.Release|Any CPU.ActiveCfg = Release|Any CPU
         {C0000000-0000-4000-8000-000000000012}.Release|Any CPU.Build.0 = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000013}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000013}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {C0000000-0000-4000-8000-000000000013}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {C0000000-0000-4000-8000-000000000013}.Release|Any CPU.Build.0 = Release|Any CPU
         {E0000000-0000-4000-8000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
         {E0000000-0000-4000-8000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
         {E0000000-0000-4000-8000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
