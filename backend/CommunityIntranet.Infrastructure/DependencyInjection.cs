@@ -11,6 +11,7 @@ using CommunityIntranet.Modules.Organizations.Persistence;
 using CommunityIntranet.Modules.Projects.Persistence;
 using CommunityIntranet.Modules.Tasks.Persistence;
 using CommunityIntranet.Modules.ThemePacks.Persistence;
+using CommunityIntranet.Modules.TimeTracking.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +59,8 @@ public static class DependencyInjection
         services.AddScoped<INotificationDbContext>(
             provider => provider.GetRequiredService<CommunityIntranetDbContext>());
         services.AddScoped<ILiveOperationsDbContext>(
+            provider => provider.GetRequiredService<CommunityIntranetDbContext>());
+        services.AddScoped<ITimeTrackingDbContext>(
             provider => provider.GetRequiredService<CommunityIntranetDbContext>());
 
         return services;
