@@ -25,6 +25,10 @@ namespace CommunityIntranet.Modules.AiAssistant.Endpoints;
 
 public static class AiAssistantEndpoints
 {
+    private const int ContextMessageLimit = 24;
+    private const int LoadedMessageLimit = 60;
+    private const string DefaultConversationTitle = "Neuer Chat";
+
     private static readonly JsonSerializerOptions SerializerOptions = new(
         JsonSerializerDefaults.Web)
     {
@@ -41,6 +45,21 @@ public static class AiAssistantEndpoints
 
         group.MapGet("/availability", GetAvailabilityAsync);
         group.MapGet("/chat", GetChatAsync);
+        group.MapGet("/conversations", ListConversationsAsync);
+        group.MapPost("/conversations", CreateConversationAsync);
+        group.MapGet(
+            "/conversations/{conversationId:guid}",
+            GetConversationAsync);
+        group.MapPatch(
+            "/conversations/{conversationId:guid}",
+            UpdateConversationAsync);
+        group.MapDelete(
+            "/conversations/{conversationId:guid}",
+            ArchiveConversationAsync);
+        group.MapPost(
+                "/conversations/{conversationId:guid}/messages",
+                StreamChatMessageAsync)
+            .RequireRateLimiting("assistant");
         group.MapPost("/chat/messages", StreamChatMessageAsync)
             .RequireRateLimiting("assistant");
         group.MapPost("/actions/{actionId:guid}/confirm", ConfirmActionAsync);
@@ -74,26 +93,259 @@ public static class AiAssistantEndpoints
             .AsNoTracking()
             .Where(item =>
                 item.OrganizationId == organizationId
-                && item.MemberId == membership.MemberId)
+                && item.MemberId == membership.MemberId
+                && item.ArchivedAt == null)
             .OrderByDescending(item => item.UpdatedAt)
             .FirstOrDefaultAsync(cancellationToken);
         if (conversation is null)
         {
             return Results.Ok(new AssistantConversationResponse(
                 null,
+                DefaultConversationTitle,
                 AssistantTone.Theme,
                 [],
                 []));
         }
 
+        return Results.Ok(await LoadConversationResponseAsync(
+            organizationId,
+            membership.MemberId,
+            conversation,
+            dbContext,
+            cancellationToken));
+    }
+
+    private static async Task<IResult> ListConversationsAsync(
+        Guid organizationId,
+        ClaimsPrincipal principal,
+        IAiAssistantDbContext dbContext,
+        IOrganizationAccessService accessService,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        var membership = access.Membership!;
+        var conversations = await dbContext.AssistantConversations
+            .AsNoTracking()
+            .Where(item =>
+                item.OrganizationId == organizationId
+                && item.MemberId == membership.MemberId
+                && item.ArchivedAt == null)
+            .OrderByDescending(item => item.UpdatedAt)
+            .Select(item => new AssistantConversationSummaryResponse(
+                item.Id,
+                item.Title ?? DefaultConversationTitle,
+                item.Tone,
+                dbContext.AssistantMessages.Count(message =>
+                    message.OrganizationId == organizationId
+                    && message.ConversationId == item.Id
+                    && message.MemberId == membership.MemberId),
+                item.CreatedAt,
+                item.UpdatedAt))
+            .ToArrayAsync(cancellationToken);
+        return Results.Ok(conversations);
+    }
+
+    private static async Task<IResult> CreateConversationAsync(
+        Guid organizationId,
+        CreateAssistantConversationRequest request,
+        ClaimsPrincipal principal,
+        IAiAssistantDbContext dbContext,
+        IOrganizationAccessService accessService,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        if (!Enum.IsDefined(request.Tone))
+        {
+            return Validation("Tone", "Der gewählte Tonfall ist ungültig.");
+        }
+
+        var title = Normalize(request.Title);
+        if (title?.Length > 120)
+        {
+            return Validation(
+                "Title",
+                "Der Titel darf maximal 120 Zeichen enthalten.");
+        }
+
+        var now = timeProvider.GetUtcNow();
+        var conversation = new AssistantConversation
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            MemberId = access.Membership!.MemberId,
+            Title = title,
+            Tone = request.Tone,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        dbContext.AssistantConversations.Add(conversation);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.Created(
+            $"/api/organizations/{organizationId}/assistant/conversations/{conversation.Id}",
+            ToSummary(conversation, 0));
+    }
+
+    private static async Task<IResult> GetConversationAsync(
+        Guid organizationId,
+        Guid conversationId,
+        ClaimsPrincipal principal,
+        IAiAssistantDbContext dbContext,
+        IOrganizationAccessService accessService,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        var membership = access.Membership!;
+        var conversation = await FindConversationAsync(
+            organizationId,
+            conversationId,
+            membership.MemberId,
+            dbContext,
+            asTracking: false,
+            cancellationToken);
+        return conversation is null
+            ? Results.NotFound()
+            : Results.Ok(await LoadConversationResponseAsync(
+                organizationId,
+                membership.MemberId,
+                conversation,
+                dbContext,
+                cancellationToken));
+    }
+
+    private static async Task<IResult> UpdateConversationAsync(
+        Guid organizationId,
+        Guid conversationId,
+        UpdateAssistantConversationRequest request,
+        ClaimsPrincipal principal,
+        IAiAssistantDbContext dbContext,
+        IOrganizationAccessService accessService,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        var title = Normalize(request.Title);
+        if (title is null || title.Length > 120)
+        {
+            return Validation(
+                "Title",
+                "Der Titel muss zwischen 1 und 120 Zeichen enthalten.");
+        }
+
+        var conversation = await FindConversationAsync(
+            organizationId,
+            conversationId,
+            access.Membership!.MemberId,
+            dbContext,
+            asTracking: true,
+            cancellationToken);
+        if (conversation is null)
+        {
+            return Results.NotFound();
+        }
+
+        conversation.Title = title;
+        conversation.UpdatedAt = timeProvider.GetUtcNow();
+        await dbContext.SaveChangesAsync(cancellationToken);
+        var messageCount = await dbContext.AssistantMessages.CountAsync(
+            message =>
+                message.OrganizationId == organizationId
+                && message.ConversationId == conversation.Id
+                && message.MemberId == conversation.MemberId,
+            cancellationToken);
+        return Results.Ok(ToSummary(conversation, messageCount));
+    }
+
+    private static async Task<IResult> ArchiveConversationAsync(
+        Guid organizationId,
+        Guid conversationId,
+        ClaimsPrincipal principal,
+        IAiAssistantDbContext dbContext,
+        IOrganizationAccessService accessService,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        var conversation = await FindConversationAsync(
+            organizationId,
+            conversationId,
+            access.Membership!.MemberId,
+            dbContext,
+            asTracking: true,
+            cancellationToken);
+        if (conversation is null)
+        {
+            return Results.NotFound();
+        }
+
+        var now = timeProvider.GetUtcNow();
+        conversation.ArchivedAt = now;
+        conversation.UpdatedAt = now;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<AssistantConversationResponse>
+        LoadConversationResponseAsync(
+            Guid organizationId,
+            Guid memberId,
+            AssistantConversation conversation,
+            IAiAssistantDbContext dbContext,
+            CancellationToken cancellationToken)
+    {
         var messages = await dbContext.AssistantMessages
             .AsNoTracking()
             .Where(item =>
                 item.OrganizationId == organizationId
                 && item.ConversationId == conversation.Id
-                && item.MemberId == membership.MemberId)
+                && item.MemberId == memberId)
             .OrderByDescending(item => item.CreatedAt)
-            .Take(40)
+            .Take(LoadedMessageLimit)
             .OrderBy(item => item.CreatedAt)
             .Select(item => new AssistantMessageResponse(
                 item.Id,
@@ -106,19 +358,21 @@ public static class AiAssistantEndpoints
             .Where(item =>
                 item.OrganizationId == organizationId
                 && item.ConversationId == conversation.Id
-                && item.RequestedByMemberId == membership.MemberId)
+                && item.RequestedByMemberId == memberId)
             .OrderByDescending(item => item.CreatedAt)
             .Take(20)
             .ToArrayAsync(cancellationToken);
-        return Results.Ok(new AssistantConversationResponse(
+        return new AssistantConversationResponse(
             conversation.Id,
+            conversation.Title ?? DefaultConversationTitle,
             conversation.Tone,
             messages,
-            actions.Select(ToActionResponse).ToArray()));
+            actions.Select(ToActionResponse).ToArray());
     }
 
     private static async Task StreamChatMessageAsync(
         Guid organizationId,
+        Guid? conversationId,
         SendAssistantMessageRequest request,
         HttpContext httpContext,
         ClaimsPrincipal principal,
@@ -197,12 +451,27 @@ public static class AiAssistantEndpoints
         }
 
         var now = timeProvider.GetUtcNow();
-        var conversation = await dbContext.AssistantConversations
-            .Where(item =>
-                item.OrganizationId == organizationId
-                && item.MemberId == membership.MemberId)
-            .OrderByDescending(item => item.UpdatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
+        var conversation = conversationId is null
+            ? await dbContext.AssistantConversations
+                .Where(item =>
+                    item.OrganizationId == organizationId
+                    && item.MemberId == membership.MemberId
+                    && item.ArchivedAt == null)
+                .OrderByDescending(item => item.UpdatedAt)
+                .FirstOrDefaultAsync(cancellationToken)
+            : await FindConversationAsync(
+                organizationId,
+                conversationId.Value,
+                membership.MemberId,
+                dbContext,
+                asTracking: true,
+                cancellationToken);
+        if (conversationId is not null && conversation is null)
+        {
+            await Results.NotFound().ExecuteAsync(httpContext);
+            return;
+        }
+
         if (conversation is null)
         {
             conversation = new AssistantConversation
@@ -222,6 +491,7 @@ public static class AiAssistantEndpoints
             conversation.UpdatedAt = now;
         }
 
+        conversation.Title ??= CreateConversationTitle(content);
         var userMessage = new AssistantMessage
         {
             Id = Guid.NewGuid(),
@@ -260,7 +530,7 @@ public static class AiAssistantEndpoints
                 && item.ConversationId == conversation.Id
                 && item.MemberId == membership.MemberId)
             .OrderByDescending(item => item.CreatedAt)
-            .Take(30)
+            .Take(ContextMessageLimit)
             .OrderBy(item => item.CreatedAt)
             .ToArrayAsync(cancellationToken);
         var responseText = new StringBuilder();
@@ -896,6 +1166,51 @@ public static class AiAssistantEndpoints
             cancellationToken);
         await context.Response.WriteAsync("\n", cancellationToken);
         await context.Response.Body.FlushAsync(cancellationToken);
+    }
+
+    private static Task<AssistantConversation?> FindConversationAsync(
+        Guid organizationId,
+        Guid conversationId,
+        Guid memberId,
+        IAiAssistantDbContext dbContext,
+        bool asTracking,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.AssistantConversations.Where(item =>
+            item.Id == conversationId
+            && item.OrganizationId == organizationId
+            && item.MemberId == memberId
+            && item.ArchivedAt == null);
+        if (!asTracking)
+        {
+            query = query.AsNoTracking();
+        }
+
+        return query.SingleOrDefaultAsync(cancellationToken);
+    }
+
+    private static AssistantConversationSummaryResponse ToSummary(
+        AssistantConversation conversation,
+        int messageCount) =>
+        new(
+            conversation.Id,
+            conversation.Title ?? DefaultConversationTitle,
+            conversation.Tone,
+            messageCount,
+            conversation.CreatedAt,
+            conversation.UpdatedAt);
+
+    private static string CreateConversationTitle(string firstMessage)
+    {
+        var normalized = string.Join(
+            ' ',
+            firstMessage.Split(
+                (char[]?)null,
+                StringSplitOptions.RemoveEmptyEntries));
+        const int maximumLength = 64;
+        return normalized.Length <= maximumLength
+            ? normalized
+            : $"{normalized[..(maximumLength - 1)]}…";
     }
 
     private static string? Normalize(string? value) =>
