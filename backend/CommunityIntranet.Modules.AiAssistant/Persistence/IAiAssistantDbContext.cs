@@ -1,4 +1,5 @@
 using CommunityIntranet.Modules.AiAssistant.Domain;
+using CommunityIntranet.Modules.Members.Domain;
 using CommunityIntranet.Modules.Projects.Domain;
 using CommunityIntranet.Modules.Tasks.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,8 @@ public interface IAiAssistantDbContext
     DbSet<TaskComment> TaskComments { get; }
 
     DbSet<TaskAttachment> TaskAttachments { get; }
+
+    DbSet<OrganizationMember> OrganizationMembers { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

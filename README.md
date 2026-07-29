@@ -7,7 +7,7 @@ bleibt aber vollständig spielunabhängig.
 
 ## Aktueller Stand
 
-Phase 1 bis 8 liefern die dokumentierte Zielarchitektur, ein startbares
+Phase 1 bis 9 liefern die dokumentierte Zielarchitektur, ein startbares
 Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 
 - modularer ASP.NET-Core-8-Monolith mit Minimal APIs
@@ -36,6 +36,11 @@ Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 - kleine bestätigungspflichtige Chat-Aktionen statt automatischer Mammutpläne
 - anklickbare Projekt- und Aufgabenansichten
 - Subtasks, Kommentare und Screenshot-Anhänge an Aufgaben
+- Kanban-Board mit nativer Drag-and-drop-Statusänderung
+- In-App-Benachrichtigungen für Zuweisungen, Kommentare, Erwähnungen und Status
+- `@Person`-Erwähnungen in Aufgabenkommentaren
+- clientseitig komprimierte Screenshots mit kleinen Vorschaubildern
+- Chat- und WebMCP-Aktionen für Mitglieder, Zuweisungen und Kommentare
 - PostgreSQL über Docker Compose und eine initiale EF-Core-Migration
 - Serilog, ProblemDetails, Swagger und Health Checks
 - React-PWA mit Authentifizierung, Organisationsanlage und -auswahl
@@ -184,5 +189,5 @@ versioniert angelegt. Offizielle Spiel-Assets werden nicht verwendet.
 
 ## Nächster Schritt
 
-Als Nächstes folgen Agent-Evaluierungen, Bildkomprimierung, feinere
-Benachrichtigungen und weitere bestätigungspflichtige Chat-Aktionen.
+Als Nächstes können externe Integrationen wie E-Mail/Push, Kalender oder ein
+optionaler Satisfactory-Serverstatus folgen. Der Kern bleibt davon unabhängig.

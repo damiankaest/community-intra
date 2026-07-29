@@ -303,6 +303,9 @@ jobs:
           test "$(jq length /tmp/departments.json)" -ge 1
 
           member_b_id=$(jq --raw-output ".membershipId" /tmp/invitation-accepted.json)
+          member_a_id=$(jq --raw-output \
+            '.[] | select(.email == "owner-a@example.test") | .id' \
+            /tmp/members.json)
           curl --fail --silent \
             --request POST \
             --header "Content-Type: application/json" \
@@ -336,7 +339,7 @@ jobs:
             --request POST \
             --header "Content-Type: application/json" \
             --header "Authorization: Bearer $user_b_token" \
-            --data '{"body":"Belt is connected; screenshot follows."}' \
+            --data "{\"body\":\"Belt is connected; screenshot follows.\",\"mentionedMemberIds\":[\"$member_a_id\"]}" \
             "http://127.0.0.1:5080/api/organizations/$organization_id/tasks/$task_id/comments" \
             > /tmp/task-comment.json
 
@@ -346,6 +349,7 @@ jobs:
             --request POST \
             --header "Authorization: Bearer $user_b_token" \
             --form "file=@/tmp/task-screenshot.png;type=image/png" \
+            --form "thumbnail=@/tmp/task-screenshot.png;type=image/png" \
             "http://127.0.0.1:5080/api/organizations/$organization_id/tasks/$task_id/attachments" \
             > /tmp/task-attachment.json
 
@@ -356,6 +360,24 @@ jobs:
           test "$(jq ".subtasks | length" /tmp/task-details.json)" = "1"
           test "$(jq ".comments | length" /tmp/task-details.json)" = "1"
           test "$(jq ".attachments | length" /tmp/task-details.json)" = "1"
+          test "$(jq --raw-output ".attachments[0].thumbnailUrl" /tmp/task-details.json)" != "null"
+
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/notifications?unreadOnly=true" \
+            > /tmp/notifications.json
+          test "$(jq length /tmp/notifications.json)" -ge 1
+          test "$(jq --raw-output ".[0].notificationType" /tmp/notifications.json)" = "task.mentioned"
+          curl --fail --silent \
+            --request POST \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/notifications/read-all" \
+            > /dev/null
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/notifications/summary" \
+            > /tmp/notification-summary.json
+          test "$(jq ".unreadCount" /tmp/notification-summary.json)" = "0"
 
           curl --fail --silent \
             --request POST \

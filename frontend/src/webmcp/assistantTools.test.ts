@@ -25,15 +25,18 @@ describe('WebMCP assistant tools', () => {
     expect(tools.map((tool) => tool.name)).toEqual([
       'community_list_projects',
       'community_list_tasks',
+      'community_list_members',
       'community_get_task',
       'community_create_task',
       'community_change_task_status',
+      'community_assign_task',
+      'community_add_task_comment',
     ])
     expect(
-      tools.slice(0, 3).every((tool) => tool.annotations?.readOnlyHint),
+      tools.slice(0, 4).every((tool) => tool.annotations?.readOnlyHint),
     ).toBe(true)
     expect(
-      tools.slice(3).every((tool) => tool.annotations?.readOnlyHint === false),
+      tools.slice(4).every((tool) => tool.annotations?.readOnlyHint === false),
     ).toBe(true)
   })
 

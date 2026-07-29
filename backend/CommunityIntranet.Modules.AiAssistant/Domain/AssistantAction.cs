@@ -29,7 +29,8 @@ public enum AssistantActionKind
 {
     CreateTask,
     UpdateTask,
-    CreateProject
+    CreateProject,
+    AddTaskComment
 }
 
 public enum AssistantActionStatus

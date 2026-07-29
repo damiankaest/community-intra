@@ -10,6 +10,8 @@ using CommunityIntranet.Modules.Incidents.Domain;
 using CommunityIntranet.Modules.Incidents.Persistence;
 using CommunityIntranet.Modules.Members.Domain;
 using CommunityIntranet.Modules.Members.Persistence;
+using CommunityIntranet.Modules.Notifications.Domain;
+using CommunityIntranet.Modules.Notifications.Persistence;
 using CommunityIntranet.Modules.Organizations.Domain;
 using CommunityIntranet.Modules.Organizations.Persistence;
 using CommunityIntranet.Modules.Projects.Domain;
@@ -36,7 +38,8 @@ public sealed class CommunityIntranetDbContext(
         IIncidentDbContext,
         IAwardDbContext,
         IActivityDbContext,
-        IAiAssistantDbContext
+        IAiAssistantDbContext,
+        INotificationDbContext
 {
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
@@ -75,6 +78,8 @@ public sealed class CommunityIntranetDbContext(
 
     public DbSet<AssistantAction> AssistantActions => Set<AssistantAction>();
 
+    public DbSet<MemberNotification> Notifications => Set<MemberNotification>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -89,6 +94,7 @@ public sealed class CommunityIntranetDbContext(
         builder.ApplyConfigurationsFromAssembly(typeof(Award).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(ActivityEntry).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(WorkPlanDraft).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(MemberNotification).Assembly);
 
         builder.Entity<IdentityRole<Guid>>().ToTable("roles", "identity");
         builder.Entity<IdentityUserClaim<Guid>>()
@@ -277,5 +283,20 @@ public sealed class CommunityIntranetDbContext(
             .WithMany()
             .HasForeignKey(action => action.RequestedByMemberId)
             .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<MemberNotification>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(notification => notification.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<MemberNotification>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(notification => notification.RecipientMemberId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<MemberNotification>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(notification => notification.ActorMemberId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

@@ -88,6 +88,12 @@ export function AiAssistantPanel({
       queryClient.invalidateQueries({
         queryKey: ['activities', organizationId],
       }),
+      queryClient.invalidateQueries({
+        queryKey: ['notifications', organizationId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ['notification-summary', organizationId],
+      }),
     ])
   }, [organizationId, queryClient])
 
@@ -443,11 +449,13 @@ function ActionCard({
   const title =
     action.payload.title ??
     action.payload.name ??
+    action.payload.body ??
     (action.kind === 'UpdateTask' ? 'Aufgabe anpassen' : 'Änderung vorbereiten')
   const kindLabel = {
     CreateTask: 'Neue Aufgabe',
     UpdateTask: 'Aufgabe ändern',
     CreateProject: 'Neues Projekt',
+    AddTaskComment: 'Kommentar schreiben',
   }[action.kind]
 
   return (

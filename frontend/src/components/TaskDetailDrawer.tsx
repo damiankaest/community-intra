@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  AtSign,
   CalendarDays,
   Check,
   ChevronRight,
@@ -22,6 +23,7 @@ import {
   type TaskStatus,
 } from '../api/features'
 import type { Member } from '../api/members'
+import { prepareScreenshot } from '../imageProcessing'
 
 interface TaskDetailDrawerProps {
   organizationId: string
@@ -58,6 +60,7 @@ export function TaskDetailDrawer({
 }: TaskDetailDrawerProps) {
   const queryClient = useQueryClient()
   const [comment, setComment] = useState('')
+  const [mentionedMemberIds, setMentionedMemberIds] = useState<string[]>([])
   const [subtaskTitle, setSubtaskTitle] = useState('')
   const details = useQuery({
     queryKey: ['task-details', organizationId, taskId],
@@ -96,9 +99,11 @@ export function TaskDetailDrawer({
     onSuccess: invalidate,
   })
   const commentMutation = useMutation({
-    mutationFn: () => addTaskComment(organizationId, taskId, comment),
+    mutationFn: () =>
+      addTaskComment(organizationId, taskId, comment, mentionedMemberIds),
     onSuccess: async () => {
       setComment('')
+      setMentionedMemberIds([])
       await invalidate()
     },
   })
@@ -118,8 +123,15 @@ export function TaskDetailDrawer({
     },
   })
   const uploadMutation = useMutation({
-    mutationFn: (file: File) =>
-      uploadTaskScreenshot(organizationId, taskId, file),
+    mutationFn: async (file: File) => {
+      const prepared = await prepareScreenshot(file)
+      return uploadTaskScreenshot(
+        organizationId,
+        taskId,
+        prepared.file,
+        prepared.thumbnail,
+      )
+    },
     onSuccess: invalidate,
   })
 
@@ -346,6 +358,33 @@ export function TaskDetailDrawer({
                   {details.data?.comments.length === 0 && (
                     <p>Noch keine Kommentare – alles verdächtig eindeutig.</p>
                   )}
+                  <div className="mention-picker">
+                    <span>
+                      <AtSign size={14} />
+                      Person erwähnen
+                    </span>
+                    <div>
+                      {members.map((member) => {
+                        const selected = mentionedMemberIds.includes(member.id)
+                        return (
+                          <button
+                            key={member.id}
+                            type="button"
+                            className={selected ? 'is-selected' : ''}
+                            onClick={() =>
+                              setMentionedMemberIds((current) =>
+                                selected
+                                  ? current.filter((id) => id !== member.id)
+                                  : [...current, member.id],
+                              )
+                            }
+                          >
+                            @{member.displayName}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                   <div className="flex items-end gap-2">
                     <textarea
                       value={comment}
@@ -376,10 +415,11 @@ export function TaskDetailDrawer({
 }
 
 function AttachmentImage({ attachment }: { attachment: TaskAttachment }) {
+  const previewUrl = attachment.thumbnailUrl ?? attachment.contentUrl
   const image = useQuery({
-    queryKey: ['task-attachment', attachment.contentUrl],
+    queryKey: ['task-attachment-preview', previewUrl],
     queryFn: async () =>
-      URL.createObjectURL(await downloadTaskAttachment(attachment.contentUrl)),
+      URL.createObjectURL(await downloadTaskAttachment(previewUrl)),
     staleTime: Number.POSITIVE_INFINITY,
   })
 
@@ -391,12 +431,22 @@ function AttachmentImage({ attachment }: { attachment: TaskAttachment }) {
   )
 
   return (
-    <a
-      href={image.data}
-      target="_blank"
-      rel="noreferrer"
+    <button
+      type="button"
       className="group overflow-hidden rounded-2xl border border-white/10 bg-black/20"
       title={attachment.fileName}
+      onClick={async () => {
+        const popup = window.open('', '_blank')
+        try {
+          const fullImageUrl = URL.createObjectURL(
+            await downloadTaskAttachment(attachment.contentUrl),
+          )
+          if (popup) popup.location.href = fullImageUrl
+          window.setTimeout(() => URL.revokeObjectURL(fullImageUrl), 60_000)
+        } catch {
+          popup?.close()
+        }
+      }}
     >
       {image.data ? (
         <img
@@ -412,7 +462,7 @@ function AttachmentImage({ attachment }: { attachment: TaskAttachment }) {
       <p className="truncate px-3 py-2 text-[11px] text-[var(--theme-muted)]">
         {attachment.fileName}
       </p>
-    </a>
+    </button>
   )
 }
 

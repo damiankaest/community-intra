@@ -33,7 +33,9 @@ public sealed record TaskResponse(
     DateTimeOffset? CompletedAt,
     Guid ConcurrencyToken);
 
-public sealed record AddTaskCommentRequest(string? Body);
+public sealed record AddTaskCommentRequest(
+    string? Body,
+    IReadOnlyList<Guid>? MentionedMemberIds = null);
 
 public sealed record TaskCommentResponse(
     Guid Id,
@@ -52,7 +54,8 @@ public sealed record TaskAttachmentResponse(
     string MediaType,
     long Size,
     DateTimeOffset CreatedAt,
-    string ContentUrl);
+    string ContentUrl,
+    string? ThumbnailUrl);
 
 public sealed record TaskDetailsResponse(
     TaskResponse Task,

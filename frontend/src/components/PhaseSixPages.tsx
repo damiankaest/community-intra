@@ -14,7 +14,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import type { CurrentUser } from '../api/auth'
 import {
   changeTaskStatus,
@@ -48,6 +48,7 @@ import { getOrganization } from '../api/organizations'
 import { getThemePack } from '../api/themePacks'
 import { applyTheme, resetTheme } from '../theme'
 import { AiAssistantPanel } from './AiAssistantPanel'
+import { NotificationBell } from './NotificationBell'
 import { TaskDetailDrawer } from './TaskDetailDrawer'
 
 interface PhaseSixPageProps {
@@ -60,13 +61,6 @@ const projectStatuses: ProjectStatus[] = [
   'InProgress',
   'Blocked',
   'Completed',
-  'Cancelled',
-]
-const taskStatuses: TaskStatus[] = [
-  'Open',
-  'InProgress',
-  'Blocked',
-  'Done',
   'Cancelled',
 ]
 const projectStatusLabels: Record<ProjectStatus, string> = {
@@ -142,9 +136,12 @@ function FeatureLayout({
           >
             {organization.data?.name ?? 'Community Intranet'}
           </Link>
-          <span className="text-sm text-[var(--theme-muted)]">
-            {user.displayName}
-          </span>
+          <div className="flex items-center gap-3">
+            <NotificationBell organizationId={organizationId} />
+            <span className="text-sm text-[var(--theme-muted)]">
+              {user.displayName}
+            </span>
+          </div>
         </div>
       </header>
       <div className="relative mx-auto grid max-w-7xl gap-8 px-5 py-8 lg:grid-cols-[220px_1fr]">
@@ -492,7 +489,11 @@ export function ProjectsPage({ user }: PhaseSixPageProps) {
 export function TasksPage({ user }: PhaseSixPageProps) {
   const { organizationId } = usePhaseSixContext()
   const queryClient = useQueryClient()
-  const [selectedTaskId, setSelectedTaskId] = useState<string>()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [selectedTaskId, setSelectedTaskId] = useState<string | undefined>(
+    searchParams.get('task') ?? undefined,
+  )
+  const [draggedTaskId, setDraggedTaskId] = useState<string>()
   const tasks = useQuery({
     queryKey: ['tasks', organizationId],
     queryFn: () => listTasks(organizationId),
@@ -539,6 +540,12 @@ export function TasksPage({ user }: PhaseSixPageProps) {
     }) => changeTaskStatus(organizationId, id, status, token),
     onSuccess: async () => invalidate(queryClient, organizationId, 'tasks'),
   })
+  const selectTask = (taskId?: string) => {
+    setSelectedTaskId(taskId)
+    setSearchParams(taskId ? { task: taskId } : {}, { replace: true })
+  }
+  const topLevelTasks = tasks.data?.filter((task) => !task.parentTaskId) ?? []
+  const boardStatuses: TaskStatus[] = ['Open', 'InProgress', 'Blocked', 'Done']
 
   return (
     <FeatureLayout
@@ -585,59 +592,90 @@ export function TasksPage({ user }: PhaseSixPageProps) {
           </SubmitButton>
         </form>
       </CreatePanel>
-      <CardGrid>
-        {tasks.data
-          ?.filter((task) => !task.parentTaskId)
-          .map((task) => (
-            <article key={task.id} className="feature-card interactive-card">
-              <button
-                type="button"
-                className="grid w-full gap-3 text-left"
-                onClick={() => setSelectedTaskId(task.id)}
-              >
-                <StatusLine status={task.status} priority={task.priority} />
-                <span className="flex items-center justify-between gap-3">
-                  <span className="text-lg font-extrabold text-white">
-                    {task.title}
-                  </span>
-                  <ChevronRight
-                    size={19}
-                    className="text-[var(--theme-primary)]"
-                  />
-                </span>
-                <span className="line-clamp-3 text-sm leading-6 whitespace-pre-wrap text-[var(--theme-muted)]">
-                  {task.description ??
-                    'Noch nicht beschrieben. Klick hinein und ergänzt, was zu tun ist.'}
-                </span>
-                <span className="text-xs font-semibold text-[var(--theme-text)]">
-                  {
-                    tasks.data.filter(
-                      (subtask) => subtask.parentTaskId === task.id,
-                    ).length
-                  }{' '}
-                  Subtasks
-                </span>
-              </button>
-              <select
-                aria-label={`Status von ${task.title}`}
-                value={task.status}
-                onChange={(event) =>
-                  statusMutation.mutate({
-                    id: task.id,
-                    status: event.target.value as TaskStatus,
-                    token: task.concurrencyToken,
-                  })
-                }
-              >
-                {taskStatuses.map((status) => (
-                  <option key={status} value={status}>
-                    {taskStatusLabels[status]}
-                  </option>
+      <div className="kanban-board" aria-label="Aufgabenboard">
+        {boardStatuses.map((status) => (
+          <section
+            key={status}
+            className={`kanban-column kanban-${status.toLowerCase()}`}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault()
+              const task = topLevelTasks.find(
+                (item) =>
+                  item.id ===
+                  (draggedTaskId || event.dataTransfer.getData('text/plain')),
+              )
+              setDraggedTaskId(undefined)
+              if (task && task.status !== status) {
+                statusMutation.mutate({
+                  id: task.id,
+                  status,
+                  token: task.concurrencyToken,
+                })
+              }
+            }}
+          >
+            <header>
+              <span>{taskStatusLabels[status]}</span>
+              <strong>
+                {topLevelTasks.filter((task) => task.status === status).length}
+              </strong>
+            </header>
+            <div className="kanban-stack">
+              {topLevelTasks
+                .filter((task) => task.status === status)
+                .map((task) => (
+                  <article
+                    key={task.id}
+                    draggable
+                    className="kanban-card"
+                    onDragStart={(event) => {
+                      setDraggedTaskId(task.id)
+                      event.dataTransfer.setData('text/plain', task.id)
+                      event.dataTransfer.effectAllowed = 'move'
+                    }}
+                    onDragEnd={() => setDraggedTaskId(undefined)}
+                  >
+                    <button type="button" onClick={() => selectTask(task.id)}>
+                      <StatusLine
+                        status={task.status}
+                        priority={task.priority}
+                      />
+                      <span className="kanban-title">
+                        {task.title}
+                        <ChevronRight size={17} />
+                      </span>
+                      <span className="kanban-description">
+                        {task.description ??
+                          'Noch nicht beschrieben – klick rein und macht klar, was fertig bedeutet.'}
+                      </span>
+                      <span className="kanban-meta">
+                        {
+                          tasks.data?.filter(
+                            (subtask) => subtask.parentTaskId === task.id,
+                          ).length
+                        }{' '}
+                        Schritte
+                        {task.dueDate
+                          ? ` · bis ${new Date(`${task.dueDate}T00:00:00`).toLocaleDateString('de-DE')}`
+                          : ''}
+                      </span>
+                    </button>
+                  </article>
                 ))}
-              </select>
-            </article>
-          ))}
-      </CardGrid>
+              {topLevelTasks.every((task) => task.status !== status) && (
+                <p className="kanban-empty">Hier ist gerade Luft.</p>
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
+      {topLevelTasks.some((task) => task.status === 'Cancelled') && (
+        <p className="mt-4 text-sm text-[var(--theme-muted)]">
+          {topLevelTasks.filter((task) => task.status === 'Cancelled').length}{' '}
+          abgebrochene Aufgabe(n) liegen im Archiv.
+        </p>
+      )}
       {!tasks.isPending &&
         tasks.data?.filter((task) => !task.parentTaskId).length === 0 && (
           <Empty text="Noch keine Aufgaben. Frag den Chat oder leg die erste direkt hier an." />
@@ -648,8 +686,8 @@ export function TasksPage({ user }: PhaseSixPageProps) {
           taskId={selectedTaskId}
           projects={projects.data ?? []}
           members={members.data ?? []}
-          onSelectTask={setSelectedTaskId}
-          onClose={() => setSelectedTaskId(undefined)}
+          onSelectTask={selectTask}
+          onClose={() => selectTask(undefined)}
         />
       )}
     </FeatureLayout>
