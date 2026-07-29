@@ -56,6 +56,10 @@ public sealed class CommunityIntranetDbContext(
 
     public DbSet<WorkTask> WorkTasks => Set<WorkTask>();
 
+    public DbSet<TaskComment> TaskComments => Set<TaskComment>();
+
+    public DbSet<TaskAttachment> TaskAttachments => Set<TaskAttachment>();
+
     public DbSet<Incident> Incidents => Set<Incident>();
 
     public DbSet<Award> Awards => Set<Award>();
@@ -63,6 +67,13 @@ public sealed class CommunityIntranetDbContext(
     public DbSet<ActivityEntry> Activities => Set<ActivityEntry>();
 
     public DbSet<WorkPlanDraft> WorkPlanDrafts => Set<WorkPlanDraft>();
+
+    public DbSet<AssistantConversation> AssistantConversations =>
+        Set<AssistantConversation>();
+
+    public DbSet<AssistantMessage> AssistantMessages => Set<AssistantMessage>();
+
+    public DbSet<AssistantAction> AssistantActions => Set<AssistantAction>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -127,6 +138,11 @@ public sealed class CommunityIntranetDbContext(
             .HasForeignKey(task => task.ProjectId)
             .OnDelete(DeleteBehavior.SetNull);
         builder.Entity<WorkTask>()
+            .HasOne<WorkTask>()
+            .WithMany()
+            .HasForeignKey(task => task.ParentTaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<WorkTask>()
             .HasOne<OrganizationMember>()
             .WithMany()
             .HasForeignKey(task => task.AssignedMemberId)
@@ -135,6 +151,36 @@ public sealed class CommunityIntranetDbContext(
             .HasOne<OrganizationMember>()
             .WithMany()
             .HasForeignKey(task => task.CreatedByMemberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<TaskComment>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(comment => comment.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<TaskComment>()
+            .HasOne<WorkTask>()
+            .WithMany()
+            .HasForeignKey(comment => comment.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<TaskComment>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(comment => comment.AuthorMemberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<TaskAttachment>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(attachment => attachment.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<TaskAttachment>()
+            .HasOne<WorkTask>()
+            .WithMany()
+            .HasForeignKey(attachment => attachment.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<TaskAttachment>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(attachment => attachment.UploadedByMemberId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.Entity<Incident>()
             .HasOne<Organization>()
@@ -191,5 +237,45 @@ public sealed class CommunityIntranetDbContext(
             .WithMany()
             .HasForeignKey(draft => draft.ProjectId)
             .OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<AssistantConversation>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(conversation => conversation.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<AssistantConversation>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(conversation => conversation.MemberId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<AssistantMessage>()
+            .HasOne<AssistantConversation>()
+            .WithMany()
+            .HasForeignKey(message => message.ConversationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<AssistantMessage>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(message => message.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<AssistantMessage>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(message => message.MemberId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<AssistantAction>()
+            .HasOne<AssistantConversation>()
+            .WithMany()
+            .HasForeignKey(action => action.ConversationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<AssistantAction>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(action => action.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<AssistantAction>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(action => action.RequestedByMemberId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

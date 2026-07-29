@@ -14,6 +14,8 @@ public static class DependencyInjection
             configuration.GetSection(AiAssistantOptions.SectionName));
         services.AddHttpClient<IWorkPlanGenerator, OpenAiWorkPlanGenerator>(
             client => client.Timeout = TimeSpan.FromSeconds(45));
+        services.AddHttpClient<IWorkspaceChatGenerator, OpenAiWorkspaceChatGenerator>(
+            client => client.Timeout = TimeSpan.FromSeconds(90));
         return services;
     }
 }

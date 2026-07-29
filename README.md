@@ -7,7 +7,7 @@ bleibt aber vollständig spielunabhängig.
 
 ## Aktueller Stand
 
-Phase 1 bis 7 liefern die dokumentierte Zielarchitektur, ein startbares
+Phase 1 bis 8 liefern die dokumentierte Zielarchitektur, ein startbares
 Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 
 - modularer ASP.NET-Core-8-Monolith mit Minimal APIs
@@ -31,6 +31,11 @@ Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 - prüfbare Projektentwürfe mit Ressourcen, Aufgaben und Abnahmekriterien
 - explizite Bestätigung vor dem atomaren Anlegen von Projekt und Aufgaben
 - WebMCP-Tools als dünne Adapter auf dieselben autorisierten APIs
+- persistenter Community-Chat mit echter Streaming-Antwort
+- KI-Lesezugriff auf vorhandene Projekte und Aufgaben
+- kleine bestätigungspflichtige Chat-Aktionen statt automatischer Mammutpläne
+- anklickbare Projekt- und Aufgabenansichten
+- Subtasks, Kommentare und Screenshot-Anhänge an Aufgaben
 - PostgreSQL über Docker Compose und eine initiale EF-Core-Migration
 - Serilog, ProblemDetails, Swagger und Health Checks
 - React-PWA mit Authentifizierung, Organisationsanlage und -auswahl
@@ -172,12 +177,12 @@ versioniert angelegt. Offizielle Spiel-Assets werden nicht verwendet.
 - noch keine Seed-Benutzer oder Demo-Organisation
 - noch keine Passwort-Zurücksetzen- und E-Mail-Bestätigungsstrecke
 - noch kein Versand von Einladungen per E-Mail; Links werden bewusst kopiert
-- KI-Arbeitsplanung ist zunächst ein bestätigungspflichtiger Ein-Turn-Flow,
-  keine dauerhafte Unterhaltung
 - WebMCP benötigt einen Browser beziehungsweise Agenten mit experimenteller
   WebMCP-Unterstützung
+- WebMCP ist optional; der eingebaute Chat arbeitet unabhängig davon über die
+  Backend-API
 
 ## Nächster Schritt
 
-Phase 7 vertieft als Nächstes Tenant-Isolationstests, Agent-Evaluierungen,
-responsive Stabilisierung, Barrierefreiheit und den produktiven Testbetrieb.
+Als Nächstes folgen Agent-Evaluierungen, Bildkomprimierung, feinere
+Benachrichtigungen und weitere bestätigungspflichtige Chat-Aktionen.

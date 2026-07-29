@@ -21,6 +21,9 @@ erDiagram
     THEME_PACK ||--o{ ORGANIZATION : styles
     ORGANIZATION ||--o{ PROJECT : owns
     PROJECT o|--o{ TASK : groups
+    TASK ||--o{ TASK : splits_into
+    TASK ||--o{ TASK_COMMENT : discusses
+    TASK ||--o{ TASK_ATTACHMENT : documents
     ORGANIZATION ||--o{ INCIDENT : owns
     ORGANIZATION_MEMBER ||--o{ AWARD : receives
     ORGANIZATION ||--o{ ACTIVITY : records
@@ -64,28 +67,35 @@ fest typisiert; die JSON-Spalte ist nur das Persistenzformat.
 
 ### Fachmodule
 
-| Typ | Aggregate-Root | Lebenszyklus-Besonderheit |
-|---|---:|---|
-| Project | ja | Statuswechsel setzt `CompletedAt`; Löschung nur vor relevanter Historie |
-| Task | ja | Projekt optional; Abschlusszeit folgt Status |
-| Incident | ja | Auflösung benötigt Resolution; Historie bleibt erhalten |
-| Award | ja | vergebene Awards werden nicht umgeschrieben, sondern ggf. zurückgezogen |
-| Activity | ja, append-only | strukturierte Daten mit Schema-/Eventversion |
-| WorkPlanDraft | ja | kurzlebig; Bestätigung erzeugt Projekt und Aufgaben genau einmal |
+| Typ                   |  Aggregate-Root | Lebenszyklus-Besonderheit                                               |
+| --------------------- | --------------: | ----------------------------------------------------------------------- |
+| Project               |              ja | Statuswechsel setzt `CompletedAt`; Löschung nur vor relevanter Historie |
+| Task                  |              ja | Projekt optional; Abschlusszeit folgt Status                            |
+| Incident              |              ja | Auflösung benötigt Resolution; Historie bleibt erhalten                 |
+| Award                 |              ja | vergebene Awards werden nicht umgeschrieben, sondern ggf. zurückgezogen |
+| Activity              | ja, append-only | strukturierte Daten mit Schema-/Eventversion                            |
+| WorkPlanDraft         |              ja | kurzlebig; Bestätigung erzeugt Projekt und Aufgaben genau einmal        |
+| AssistantConversation |              ja | pro Mitglied und Organisation persistierter Chat                        |
+| AssistantAction       |              ja | bestätigungspflichtige KI-Änderung mit Concurrency-Token                |
+| TaskComment           |            nein | append-only Diskussion an einer Aufgabe                                 |
+| TaskAttachment        |            nein | Screenshot-Binärdaten mit Größen- und Typgrenze                         |
+
+Tasks dürfen genau eine Subtask-Ebene besitzen. Ein Subtask und seine
+Hauptaufgabe müssen bei gesetztem Projektbezug zum selben Projekt gehören.
 
 ## Invarianten und Constraints
 
-| Invariante | Durchsetzung |
-|---|---|
-| E-Mail global eindeutig | normalisierter Unique Index aus Identity |
-| Organisations-Slug global eindeutig | Unique Index |
-| Mitglied nur einmal je Organisation | Unique `(OrganizationId, UserId)` |
-| Theme-Key und Version eindeutig | Unique `(Key, Version)` |
-| Einladungstoken eindeutig | Unique auf Token-Hash |
-| Fachreferenzen gehören zum selben Tenant | Anwendungsservice plus zusammengesetzte Prüfung |
-| nur ein aktiver Owner | Transaktion und Rollenwechsel-Anwendungsfall |
-| UTC-Zeitstempel | `TimeProvider` und PostgreSQL `timestamptz` |
-| Status/CompletedAt konsistent | Domain-Methode und Datenbank-Check soweit sinnvoll |
+| Invariante                               | Durchsetzung                                       |
+| ---------------------------------------- | -------------------------------------------------- |
+| E-Mail global eindeutig                  | normalisierter Unique Index aus Identity           |
+| Organisations-Slug global eindeutig      | Unique Index                                       |
+| Mitglied nur einmal je Organisation      | Unique `(OrganizationId, UserId)`                  |
+| Theme-Key und Version eindeutig          | Unique `(Key, Version)`                            |
+| Einladungstoken eindeutig                | Unique auf Token-Hash                              |
+| Fachreferenzen gehören zum selben Tenant | Anwendungsservice plus zusammengesetzte Prüfung    |
+| nur ein aktiver Owner                    | Transaktion und Rollenwechsel-Anwendungsfall       |
+| UTC-Zeitstempel                          | `TimeProvider` und PostgreSQL `timestamptz`        |
+| Status/CompletedAt konsistent            | Domain-Methode und Datenbank-Check soweit sinnvoll |
 
 ## Löschregeln
 

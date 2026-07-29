@@ -15,6 +15,15 @@ namespace CommunityIntranet.Modules.Tasks.Endpoints;
 
 public static class TaskEndpoints
 {
+    private const long MaximumScreenshotSize = 5 * 1024 * 1024;
+    private static readonly HashSet<string> AllowedScreenshotMediaTypes =
+    [
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "image/gif"
+    ];
+
     public static IEndpointRouteBuilder MapTaskEndpoints(
         this IEndpointRouteBuilder endpoints)
     {
@@ -24,9 +33,16 @@ public static class TaskEndpoints
             .RequireAuthorization();
         group.MapGet("/", ListAsync);
         group.MapGet("/{taskId:guid}", GetAsync);
+        group.MapGet("/{taskId:guid}/details", GetDetailsAsync);
         group.MapPost("/", CreateAsync);
         group.MapPut("/{taskId:guid}", UpdateAsync);
         group.MapPatch("/{taskId:guid}/status", ChangeStatusAsync);
+        group.MapPost("/{taskId:guid}/comments", AddCommentAsync);
+        group.MapPost("/{taskId:guid}/attachments", AddAttachmentAsync)
+            .DisableAntiforgery();
+        group.MapGet(
+            "/{taskId:guid}/attachments/{attachmentId:guid}/content",
+            GetAttachmentContentAsync);
         group.MapDelete("/{taskId:guid}", CancelAsync);
         return endpoints;
     }
@@ -113,6 +129,83 @@ public static class TaskEndpoints
             : Results.Ok(ToResponse(task));
     }
 
+    private static async Task<IResult> GetDetailsAsync(
+        Guid organizationId,
+        Guid taskId,
+        ClaimsPrincipal principal,
+        ITaskDbContext dbContext,
+        IOrganizationAccessService accessService,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        var task = await dbContext.WorkTasks
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                item =>
+                    item.OrganizationId == organizationId && item.Id == taskId,
+                cancellationToken);
+        if (task is null)
+        {
+            return Results.NotFound();
+        }
+
+        var subtasks = await dbContext.WorkTasks
+            .AsNoTracking()
+            .Where(item =>
+                item.OrganizationId == organizationId
+                && item.ParentTaskId == taskId)
+            .OrderBy(item => item.Status)
+            .ThenByDescending(item => item.Priority)
+            .ThenBy(item => item.CreatedAt)
+            .ToArrayAsync(cancellationToken);
+        var comments = await dbContext.TaskComments
+            .AsNoTracking()
+            .Where(item =>
+                item.OrganizationId == organizationId
+                && item.TaskId == taskId)
+            .OrderBy(item => item.CreatedAt)
+            .Select(item => new TaskCommentResponse(
+                item.Id,
+                item.TaskId,
+                item.AuthorMemberId,
+                null,
+                item.Body,
+                item.CreatedAt))
+            .ToArrayAsync(cancellationToken);
+        var attachments = await dbContext.TaskAttachments
+            .AsNoTracking()
+            .Where(item =>
+                item.OrganizationId == organizationId
+                && item.TaskId == taskId)
+            .OrderByDescending(item => item.CreatedAt)
+            .Select(item => new TaskAttachmentResponse(
+                item.Id,
+                item.TaskId,
+                item.UploadedByMemberId,
+                null,
+                item.FileName,
+                item.MediaType,
+                item.Size,
+                item.CreatedAt,
+                $"/api/organizations/{organizationId}/tasks/{taskId}/attachments/{item.Id}/content"))
+            .ToArrayAsync(cancellationToken);
+
+        return Results.Ok(new TaskDetailsResponse(
+            ToResponse(task),
+            subtasks.Select(ToResponse).ToArray(),
+            comments,
+            attachments));
+    }
+
     private static async Task<IResult> CreateAsync(
         Guid organizationId,
         SaveTaskRequest request,
@@ -141,7 +234,9 @@ public static class TaskEndpoints
 
         var validation = await ValidateAsync(
             organizationId,
+            null,
             request,
+            dbContext,
             projectLookup,
             accessService,
             cancellationToken);
@@ -156,6 +251,7 @@ public static class TaskEndpoints
             Id = Guid.NewGuid(),
             OrganizationId = organizationId,
             ProjectId = request.ProjectId,
+            ParentTaskId = request.ParentTaskId,
             Title = request.Title.Trim(),
             Description = Normalize(request.Description),
             Status = request.Status,
@@ -225,7 +321,9 @@ public static class TaskEndpoints
 
         var validation = await ValidateAsync(
             organizationId,
+            taskId,
             request,
+            dbContext,
             projectLookup,
             accessService,
             cancellationToken);
@@ -235,6 +333,7 @@ public static class TaskEndpoints
         }
 
         task.ProjectId = request.ProjectId;
+        task.ParentTaskId = request.ParentTaskId;
         task.Title = request.Title.Trim();
         task.Description = Normalize(request.Description);
         task.Priority = request.Priority;
@@ -249,6 +348,182 @@ public static class TaskEndpoints
             timeProvider);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Ok(ToResponse(task));
+    }
+
+    private static async Task<IResult> AddCommentAsync(
+        Guid organizationId,
+        Guid taskId,
+        AddTaskCommentRequest request,
+        ClaimsPrincipal principal,
+        ITaskDbContext dbContext,
+        IOrganizationAccessService accessService,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        if (!await TaskExistsAsync(
+                dbContext,
+                organizationId,
+                taskId,
+                cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        var body = Normalize(request.Body);
+        if (body is null || body.Length > 2000)
+        {
+            return Validation(
+                "Body",
+                "Ein Kommentar muss zwischen 1 und 2000 Zeichen enthalten.");
+        }
+
+        var comment = new TaskComment
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            TaskId = taskId,
+            AuthorMemberId = access.Membership!.MemberId,
+            Body = body,
+            CreatedAt = timeProvider.GetUtcNow()
+        };
+        dbContext.TaskComments.Add(comment);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.Created(
+            $"/api/organizations/{organizationId}/tasks/{taskId}/details",
+            new TaskCommentResponse(
+                comment.Id,
+                taskId,
+                comment.AuthorMemberId,
+                null,
+                comment.Body,
+                comment.CreatedAt));
+    }
+
+    private static async Task<IResult> AddAttachmentAsync(
+        Guid organizationId,
+        Guid taskId,
+        IFormFile file,
+        ClaimsPrincipal principal,
+        ITaskDbContext dbContext,
+        IOrganizationAccessService accessService,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        if (!await TaskExistsAsync(
+                dbContext,
+                organizationId,
+                taskId,
+                cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        if (file.Length is <= 0 or > MaximumScreenshotSize
+            || !AllowedScreenshotMediaTypes.Contains(file.ContentType))
+        {
+            return Validation(
+                "File",
+                "Erlaubt sind PNG, JPEG, WebP oder GIF bis maximal 5 MB.");
+        }
+
+        var attachmentCount = await dbContext.TaskAttachments
+            .AsNoTracking()
+            .CountAsync(
+                item =>
+                    item.OrganizationId == organizationId
+                    && item.TaskId == taskId,
+                cancellationToken);
+        if (attachmentCount >= 20)
+        {
+            return Validation(
+                "File",
+                "Pro Aufgabe sind maximal 20 Screenshots möglich.");
+        }
+
+        await using var input = file.OpenReadStream();
+        using var buffer = new MemoryStream((int)file.Length);
+        await input.CopyToAsync(buffer, cancellationToken);
+        var attachment = new TaskAttachment
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            TaskId = taskId,
+            UploadedByMemberId = access.Membership!.MemberId,
+            FileName = NormalizeFileName(file.FileName),
+            MediaType = file.ContentType,
+            Size = file.Length,
+            Content = buffer.ToArray(),
+            CreatedAt = timeProvider.GetUtcNow()
+        };
+        dbContext.TaskAttachments.Add(attachment);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.Created(
+            $"/api/organizations/{organizationId}/tasks/{taskId}/attachments/{attachment.Id}/content",
+            new TaskAttachmentResponse(
+                attachment.Id,
+                taskId,
+                attachment.UploadedByMemberId,
+                null,
+                attachment.FileName,
+                attachment.MediaType,
+                attachment.Size,
+                attachment.CreatedAt,
+                $"/api/organizations/{organizationId}/tasks/{taskId}/attachments/{attachment.Id}/content"));
+    }
+
+    private static async Task<IResult> GetAttachmentContentAsync(
+        Guid organizationId,
+        Guid taskId,
+        Guid attachmentId,
+        ClaimsPrincipal principal,
+        ITaskDbContext dbContext,
+        IOrganizationAccessService accessService,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        var attachment = await dbContext.TaskAttachments
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                item =>
+                    item.OrganizationId == organizationId
+                    && item.TaskId == taskId
+                    && item.Id == attachmentId,
+                cancellationToken);
+        return attachment is null
+            ? Results.NotFound()
+            : Results.File(
+                attachment.Content,
+                attachment.MediaType,
+                enableRangeProcessing: false);
     }
 
     private static async Task<IResult> ChangeStatusAsync(
@@ -389,7 +664,9 @@ public static class TaskEndpoints
 
     private static async Task<IResult?> ValidateAsync(
         Guid organizationId,
+        Guid? currentTaskId,
         SaveTaskRequest request,
+        ITaskDbContext dbContext,
         IProjectLookup projectLookup,
         IOrganizationAccessService accessService,
         CancellationToken cancellationToken)
@@ -426,6 +703,58 @@ public static class TaskEndpoints
                 "The selected project does not exist.");
         }
 
+        if (request.ParentTaskId is not null)
+        {
+            if (request.ParentTaskId == currentTaskId)
+            {
+                return Validation(
+                    "ParentTaskId",
+                    "Eine Aufgabe kann nicht ihr eigener Subtask sein.");
+            }
+
+            var parent = await dbContext.WorkTasks
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    item =>
+                        item.OrganizationId == organizationId
+                        && item.Id == request.ParentTaskId,
+                    cancellationToken);
+            if (parent is null)
+            {
+                return Validation(
+                    "ParentTaskId",
+                    "Die übergeordnete Aufgabe existiert nicht.");
+            }
+
+            if (parent.ParentTaskId is not null)
+            {
+                return Validation(
+                    "ParentTaskId",
+                    "Subtasks können nicht weiter verschachtelt werden.");
+            }
+
+            if (parent.ProjectId != request.ProjectId)
+            {
+                return Validation(
+                    "ProjectId",
+                    "Subtask und Hauptaufgabe müssen zum selben Projekt gehören.");
+            }
+
+            if (currentTaskId is not null
+                && await dbContext.WorkTasks
+                    .AsNoTracking()
+                    .AnyAsync(
+                        item =>
+                            item.OrganizationId == organizationId
+                            && item.ParentTaskId == currentTaskId,
+                        cancellationToken))
+            {
+                return Validation(
+                    "ParentTaskId",
+                    "Eine Hauptaufgabe mit Subtasks kann nicht selbst zum Subtask werden.");
+            }
+        }
+
         if (request.AssignedMemberId is not null
             && !await accessService.IsActiveMemberAsync(
                 organizationId,
@@ -444,6 +773,7 @@ public static class TaskEndpoints
         new(
             task.Id,
             task.ProjectId,
+            task.ParentTaskId,
             task.Title,
             task.Description,
             task.Status,
@@ -455,6 +785,26 @@ public static class TaskEndpoints
             task.UpdatedAt,
             task.CompletedAt,
             task.ConcurrencyToken);
+
+    private static Task<bool> TaskExistsAsync(
+        ITaskDbContext dbContext,
+        Guid organizationId,
+        Guid taskId,
+        CancellationToken cancellationToken) =>
+        dbContext.WorkTasks
+            .AsNoTracking()
+            .AnyAsync(
+                item =>
+                    item.OrganizationId == organizationId && item.Id == taskId,
+                cancellationToken);
+
+    private static string NormalizeFileName(string fileName)
+    {
+        var normalized = Path.GetFileName(fileName).Trim();
+        return string.IsNullOrWhiteSpace(normalized)
+            ? "screenshot.png"
+            : normalized[..Math.Min(normalized.Length, 240)];
+    }
 
     private static string? Normalize(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

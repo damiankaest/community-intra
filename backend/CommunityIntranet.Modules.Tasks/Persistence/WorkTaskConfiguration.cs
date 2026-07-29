@@ -26,5 +26,6 @@ public sealed class WorkTaskConfiguration : IEntityTypeConfiguration<WorkTask>
             task.AssignedMemberId
         });
         builder.HasIndex(task => new { task.OrganizationId, task.ProjectId });
+        builder.HasIndex(task => new { task.OrganizationId, task.ParentTaskId });
     }
 }

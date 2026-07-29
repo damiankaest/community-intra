@@ -1,113 +1,260 @@
 import {
-  confirmWorkPlan,
-  prepareWorkPlan,
-  type AssistantTone,
-  type ConfirmedWorkPlan,
-  type WorkPlanDraft,
-} from '../api/assistant'
+  changeTaskStatus,
+  createTask,
+  getTaskDetails,
+  listProjects,
+  listTasks,
+  type Priority,
+  type TaskStatus,
+} from '../api/features'
 
 interface RegisterAssistantToolsOptions {
   organizationId: string
-  currentDraft?: WorkPlanDraft
-  onDraft: (draft: WorkPlanDraft) => void
-  onConfirmed: (result: ConfirmedWorkPlan) => void
+  onChanged: () => void
+  onOpenChat: () => void
 }
 
 export function registerAssistantTools({
   organizationId,
-  currentDraft,
-  onDraft,
-  onConfirmed,
+  onChanged,
+  onOpenChat,
 }: RegisterAssistantToolsOptions) {
   if (!document.modelContext) {
     return { isSupported: false, unregister: () => undefined }
   }
 
   const controller = new AbortController()
-  void document.modelContext.registerTool(
-    {
-      name: 'prepare_work_plan',
-      description:
-        'Erstellt einen unverbindlichen Projektentwurf mit Ressourcen und Aufgaben. Speichert noch kein Projekt.',
-      inputSchema: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          prompt: {
-            type: 'string',
-            description: 'Das Ziel oder Vorhaben in natürlicher Sprache.',
-          },
-          tone: {
-            type: 'string',
-            enum: ['Theme', 'Neutral'],
-            description: 'Theme für humorvoll, Neutral für sachlich.',
-          },
-        },
-        required: ['prompt', 'tone'],
-      },
-      annotations: {
-        readOnlyHint: false,
-        untrustedContentHint: true,
-      },
-      execute: async (input) => {
-        const prompt = String(input.prompt ?? '')
-        const tone: AssistantTone =
-          input.tone === 'Neutral' ? 'Neutral' : 'Theme'
-        const draft = await prepareWorkPlan(organizationId, prompt, tone)
-        onDraft(draft)
-        return {
-          draftId: draft.id,
-          title: draft.proposal.title,
-          taskCount: draft.proposal.tasks.length,
-          requiresUserConfirmation: true,
-        }
-      },
-    },
-    { signal: controller.signal },
-  )
-
-  if (currentDraft && !currentDraft.confirmedAt) {
-    void document.modelContext.registerTool(
-      {
-        name: 'confirm_current_work_plan',
-        description:
-          'Legt den aktuell sichtbaren Entwurf als Projekt und Aufgaben an. Verlangt eine sichtbare Bestätigung.',
-        inputSchema: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {},
-        },
-        annotations: {
-          readOnlyHint: false,
-          untrustedContentHint: false,
-        },
-        execute: async () => {
-          const confirmed = window.confirm(
-            `Projekt „${currentDraft.proposal.title}“ mit ${currentDraft.proposal.tasks.length} Aufgaben wirklich anlegen?`,
-          )
-          if (!confirmed) {
-            return { confirmed: false, reason: 'User cancelled' }
-          }
-
-          const result = await confirmWorkPlan(
-            organizationId,
-            currentDraft.id,
-            currentDraft.concurrencyToken,
-          )
-          onConfirmed(result)
-          return {
-            confirmed: true,
-            projectId: result.projectId,
-            taskCount: result.taskIds.length,
-          }
-        },
-      },
-      { signal: controller.signal },
-    )
+  const register = (tool: WebMcpTool) => {
+    try {
+      void Promise.resolve(
+        document.modelContext?.registerTool(tool, {
+          signal: controller.signal,
+        }),
+      ).catch(() => undefined)
+    } catch {
+      // The built-in chat remains available when an experimental browser
+      // implementation rejects a tool definition.
+    }
   }
+
+  register({
+    name: 'community_list_projects',
+    title: 'Projekte laden',
+    description:
+      'Lädt die vorhandenen Projekte der aktuell geöffneten Community. Nur lesend.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {},
+    },
+    annotations: {
+      readOnlyHint: true,
+      untrustedContentHint: true,
+    },
+    execute: async () => {
+      onOpenChat()
+      const projects = await listProjects(organizationId)
+      return projects.map(({ id, name, description, status, priority }) => ({
+        id,
+        name,
+        description,
+        status,
+        priority,
+      }))
+    },
+  })
+
+  register({
+    name: 'community_list_tasks',
+    title: 'Aufgaben laden',
+    description:
+      'Lädt die vorhandenen Aufgaben und Subtasks der aktuell geöffneten Community. Nur lesend.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {},
+    },
+    annotations: {
+      readOnlyHint: true,
+      untrustedContentHint: true,
+    },
+    execute: async () => {
+      onOpenChat()
+      const tasks = await listTasks(organizationId)
+      return tasks.map(
+        ({
+          id,
+          projectId,
+          parentTaskId,
+          title,
+          description,
+          status,
+          priority,
+          dueDate,
+        }) => ({
+          id,
+          projectId,
+          parentTaskId,
+          title,
+          description,
+          status,
+          priority,
+          dueDate,
+        }),
+      )
+    },
+  })
+
+  register({
+    name: 'community_get_task',
+    title: 'Aufgabendetails laden',
+    description:
+      'Lädt eine konkrete Aufgabe inklusive Subtasks, Kommentaren und Screenshot-Metadaten.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        taskId: {
+          type: 'string',
+          description: 'ID der Aufgabe.',
+        },
+      },
+      required: ['taskId'],
+    },
+    annotations: {
+      readOnlyHint: true,
+      untrustedContentHint: true,
+    },
+    execute: async (input) => {
+      onOpenChat()
+      return getTaskDetails(organizationId, String(input.taskId ?? ''))
+    },
+  })
+
+  register({
+    name: 'community_create_task',
+    title: 'Aufgabe erstellen',
+    description:
+      'Erstellt nach sichtbarer Bestätigung genau eine verständliche Aufgabe oder einen Subtask.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        title: { type: 'string', description: 'Kurzer Aufgabentitel.' },
+        description: {
+          type: 'string',
+          description: 'Konkrete Beschreibung mit Ziel und Fertig-Kriterium.',
+        },
+        priority: {
+          type: 'string',
+          enum: ['Low', 'Normal', 'High', 'Critical'],
+        },
+        projectId: { type: ['string', 'null'] },
+        parentTaskId: { type: ['string', 'null'] },
+      },
+      required: [
+        'title',
+        'description',
+        'priority',
+        'projectId',
+        'parentTaskId',
+      ],
+    },
+    annotations: {
+      readOnlyHint: false,
+      untrustedContentHint: true,
+    },
+    execute: async (input) => {
+      onOpenChat()
+      const title = String(input.title ?? '').trim()
+      const confirmed = window.confirm(`Aufgabe „${title}“ wirklich anlegen?`)
+      if (!confirmed) {
+        return { confirmed: false, reason: 'User cancelled' }
+      }
+
+      const task = await createTask(organizationId, {
+        title,
+        description: String(input.description ?? '').trim() || undefined,
+        status: 'Open',
+        priority: asPriority(input.priority),
+        projectId: nullableString(input.projectId),
+        parentTaskId: nullableString(input.parentTaskId),
+      })
+      onChanged()
+      return { confirmed: true, task }
+    },
+  })
+
+  register({
+    name: 'community_change_task_status',
+    title: 'Aufgabenstatus ändern',
+    description:
+      'Ändert nach sichtbarer Bestätigung den Status genau einer vorhandenen Aufgabe.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        taskId: { type: 'string' },
+        status: {
+          type: 'string',
+          enum: ['Open', 'InProgress', 'Blocked', 'Done', 'Cancelled'],
+        },
+      },
+      required: ['taskId', 'status'],
+    },
+    annotations: {
+      readOnlyHint: false,
+      untrustedContentHint: false,
+    },
+    execute: async (input) => {
+      onOpenChat()
+      const taskId = String(input.taskId ?? '')
+      const status = asTaskStatus(input.status)
+      const task = (await listTasks(organizationId)).find(
+        (item) => item.id === taskId,
+      )
+      if (!task) {
+        return { confirmed: false, reason: 'Task not found' }
+      }
+
+      const confirmed = window.confirm(
+        `Status von „${task.title}“ wirklich auf ${status} setzen?`,
+      )
+      if (!confirmed) {
+        return { confirmed: false, reason: 'User cancelled' }
+      }
+
+      const updated = await changeTaskStatus(
+        organizationId,
+        task.id,
+        status,
+        task.concurrencyToken,
+      )
+      onChanged()
+      return { confirmed: true, task: updated }
+    },
+  })
 
   return {
     isSupported: true,
     unregister: () => controller.abort(),
   }
+}
+
+function nullableString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function asPriority(value: unknown): Priority {
+  return ['Low', 'Normal', 'High', 'Critical'].includes(String(value))
+    ? (value as Priority)
+    : 'Normal'
+}
+
+function asTaskStatus(value: unknown): TaskStatus {
+  return ['Open', 'InProgress', 'Blocked', 'Done', 'Cancelled'].includes(
+    String(value),
+  )
+    ? (value as TaskStatus)
+    : 'Open'
 }

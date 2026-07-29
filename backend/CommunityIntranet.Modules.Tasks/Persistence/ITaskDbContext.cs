@@ -7,5 +7,9 @@ public interface ITaskDbContext
 {
     DbSet<WorkTask> WorkTasks { get; }
 
+    DbSet<TaskComment> TaskComments { get; }
+
+    DbSet<TaskAttachment> TaskAttachments { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

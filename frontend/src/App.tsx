@@ -261,7 +261,7 @@ function LandingPage({ user }: { user?: CurrentUser }) {
           <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[var(--theme-surface)] shadow-2xl shadow-black/30">
             <div className="border-b border-white/10 p-6">
               <p className="text-xs font-bold tracking-[0.16em] text-[var(--theme-primary)] uppercase">
-                Phase 7
+                Phase 8
               </p>
               <h2 className="mt-2 text-2xl font-bold text-white">
                 Ein Kern, viele Welten
@@ -302,7 +302,7 @@ function PublicHeader({ user }: { user?: CurrentUser }) {
           <div>
             <p className="text-sm font-semibold">Community Intranet</p>
             <p className="text-xs text-[var(--theme-muted)]">
-              KI-Assistent & WebMCP · Phase 7
+              Community-Chat & Aufgaben · Phase 8
             </p>
           </div>
         </a>

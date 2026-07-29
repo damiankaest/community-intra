@@ -44,18 +44,7 @@ export async function apiRequest<T>(
   init: RequestInit = {},
   retryAuthentication = true,
 ): Promise<T> {
-  const response = await fetch(path, createRequestInit(init))
-
-  if (
-    response.status === 401 &&
-    retryAuthentication &&
-    path !== '/api/auth/refresh'
-  ) {
-    const refreshed = await refreshAccessToken()
-    if (refreshed) {
-      return apiRequest<T>(path, init, false)
-    }
-  }
+  const response = await apiFetch(path, init, retryAuthentication)
 
   if (!response.ok) {
     throw new ApiError(response.status, await readProblemDetails(response))
@@ -68,9 +57,38 @@ export async function apiRequest<T>(
   return (await response.json()) as T
 }
 
+export async function apiFetch(
+  path: string,
+  init: RequestInit = {},
+  retryAuthentication = true,
+): Promise<Response> {
+  const response = await fetch(path, createRequestInit(init))
+
+  if (
+    response.status === 401 &&
+    retryAuthentication &&
+    path !== '/api/auth/refresh'
+  ) {
+    const refreshed = await refreshAccessToken()
+    if (refreshed) {
+      return apiFetch(path, init, false)
+    }
+  }
+
+  return response
+}
+
+export async function apiProblem(response: Response) {
+  return new ApiError(response.status, await readProblemDetails(response))
+}
+
 function createRequestInit(init: RequestInit): RequestInit {
   const headers = new Headers(init.headers)
-  if (init.body && !headers.has('Content-Type')) {
+  if (
+    init.body &&
+    !(init.body instanceof FormData) &&
+    !headers.has('Content-Type')
+  ) {
     headers.set('Content-Type', 'application/json')
   }
   if (accessToken) {

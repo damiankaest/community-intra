@@ -5,6 +5,7 @@ interface WebMcpToolAnnotations {
 
 interface WebMcpTool {
   name: string
+  title?: string
   description: string
   inputSchema: Record<string, unknown>
   annotations?: WebMcpToolAnnotations
