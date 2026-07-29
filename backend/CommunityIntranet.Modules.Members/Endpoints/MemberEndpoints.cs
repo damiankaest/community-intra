@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CommunityIntranet.BuildingBlocks.ActivityFeed;
 using CommunityIntranet.BuildingBlocks.Authorization;
 using CommunityIntranet.BuildingBlocks.Tenancy;
 using CommunityIntranet.Modules.Members.Contracts;
@@ -152,6 +153,7 @@ public static class MemberEndpoints
         ClaimsPrincipal principal,
         IMemberDbContext dbContext,
         IOrganizationAccessService accessService,
+        IActivityWriter activityWriter,
         CancellationToken cancellationToken)
     {
         var accessResult = await GetMembershipAsync(
@@ -196,11 +198,28 @@ public static class MemberEndpoints
             return validation;
         }
 
+        var previousTitle = member.VisibleTitle;
         member.PermissionRole = request.PermissionRole;
         member.VisibleTitle = NormalizeOptional(request.VisibleTitle);
         member.DepartmentId = request.DepartmentId;
         member.StatusMessage = NormalizeOptional(request.StatusMessage);
         member.IsActive = request.IsActive;
+        if (!string.Equals(
+                previousTitle,
+                member.VisibleTitle,
+                StringComparison.Ordinal))
+        {
+            activityWriter.Add(new ActivityDraft(
+                organizationId,
+                "member.title-changed",
+                caller.MemberId,
+                "member",
+                member.Id,
+                new Dictionary<string, string?>
+                {
+                    ["visibleTitle"] = member.VisibleTitle
+                }));
+        }
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Results.NoContent();
@@ -669,6 +688,7 @@ public static class MemberEndpoints
         ClaimsPrincipal principal,
         IMemberDbContext dbContext,
         IOrganizationDbContext organizationDbContext,
+        IActivityWriter activityWriter,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -739,6 +759,20 @@ public static class MemberEndpoints
         }
 
         invitation.CurrentUses++;
+        var displayName = await dbContext.Users
+            .Where(user => user.Id == userId)
+            .Select(user => user.DisplayName)
+            .SingleAsync(cancellationToken);
+        activityWriter.Add(new ActivityDraft(
+            invitation.OrganizationId,
+            "member.joined",
+            membership.Id,
+            "member",
+            membership.Id,
+            new Dictionary<string, string?>
+            {
+                ["memberName"] = displayName
+            }));
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);

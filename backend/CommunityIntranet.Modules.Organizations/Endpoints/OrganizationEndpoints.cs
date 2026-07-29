@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CommunityIntranet.BuildingBlocks.ActivityFeed;
 using CommunityIntranet.BuildingBlocks.Authorization;
 using CommunityIntranet.BuildingBlocks.Tenancy;
 using CommunityIntranet.Modules.Organizations.Contracts;
@@ -99,6 +100,7 @@ public static class OrganizationEndpoints
         IOrganizationDbContext dbContext,
         IOrganizationOwnerProvisioner ownerProvisioner,
         IThemePackCatalog themePackCatalog,
+        IActivityWriter activityWriter,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -158,7 +160,7 @@ public static class OrganizationEndpoints
         };
 
         dbContext.Organizations.Add(organization);
-        ownerProvisioner.AddOwner(
+        var ownerMemberId = ownerProvisioner.AddOwner(
             organization.Id,
             userId,
             NormalizeOptional(request.VisibleTitle));
@@ -169,6 +171,16 @@ public static class OrganizationEndpoints
                     department.Name,
                     department.Icon))
                 .ToArray());
+        activityWriter.Add(new ActivityDraft(
+            organization.Id,
+            "organization.created",
+            ownerMemberId,
+            "organization",
+            organization.Id,
+            new Dictionary<string, string?>
+            {
+                ["organizationName"] = organization.Name
+            }));
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Results.Created(

@@ -6,5 +6,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../CommunityIntranet.BuildingBlocks/CommunityIntranet.BuildingBlocks.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Projects/CommunityIntranet.Modules.Projects.csproj" />
   </ItemGroup>
 </Project>

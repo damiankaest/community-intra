@@ -17,4 +17,31 @@ public sealed class PermissionRoleTests
     {
         Assert.Equal(expected, role.CanManageOrganization());
     }
+
+    [Theory]
+    [InlineData(PermissionRole.Owner, true)]
+    [InlineData(PermissionRole.Administrator, true)]
+    [InlineData(PermissionRole.Moderator, true)]
+    [InlineData(PermissionRole.Member, true)]
+    [InlineData(PermissionRole.Guest, false)]
+    public void CanCreateContentReflectsTechnicalRole(
+        PermissionRole role,
+        bool expected)
+    {
+        Assert.Equal(expected, role.CanCreateContent());
+    }
+
+    [Theory]
+    [InlineData(PermissionRole.Owner, true)]
+    [InlineData(PermissionRole.Administrator, true)]
+    [InlineData(PermissionRole.Moderator, true)]
+    [InlineData(PermissionRole.Member, false)]
+    [InlineData(PermissionRole.Guest, false)]
+    public void CanManageContentReflectsTechnicalRole(
+        PermissionRole role,
+        bool expected)
+    {
+        Assert.Equal(expected, role.CanManageContent());
+        Assert.Equal(expected, role.CanGrantAwards());
+    }
 }
