@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import {
   Navigate,
+  Outlet,
   Route,
   Routes,
   useLocation,
@@ -144,68 +145,64 @@ function App() {
         path="/organizations/:organizationId"
         element={
           <ProtectedRoute query={currentUser}>
-            <PhaseSixDashboard user={currentUser.data!} />
+            <OrganizationAssistantBoundary />
           </ProtectedRoute>
         }
-      />
-      <Route
-        path="/organizations/:organizationId/projects"
-        element={
-          <ProtectedRoute query={currentUser}>
-            <ProjectsPage user={currentUser.data!} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/organizations/:organizationId/tasks"
-        element={
-          <ProtectedRoute query={currentUser}>
-            <TasksPage user={currentUser.data!} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/organizations/:organizationId/incidents"
-        element={
-          <ProtectedRoute query={currentUser}>
-            <IncidentsPage user={currentUser.data!} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/organizations/:organizationId/awards"
-        element={
-          <ProtectedRoute query={currentUser}>
-            <AwardsPage user={currentUser.data!} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/organizations/:organizationId/activities"
-        element={
-          <ProtectedRoute query={currentUser}>
-            <ActivitiesPage user={currentUser.data!} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/organizations/:organizationId/server"
-        element={
-          <ProtectedRoute query={currentUser}>
-            <LiveOperationsPage user={currentUser.data!} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/organizations/:organizationId/members"
-        element={
-          <ProtectedRoute query={currentUser}>
-            <MembersPage user={currentUser.data!} />
-          </ProtectedRoute>
-        }
-      />
+      >
+        <Route index element={<PhaseSixDashboard user={currentUser.data!} />} />
+        <Route
+          path="projects"
+          element={<ProjectsPage user={currentUser.data!} />}
+        />
+        <Route path="tasks" element={<TasksPage user={currentUser.data!} />} />
+        <Route
+          path="incidents"
+          element={<IncidentsPage user={currentUser.data!} />}
+        />
+        <Route
+          path="awards"
+          element={<AwardsPage user={currentUser.data!} />}
+        />
+        <Route
+          path="activities"
+          element={<ActivitiesPage user={currentUser.data!} />}
+        />
+        <Route
+          path="server"
+          element={<LiveOperationsPage user={currentUser.data!} />}
+        />
+        <Route
+          path="members"
+          element={<MembersPage user={currentUser.data!} />}
+        />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+  )
+}
+
+function OrganizationAssistantBoundary() {
+  const { organizationId = '' } = useParams()
+  const organization = useQuery({
+    queryKey: ['organization', organizationId],
+    queryFn: () => getOrganization(organizationId),
+    enabled: Boolean(organizationId),
+  })
+  const themePack = useQuery({
+    queryKey: ['theme-pack', organization.data?.themePackKey],
+    queryFn: () => getThemePack(organization.data!.themePackKey),
+    enabled: Boolean(organization.data?.themePackKey),
+  })
+
+  return (
+    <>
+      <Outlet />
+      <AiAssistantPanel
+        key={organizationId}
+        organizationId={organizationId}
+        themeName={themePack.data?.name}
+      />
+    </>
   )
 }
 
@@ -1201,10 +1198,6 @@ function MembersPage({ user }: { user: CurrentUser }) {
           </div>
         </section>
       )}
-      <AiAssistantPanel
-        organizationId={organizationId}
-        themeName={themePack.data?.name}
-      />
     </AppShell>
   )
 }
