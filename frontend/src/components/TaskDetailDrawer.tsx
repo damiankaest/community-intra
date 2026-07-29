@@ -219,7 +219,7 @@ export function TaskDetailDrawer({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex justify-end bg-black/65 backdrop-blur-sm"
+      className="chat-aware-overlay fixed inset-0 z-40 flex justify-end bg-black/65 backdrop-blur-sm"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) onClose()
       }}

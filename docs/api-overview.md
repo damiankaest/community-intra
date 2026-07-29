@@ -154,11 +154,11 @@ feingranularen Chat- und Aktionsfluss.
 
 ## Community-Chat und interaktive Aufgaben (Phase 8)
 
-| Methode | Route                                                            | Zweck                                     |
-| ------- | ---------------------------------------------------------------- | ----------------------------------------- |
-| GET     | `/organizations/{organizationId}/assistant/chat`                 | letzte Unterhaltung und Aktionen laden    |
-| POST    | `/organizations/{organizationId}/assistant/chat/messages`        | Nachricht senden; NDJSON-Antwort streamen |
-| POST    | `/organizations/{organizationId}/assistant/actions/{id}/confirm` | vorgeschlagene Änderung bestätigen        |
+| Methode | Route                                                            | Zweck                                      |
+| ------- | ---------------------------------------------------------------- | ------------------------------------------ |
+| GET     | `/organizations/{organizationId}/assistant/chat`                 | letzte Unterhaltung laden (Kompatibilität) |
+| POST    | `/organizations/{organizationId}/assistant/chat/messages`        | Nachricht senden (Kompatibilität)          |
+| POST    | `/organizations/{organizationId}/assistant/actions/{id}/confirm` | vorgeschlagene Änderung bestätigen         |
 
 Der Chat kann Projekte und Aufgaben lesen sowie genau eine
 Aufgaben-/Projektänderung vorbereiten. Schreibende KI-Aktionen bleiben bis zur
@@ -169,6 +169,25 @@ Aufgaben unterstützen eine Ebene Subtasks, Kommentare und bis zu 20
 Screenshot-Anhänge mit jeweils maximal 5 MB. Erlaubt sind PNG, JPEG, WebP und
 GIF. Binärdaten liegen in PostgreSQL und werden nur nach erneuter
 Mitgliedschaftsprüfung ausgeliefert.
+
+## Chat-Sessions und persistente Arbeitsfläche (Phase 12)
+
+| Methode | Route                                                                          | Zweck                                  |
+| ------- | ------------------------------------------------------------------------------ | -------------------------------------- |
+| GET     | `/organizations/{organizationId}/assistant/conversations`                      | eigene aktive Chat-Sessions auflisten  |
+| POST    | `/organizations/{organizationId}/assistant/conversations`                      | neue Session anlegen                   |
+| GET     | `/organizations/{organizationId}/assistant/conversations/{id}`                 | Session mit Verlauf und Aktionen laden |
+| PATCH   | `/organizations/{organizationId}/assistant/conversations/{id}`                 | Session umbenennen                     |
+| DELETE  | `/organizations/{organizationId}/assistant/conversations/{id}`                 | Session archivieren                    |
+| POST    | `/organizations/{organizationId}/assistant/conversations/{id}/messages`        | Nachricht in dieser Session streamen   |
+
+Jede Session gehört genau einem Mitglied innerhalb einer Organisation.
+Archivierte Sessions werden nicht mehr geladen. Für eine KI-Anfrage werden
+höchstens die letzten 24 Nachrichten der ausdrücklich gewählten Session als
+Kontext verwendet; die Oberfläche lädt bis zu 60 Nachrichten. Der Chat sitzt
+oberhalb der Organisationsrouten und bleibt deshalb beim Seitenwechsel
+geöffnet. Offene Aufgaben- und Projektdialoge berücksichtigen auf großen
+Bildschirmen die Chat-Spalte.
 
 ## Living Intranet (Phase 11)
 

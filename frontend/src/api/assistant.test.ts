@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  archiveAssistantConversation,
   confirmWorkPlan,
+  createAssistantConversation,
+  listAssistantConversations,
   prepareWorkPlan,
+  renameAssistantConversation,
   streamAssistantMessage,
 } from './assistant'
 
@@ -100,11 +104,76 @@ describe('AI assistant API', () => {
 
     await streamAssistantMessage(
       'organization-id',
+      'chat',
       'Hallo',
       'Neutral',
       (event) => events.push(event.type),
     )
 
     expect(events).toEqual(['message_ack', 'delta', 'done'])
+  })
+
+  it('manages isolated chat sessions through conversation endpoints', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          id: 'chat-id',
+          title: 'Neuer Chat',
+          tone: 'Theme',
+          messageCount: 0,
+          createdAt: '2026-07-29T07:00:00Z',
+          updatedAt: '2026-07-29T07:00:00Z',
+        }),
+      )
+      .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(
+        Response.json({
+          id: 'chat-id',
+          title: 'Aluminium-Ausbau',
+          tone: 'Theme',
+          messageCount: 0,
+          createdAt: '2026-07-29T07:00:00Z',
+          updatedAt: '2026-07-29T07:05:00Z',
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await createAssistantConversation('organization-id', 'Theme')
+    await listAssistantConversations('organization-id')
+    await renameAssistantConversation(
+      'organization-id',
+      'chat-id',
+      'Aluminium-Ausbau',
+    )
+    await archiveAssistantConversation('organization-id', 'chat-id')
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/organizations/organization-id/assistant/conversations',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ tone: 'Theme' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/organizations/organization-id/assistant/conversations',
+      expect.any(Object),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/organizations/organization-id/assistant/conversations/chat-id',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ title: 'Aluminium-Ausbau' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      '/api/organizations/organization-id/assistant/conversations/chat-id',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
   })
 })

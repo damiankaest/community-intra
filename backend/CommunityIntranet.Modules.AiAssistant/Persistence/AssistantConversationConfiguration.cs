@@ -11,6 +11,8 @@ public sealed class AssistantConversationConfiguration
     {
         builder.ToTable("conversations", "ai");
         builder.HasKey(conversation => conversation.Id);
+        builder.Property(conversation => conversation.Title)
+            .HasMaxLength(120);
         builder.Property(conversation => conversation.Tone)
             .HasConversion<string>()
             .HasMaxLength(24);
@@ -18,6 +20,7 @@ public sealed class AssistantConversationConfiguration
         {
             conversation.OrganizationId,
             conversation.MemberId,
+            conversation.ArchivedAt,
             conversation.UpdatedAt
         });
     }

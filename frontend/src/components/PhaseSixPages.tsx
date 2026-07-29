@@ -54,7 +54,6 @@ import { getLiveServerStatus } from '../api/liveOperations'
 import { getOrganization } from '../api/organizations'
 import { getThemePack } from '../api/themePacks'
 import { applyTheme, resetTheme } from '../theme'
-import { AiAssistantPanel } from './AiAssistantPanel'
 import { NotificationBell } from './NotificationBell'
 import { TaskDetailDrawer } from './TaskDetailDrawer'
 
@@ -130,7 +129,7 @@ export function FeatureLayout({
   subtitle: string
   children: ReactNode
 }) {
-  const { organizationId, organization, themePack } = usePhaseSixContext()
+  const { organizationId, organization } = usePhaseSixContext()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem('community-sidebar-collapsed') === 'true',
   )
@@ -240,11 +239,6 @@ export function FeatureLayout({
           <div className="mt-5">{children}</div>
         </main>
       </div>
-      <AiAssistantPanel
-        key={organizationId}
-        organizationId={organizationId}
-        themeName={themePack.data?.name}
-      />
     </div>
   )
 }
@@ -1144,7 +1138,7 @@ function ProjectDetail({
 
   return (
     <div
-      className="fixed inset-0 z-30 grid place-items-center bg-black/65 p-4 backdrop-blur-sm"
+      className="chat-aware-overlay fixed inset-0 z-30 grid place-items-center bg-black/65 p-4 backdrop-blur-sm"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) onClose()
       }}

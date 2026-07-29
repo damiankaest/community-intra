@@ -7,7 +7,7 @@ bleibt aber vollständig spielunabhängig.
 
 ## Aktueller Stand
 
-Phase 1 bis 11 liefern die dokumentierte Zielarchitektur, ein startbares
+Phase 1 bis 12 liefern die dokumentierte Zielarchitektur, ein startbares
 Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 
 - modularer ASP.NET-Core-8-Monolith mit Minimal APIs
@@ -32,6 +32,9 @@ Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 - explizite Bestätigung vor dem atomaren Anlegen von Projekt und Aufgaben
 - WebMCP-Tools als dünne Adapter auf dieselben autorisierten APIs
 - persistenter Community-Chat mit echter Streaming-Antwort
+- getrennte Chat-Sessions mit eigenem, begrenztem Kontext
+- Chat bleibt beim Wechsel zwischen Organisationsseiten geöffnet
+- Chat-Verlauf wechseln, umbenennen und archivieren
 - KI-Lesezugriff auf vorhandene Projekte und Aufgaben
 - kleine bestätigungspflichtige Chat-Aktionen statt automatischer Mammutpläne
 - anklickbare Projekt- und Aufgabenansichten
@@ -198,5 +201,6 @@ versioniert angelegt. Offizielle Spiel-Assets werden nicht verwendet.
 
 ## Nächster Schritt
 
-Als Nächstes können Serverereignisse, E-Mail/Push oder Kalender folgen. Der
-Kern bleibt von den optionalen Integrationen unabhängig.
+Als Nächstes können Zeiterfassung, Fabrik- und Produktionsketten sowie ein
+optionaler Satisfactory-Save-Import folgen. Der Kern bleibt von externen
+Integrationen unabhängig.

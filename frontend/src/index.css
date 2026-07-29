@@ -1099,8 +1099,21 @@ button.subtask-check {
 }
 
 @media (min-width: 75rem) {
+  :root {
+    --assistant-rail-width: 0rem;
+  }
+
+  html[data-chat-open='true'] {
+    --assistant-rail-width: 26rem;
+  }
+
   html[data-chat-open='true'] .app-workspace {
-    margin-right: 26rem;
+    margin-right: var(--assistant-rail-width);
+  }
+
+  .chat-aware-overlay {
+    right: var(--assistant-rail-width);
+    transition: right 220ms ease;
   }
 
   .community-chat-panel {
