@@ -30,6 +30,7 @@ describe('WebMCP assistant tools', () => {
       'community_get_live_server_status',
       'community_create_task',
       'community_change_task_status',
+      'community_set_task_material_state',
       'community_assign_task',
       'community_add_task_comment',
     ])

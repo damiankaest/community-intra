@@ -4,8 +4,10 @@ import {
   Bot,
   Check,
   CircleStop,
+  ExternalLink,
   Factory,
   MessageCircleMore,
+  PackageCheck,
   Send,
   Sparkles,
   Wrench,
@@ -334,11 +336,13 @@ export function AiAssistantPanel({
             />
           ))}
           {actions
-            .filter((action) => action.status === 'Pending')
+            .filter((action) => action.status !== 'Rejected')
+            .slice(-4)
             .map((action) => (
               <ActionCard
                 key={action.id}
                 action={action}
+                organizationId={organizationId}
                 pending={
                   confirmMutation.isPending &&
                   confirmMutation.variables?.id === action.id
@@ -451,10 +455,12 @@ function ChatBubble({
 
 function ActionCard({
   action,
+  organizationId,
   pending,
   onConfirm,
 }: {
   action: AssistantAction
+  organizationId: string
   pending: boolean
   onConfirm: () => void
 }) {
@@ -469,11 +475,19 @@ function ActionCard({
     CreateProject: 'Neues Projekt',
     AddTaskComment: 'Kommentar schreiben',
   }[action.kind]
+  const taskId =
+    action.kind === 'CreateTask' ? action.resultEntityId : action.payload.taskId
+  const resultUrl = taskId
+    ? `/organizations/${organizationId}/tasks?task=${taskId}`
+    : action.kind === 'CreateProject' && action.resultEntityId
+      ? `/organizations/${organizationId}/projects`
+      : undefined
+  const isConfirmed = action.status === 'Confirmed'
 
   return (
     <article className="ml-2 rounded-2xl border border-[var(--theme-primary)]/35 bg-[var(--theme-primary)]/[0.07] p-4">
       <p className="text-[11px] font-black tracking-wider text-[var(--theme-primary)] uppercase">
-        {kindLabel} · erst nach Bestätigung
+        {kindLabel} · {isConfirmed ? 'gespeichert' : 'erst nach Bestätigung'}
       </p>
       <h3 className="mt-2 font-black text-white">{title}</h3>
       {action.payload.description && (
@@ -488,15 +502,51 @@ function ActionCard({
           <Chip>bis {formatDate(action.payload.dueDate)}</Chip>
         )}
       </div>
-      <button
-        type="button"
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--theme-primary)] px-4 py-2.5 text-sm font-black text-black disabled:opacity-50"
-        disabled={pending}
-        onClick={onConfirm}
-      >
-        <Check size={16} />
-        {pending ? 'Wird gespeichert …' : 'Ja, so speichern'}
-      </button>
+      {action.payload.materials && action.payload.materials.length > 0 && (
+        <div className="mt-3 rounded-xl border border-white/10 bg-black/15 p-3">
+          <p className="flex items-center gap-2 text-xs font-bold text-white">
+            <PackageCheck size={15} />
+            Vorher bereitlegen
+          </p>
+          <div className="mt-2 grid gap-1.5">
+            {action.payload.materials.map((material, index) => (
+              <div
+                key={`${material.name}-${index}`}
+                className="flex gap-2 text-xs text-[var(--theme-muted)]"
+              >
+                <span className="font-black text-[var(--theme-primary)]">
+                  {material.quantity}
+                </span>
+                <span>
+                  {material.name}
+                  {material.notes ? ` · ${material.notes}` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {isConfirmed ? (
+        resultUrl && (
+          <a
+            href={resultUrl}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--theme-primary)]/35 px-4 py-2.5 text-sm font-black text-[var(--theme-primary)]"
+          >
+            Öffnen
+            <ExternalLink size={15} />
+          </a>
+        )
+      ) : (
+        <button
+          type="button"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--theme-primary)] px-4 py-2.5 text-sm font-black text-black disabled:opacity-50"
+          disabled={pending}
+          onClick={onConfirm}
+        >
+          <Check size={16} />
+          {pending ? 'Wird gespeichert …' : 'Ja, so speichern'}
+        </button>
+      )}
     </article>
   )
 }

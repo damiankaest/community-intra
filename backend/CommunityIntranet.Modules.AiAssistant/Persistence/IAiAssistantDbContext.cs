@@ -25,6 +25,8 @@ public interface IAiAssistantDbContext
 
     DbSet<TaskAttachment> TaskAttachments { get; }
 
+    DbSet<TaskMaterialItem> TaskMaterialItems { get; }
+
     DbSet<OrganizationMember> OrganizationMembers { get; }
 
     DbSet<ApplicationUser> Users { get; }

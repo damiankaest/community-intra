@@ -194,3 +194,4 @@ im Backend.
 8. Isolationstests und responsive Stabilisierung (Phase 7)
 9. KI-Arbeitsplanung und WebMCP über bestätigte, mandantengebundene Entwürfe
 10. optionale Live-Operations-Adapter mit read-only Satisfactory-Status
+11. Living Intranet mit Materialvorbereitung, Command Center und Wochenbericht

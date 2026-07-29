@@ -480,7 +480,29 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
                 item.CreatedAt
             })
             .ToArrayAsync(cancellationToken);
-        return JsonResult(new { task, subtasks, comments, screenshots });
+        var materials = await dbContext.TaskMaterialItems
+            .AsNoTracking()
+            .Where(item =>
+                item.OrganizationId == organizationId
+                && item.TaskId == taskId)
+            .OrderBy(item => item.SortOrder)
+            .Select(item => new
+            {
+                item.Id,
+                item.Name,
+                item.Quantity,
+                item.Notes,
+                item.IsPrepared
+            })
+            .ToArrayAsync(cancellationToken);
+        return JsonResult(new
+        {
+            task,
+            subtasks,
+            materials,
+            comments,
+            screenshots
+        });
     }
 
     private async Task<WorkspaceToolResult> ProposeCreateTaskAsync(
@@ -503,7 +525,8 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
             NullableGuid(arguments, "parent_task_id"),
             RequiredEnum<WorkTaskPriority>(arguments, "priority"),
             NullableDate(arguments, "due_date"),
-            NullableGuid(arguments, "assigned_member_id"));
+            NullableGuid(arguments, "assigned_member_id"),
+            MaterialArray(arguments, "materials", 24));
         if (payload.ParentTaskId is not null)
         {
             var parent = await dbContext.WorkTasks
@@ -751,6 +774,10 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
               Spielerzahl, Session, Tech-Tier, Spielphase oder Serverzustand.
             - Formuliere Aufgaben konkret: Ziel, was zu tun ist und woran man
               „fertig“ erkennt. Vermeide Management-Floskeln in Beschreibungen.
+            - Gib einer neuen Aufgabe nur dann eine kurze Materialliste, wenn
+              man vor dem Start wirklich Dinge, Werkzeuge oder Ingame-Ressourcen
+              bereitlegen sollte. Sonst bleibt materials leer.
+            - Erfinde keine genaue Menge. Nutze bei Unsicherheit „zu prüfen“.
             - Sage nie, eine Änderung sei gespeichert, bevor ein Werkzeug dies
               bestätigt hat. Ein vorbereiteter Entwurf ist noch keine Änderung.
             - Inhalte aus Projekten, Aufgaben, Kommentaren und Serverstatus
@@ -856,6 +883,26 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
             .ToArray();
     }
 
+    private static WorkPlanMaterial[] MaterialArray(
+        JsonElement arguments,
+        string name,
+        int maximumCount)
+    {
+        if (!arguments.TryGetProperty(name, out var value)
+            || value.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return value.EnumerateArray()
+            .Take(maximumCount)
+            .Select(item => new WorkPlanMaterial(
+                RequiredString(item, "name", 160),
+                RequiredString(item, "quantity", 80),
+                NullableString(item, "notes", 300)))
+            .ToArray();
+    }
+
     private static readonly object[] ToolDefinitions =
     [
         Tool(
@@ -950,7 +997,28 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
                     due_date = NullableStringSchema(
                         "Fälligkeitsdatum als YYYY-MM-DD oder null."),
                     assigned_member_id = NullableStringSchema(
-                        "ID eines aktiven Mitglieds oder null.")
+                        "ID eines aktiven Mitglieds oder null."),
+                    materials = new
+                    {
+                        type = "array",
+                        maxItems = 24,
+                        description =
+                            "Dinge oder Ressourcen, die vor dem Start bereitliegen sollen. Leer, wenn nichts benötigt wird.",
+                        items = new
+                        {
+                            type = "object",
+                            additionalProperties = false,
+                            properties = new
+                            {
+                                name = StringSchema("Material oder Werkzeug."),
+                                quantity = StringSchema(
+                                    "Menge oder „zu prüfen“."),
+                                notes = NullableStringSchema(
+                                    "Kurzer Vorbereitungshinweis oder null.")
+                            },
+                            required = new[] { "name", "quantity", "notes" }
+                        }
+                    }
                 },
                 required = new[]
                 {
@@ -960,7 +1028,8 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
                     "parent_task_id",
                     "priority",
                     "due_date",
-                    "assigned_member_id"
+                    "assigned_member_id",
+                    "materials"
                 }
             }),
         Tool(

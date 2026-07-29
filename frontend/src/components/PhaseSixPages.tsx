@@ -9,11 +9,13 @@ import {
   ClipboardCheck,
   FolderKanban,
   Gauge,
+  PackageCheck,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
   ScrollText,
   Server,
+  Sparkles,
   UserRound,
   Users,
   X,
@@ -48,6 +50,7 @@ import {
   type WorkTask,
 } from '../api/features'
 import { listMembers } from '../api/members'
+import { getLiveServerStatus } from '../api/liveOperations'
 import { getOrganization } from '../api/organizations'
 import { getThemePack } from '../api/themePacks'
 import { applyTheme, resetTheme } from '../theme'
@@ -280,19 +283,80 @@ export function PhaseSixDashboard({ user }: PhaseSixPageProps) {
     queryFn: () => getDashboard(organizationId),
     enabled: Boolean(organizationId),
   })
+  const liveServer = useQuery({
+    queryKey: ['live-server-status', organizationId],
+    queryFn: () => getLiveServerStatus(organizationId),
+    enabled: Boolean(organizationId),
+    retry: false,
+    refetchInterval: 60_000,
+  })
   const terminology = themePack.data?.configuration.terminology
+  const focus = dashboard.data?.focusProject
+  const focusProgress = focus?.totalTaskCount
+    ? Math.round((focus.completedTaskCount / focus.totalTaskCount) * 100)
+    : 0
+  const pulse = dashboard.data?.weeklyPulse
 
   return (
     <FeatureLayout
       user={user}
-      title="Übersicht"
+      title="Command Center"
       subtitle={
         themePack.data?.configuration.messages.welcome ??
         'Alle Fachbereiche melden ihre aktuellen Kennzahlen.'
       }
     >
       {dashboard.error && <ErrorBox error={dashboard.error} />}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="command-hero">
+        <div>
+          <p className="command-eyebrow">
+            <Sparkles size={14} />
+            Einsatzlage
+          </p>
+          <h2>{dashboard.data?.systemMessage ?? 'Lagebild wird erstellt …'}</h2>
+          {focus ? (
+            <>
+              <div className="command-focus-line">
+                <span>Aktueller Fokus</span>
+                <strong>{focus.name}</strong>
+                <em>
+                  {focus.completedTaskCount}/{focus.totalTaskCount} erledigt
+                </em>
+              </div>
+              <div className="command-progress">
+                <span style={{ width: `${focusProgress}%` }} />
+              </div>
+            </>
+          ) : (
+            <p className="mt-4 text-sm text-[var(--theme-muted)]">
+              Noch kein aktives Projekt. Das ist entweder sehr entspannt oder
+              höchst verdächtig.
+            </p>
+          )}
+        </div>
+        <div
+          className={`server-orb ${
+            liveServer.data?.state === 'Online' ? 'is-online' : ''
+          }`}
+        >
+          <Server size={23} />
+          <span>
+            {liveServer.data?.state === 'Online'
+              ? 'Server online'
+              : liveServer.data?.state === 'NotConfigured'
+                ? 'Nicht verbunden'
+                : (liveServer.data?.message ?? 'Status wird geprüft')}
+          </span>
+          {liveServer.data?.state === 'Online' && (
+            <strong>
+              {liveServer.data.connectedPlayers ?? 0}/
+              {liveServer.data.playerLimit ?? '?'} Spieler
+            </strong>
+          )}
+        </div>
+      </section>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
           label="Mitglieder"
           value={dashboard.data?.memberCount ?? 0}
@@ -314,12 +378,73 @@ export function PhaseSixDashboard({ user }: PhaseSixPageProps) {
           to={`/organizations/${organizationId}/incidents`}
         />
       </div>
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <Panel title="Was gerade wichtig ist">
-          <p className="text-lg font-bold text-white">
-            {dashboard.data?.systemMessage ?? 'Lagebild wird erstellt …'}
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+        <Panel title="Als Nächstes">
+          <div className="command-task-list">
+            {dashboard.data?.priorityTasks.map((task) => (
+              <Link
+                key={task.id}
+                to={`/organizations/${organizationId}/tasks?task=${task.id}`}
+                className="command-task"
+              >
+                <span
+                  className={`command-priority is-${task.priority.toLowerCase()}`}
+                />
+                <div>
+                  <strong>{task.title}</strong>
+                  <small>
+                    {task.assignedToDisplayName ?? 'Noch nicht vergeben'} ·{' '}
+                    {taskStatusLabels[task.status]}
+                  </small>
+                </div>
+                {task.materialCount > 0 && (
+                  <span
+                    className={`command-materials ${
+                      task.preparedMaterialCount === task.materialCount
+                        ? 'is-ready'
+                        : ''
+                    }`}
+                  >
+                    <PackageCheck size={14} />
+                    {task.preparedMaterialCount}/{task.materialCount}
+                  </span>
+                )}
+                <ChevronRight size={17} />
+              </Link>
+            ))}
+            {dashboard.data?.priorityTasks.length === 0 && (
+              <Empty text="Keine offenen Aufgaben. Der erstaunlich seltene Zustand völliger Einsatzbereitschaft." />
+            )}
+          </div>
+        </Panel>
+
+        <Panel title="FICSIT-Wochenbericht">
+          <p className="mb-4 text-xs leading-5 text-[var(--theme-muted)]">
+            Die letzten sieben Tage, frei von PowerPoint und trotzdem offiziell
+            genug.
+          </p>
+          <div className="weekly-pulse">
+            <PulseMetric
+              value={pulse?.completedTaskCount ?? 0}
+              label="erledigt"
+              accent
+            />
+            <PulseMetric value={pulse?.createdTaskCount ?? 0} label="neu" />
+            <PulseMetric value={pulse?.commentCount ?? 0} label="Kommentare" />
+            <PulseMetric
+              value={pulse?.screenshotCount ?? 0}
+              label="Beweisfotos"
+            />
+          </div>
+          <p className="mt-4 flex items-center gap-2 text-xs font-bold text-white">
+            <Users size={15} className="text-[var(--theme-primary)]" />
+            {pulse?.activeContributorCount ?? 0} aktive Mitwirkende
           </p>
         </Panel>
+      </div>
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <Panel title="Aktuelle Auszeichnung">
           {dashboard.data?.currentAward ? (
             <>
@@ -335,30 +460,44 @@ export function PhaseSixDashboard({ user }: PhaseSixPageProps) {
             <Empty text="Noch niemand wurde offiziell übermäßig gewürdigt." />
           )}
         </Panel>
+        <Panel title="Direkt loslegen">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <QuickLink organizationId={organizationId} path="tasks">
+              Aufgabe erstellen
+            </QuickLink>
+            <QuickLink organizationId={organizationId} path="members">
+              Freund einladen
+            </QuickLink>
+            <QuickLink organizationId={organizationId} path="projects">
+              Projekt planen
+            </QuickLink>
+            <QuickLink organizationId={organizationId} path="live-operations">
+              Server ansehen
+            </QuickLink>
+          </div>
+        </Panel>
       </div>
-      <Panel title="Schnellaktionen" className="mt-6">
-        <div className="flex flex-wrap gap-3">
-          <QuickLink organizationId={organizationId} path="tasks">
-            Aufgabe erstellen
-          </QuickLink>
-          <QuickLink organizationId={organizationId} path="projects">
-            Projekt erstellen
-          </QuickLink>
-          <QuickLink organizationId={organizationId} path="incidents">
-            Incident melden
-          </QuickLink>
-          <QuickLink organizationId={organizationId} path="awards">
-            Auszeichnung vergeben
-          </QuickLink>
-          <QuickLink organizationId={organizationId} path="members">
-            Person einladen
-          </QuickLink>
-        </div>
-      </Panel>
       <Panel title="Was zuletzt passiert ist" className="mt-6">
         <ActivityList activities={dashboard.data?.recentActivities ?? []} />
       </Panel>
     </FeatureLayout>
+  )
+}
+
+function PulseMetric({
+  value,
+  label,
+  accent = false,
+}: {
+  value: number
+  label: string
+  accent?: boolean
+}) {
+  return (
+    <div className={accent ? 'is-accent' : ''}>
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
   )
 }
 

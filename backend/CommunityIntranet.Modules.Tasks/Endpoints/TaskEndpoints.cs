@@ -39,6 +39,13 @@ public static class TaskEndpoints
         group.MapPost("/", CreateAsync);
         group.MapPut("/{taskId:guid}", UpdateAsync);
         group.MapPatch("/{taskId:guid}/status", ChangeStatusAsync);
+        group.MapPost("/{taskId:guid}/materials", AddMaterialAsync);
+        group.MapPatch(
+            "/{taskId:guid}/materials/{materialItemId:guid}",
+            ChangeMaterialStateAsync);
+        group.MapDelete(
+            "/{taskId:guid}/materials/{materialItemId:guid}",
+            RemoveMaterialAsync);
         group.MapPost("/{taskId:guid}/comments", AddCommentAsync);
         group.MapPost("/{taskId:guid}/attachments", AddAttachmentAsync)
             .DisableAntiforgery();
@@ -186,6 +193,14 @@ public static class TaskEndpoints
                 item.Body,
                 item.CreatedAt))
             .ToArrayAsync(cancellationToken);
+        var materials = await dbContext.TaskMaterialItems
+            .AsNoTracking()
+            .Where(item =>
+                item.OrganizationId == organizationId
+                && item.TaskId == taskId)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.CreatedAt)
+            .ToArrayAsync(cancellationToken);
         var attachments = await dbContext.TaskAttachments
             .AsNoTracking()
             .Where(item =>
@@ -210,6 +225,7 @@ public static class TaskEndpoints
         return Results.Ok(new TaskDetailsResponse(
             ToResponse(task),
             subtasks.Select(ToResponse).ToArray(),
+            materials.Select(ToMaterialResponse).ToArray(),
             comments,
             attachments));
     }
@@ -274,6 +290,23 @@ public static class TaskEndpoints
             ConcurrencyToken = Guid.NewGuid()
         };
         dbContext.WorkTasks.Add(task);
+        foreach (var (material, index) in NormalizeMaterials(request.Materials)
+                     .Select((material, index) => (material, index)))
+        {
+            dbContext.TaskMaterialItems.Add(new TaskMaterialItem
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = organizationId,
+                TaskId = task.Id,
+                Name = material.Name!,
+                Quantity = material.Quantity!,
+                Notes = material.Notes,
+                SortOrder = index,
+                CreatedAt = now,
+                UpdatedAt = now,
+                ConcurrencyToken = Guid.NewGuid()
+            });
+        }
         activityWriter.Add(new ActivityDraft(
             organizationId,
             "task.created",
@@ -378,6 +411,217 @@ public static class TaskEndpoints
             access.Membership!.MemberId);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Ok(ToResponse(task));
+    }
+
+    private static async Task<IResult> AddMaterialAsync(
+        Guid organizationId,
+        Guid taskId,
+        CreateTaskMaterialRequest request,
+        ClaimsPrincipal principal,
+        ITaskDbContext dbContext,
+        IOrganizationAccessService accessService,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        var task = await dbContext.WorkTasks.SingleOrDefaultAsync(
+            item =>
+                item.OrganizationId == organizationId && item.Id == taskId,
+            cancellationToken);
+        if (task is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!CanEdit(task, access.Membership!))
+        {
+            return Results.Forbid();
+        }
+
+        var validation = ValidateMaterial(request);
+        if (validation is not null)
+        {
+            return validation;
+        }
+
+        var existingCount = await dbContext.TaskMaterialItems.CountAsync(
+            item =>
+                item.OrganizationId == organizationId
+                && item.TaskId == taskId,
+            cancellationToken);
+        if (existingCount >= 24)
+        {
+            return Validation(
+                "Materials",
+                "Pro Aufgabe sind maximal 24 Materialien möglich.");
+        }
+
+        var now = timeProvider.GetUtcNow();
+        var material = new TaskMaterialItem
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            TaskId = taskId,
+            Name = request.Name!.Trim(),
+            Quantity = request.Quantity!.Trim(),
+            Notes = Normalize(request.Notes),
+            SortOrder = existingCount,
+            CreatedAt = now,
+            UpdatedAt = now,
+            ConcurrencyToken = Guid.NewGuid()
+        };
+        dbContext.TaskMaterialItems.Add(material);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.Created(
+            $"/api/organizations/{organizationId}/tasks/{taskId}/details",
+            ToMaterialResponse(material));
+    }
+
+    private static async Task<IResult> ChangeMaterialStateAsync(
+        Guid organizationId,
+        Guid taskId,
+        Guid materialItemId,
+        ChangeTaskMaterialStateRequest request,
+        ClaimsPrincipal principal,
+        ITaskDbContext dbContext,
+        IOrganizationAccessService accessService,
+        IActivityWriter activityWriter,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        var task = await dbContext.WorkTasks.SingleOrDefaultAsync(
+            item =>
+                item.OrganizationId == organizationId && item.Id == taskId,
+            cancellationToken);
+        if (task is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!CanEdit(task, access.Membership!))
+        {
+            return Results.Forbid();
+        }
+
+        var material = await dbContext.TaskMaterialItems.SingleOrDefaultAsync(
+            item =>
+                item.OrganizationId == organizationId
+                && item.TaskId == taskId
+                && item.Id == materialItemId,
+            cancellationToken);
+        if (material is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (request.ConcurrencyToken != material.ConcurrencyToken)
+        {
+            return Conflict();
+        }
+
+        var membership = access.Membership!;
+        var now = timeProvider.GetUtcNow();
+        material.IsPrepared = request.IsPrepared;
+        material.PreparedByMemberId = request.IsPrepared
+            ? membership.MemberId
+            : null;
+        material.PreparedAt = request.IsPrepared ? now : null;
+        material.UpdatedAt = now;
+        material.ConcurrencyToken = Guid.NewGuid();
+
+        if (request.IsPrepared
+            && !await dbContext.TaskMaterialItems
+                .AsNoTracking()
+                .AnyAsync(
+                    item =>
+                        item.OrganizationId == organizationId
+                        && item.TaskId == taskId
+                        && item.Id != materialItemId
+                        && !item.IsPrepared,
+                    cancellationToken))
+        {
+            activityWriter.Add(new ActivityDraft(
+                organizationId,
+                "task.materials_ready",
+                membership.MemberId,
+                "task",
+                task.Id,
+                new Dictionary<string, string?>
+                {
+                    ["taskTitle"] = task.Title
+                }));
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.Ok(ToMaterialResponse(material));
+    }
+
+    private static async Task<IResult> RemoveMaterialAsync(
+        Guid organizationId,
+        Guid taskId,
+        Guid materialItemId,
+        ClaimsPrincipal principal,
+        ITaskDbContext dbContext,
+        IOrganizationAccessService accessService,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(
+            organizationId,
+            principal,
+            accessService,
+            cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        var task = await dbContext.WorkTasks.SingleOrDefaultAsync(
+            item =>
+                item.OrganizationId == organizationId && item.Id == taskId,
+            cancellationToken);
+        if (task is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!CanEdit(task, access.Membership!))
+        {
+            return Results.Forbid();
+        }
+
+        var material = await dbContext.TaskMaterialItems.SingleOrDefaultAsync(
+            item =>
+                item.OrganizationId == organizationId
+                && item.TaskId == taskId
+                && item.Id == materialItemId,
+            cancellationToken);
+        if (material is null)
+        {
+            return Results.NotFound();
+        }
+
+        dbContext.TaskMaterialItems.Remove(material);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> AddCommentAsync(
@@ -912,6 +1156,22 @@ public static class TaskEndpoints
                 "Description may contain at most 4000 characters.");
         }
 
+        if (request.Materials?.Count > 24)
+        {
+            return Validation(
+                "Materials",
+                "Pro Aufgabe sind maximal 24 Materialien möglich.");
+        }
+
+        foreach (var material in request.Materials ?? [])
+        {
+            var materialValidation = ValidateMaterial(material);
+            if (materialValidation is not null)
+            {
+                return materialValidation;
+            }
+        }
+
         if (!Enum.IsDefined(request.Status)
             || !Enum.IsDefined(request.Priority))
         {
@@ -1012,6 +1272,20 @@ public static class TaskEndpoints
             task.CompletedAt,
             task.ConcurrencyToken);
 
+    private static TaskMaterialResponse ToMaterialResponse(
+        TaskMaterialItem material) =>
+        new(
+            material.Id,
+            material.TaskId,
+            material.Name,
+            material.Quantity,
+            material.Notes,
+            material.IsPrepared,
+            material.PreparedByMemberId,
+            material.PreparedAt,
+            material.SortOrder,
+            material.ConcurrencyToken);
+
     private static Task<bool> TaskExistsAsync(
         ITaskDbContext dbContext,
         Guid organizationId,
@@ -1034,6 +1308,41 @@ public static class TaskEndpoints
 
     private static string? Normalize(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static CreateTaskMaterialRequest[] NormalizeMaterials(
+        IReadOnlyList<CreateTaskMaterialRequest>? materials) =>
+        (materials ?? [])
+            .Select(material => new CreateTaskMaterialRequest(
+                material.Name?.Trim(),
+                material.Quantity?.Trim(),
+                Normalize(material.Notes)))
+            .ToArray();
+
+    private static IResult? ValidateMaterial(
+        CreateTaskMaterialRequest material)
+    {
+        if (string.IsNullOrWhiteSpace(material.Name)
+            || material.Name.Trim().Length > 160)
+        {
+            return Validation(
+                "Materials",
+                "Ein Materialname muss zwischen 1 und 160 Zeichen enthalten.");
+        }
+
+        if (string.IsNullOrWhiteSpace(material.Quantity)
+            || material.Quantity.Trim().Length > 80)
+        {
+            return Validation(
+                "Materials",
+                "Eine Materialmenge muss zwischen 1 und 80 Zeichen enthalten.");
+        }
+
+        return Normalize(material.Notes)?.Length > 300
+            ? Validation(
+                "Materials",
+                "Ein Materialhinweis darf maximal 300 Zeichen enthalten.")
+            : null;
+    }
 
     private static IResult Conflict() =>
         Results.Conflict(new

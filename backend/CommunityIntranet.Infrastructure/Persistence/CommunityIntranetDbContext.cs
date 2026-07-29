@@ -66,6 +66,9 @@ public sealed class CommunityIntranetDbContext(
 
     public DbSet<TaskAttachment> TaskAttachments => Set<TaskAttachment>();
 
+    public DbSet<TaskMaterialItem> TaskMaterialItems =>
+        Set<TaskMaterialItem>();
+
     public DbSet<Incident> Incidents => Set<Incident>();
 
     public DbSet<Award> Awards => Set<Award>();
@@ -195,6 +198,21 @@ public sealed class CommunityIntranetDbContext(
             .WithMany()
             .HasForeignKey(attachment => attachment.UploadedByMemberId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<TaskMaterialItem>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(material => material.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<TaskMaterialItem>()
+            .HasOne<WorkTask>()
+            .WithMany()
+            .HasForeignKey(material => material.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<TaskMaterialItem>()
+            .HasOne<OrganizationMember>()
+            .WithMany()
+            .HasForeignKey(material => material.PreparedByMemberId)
+            .OnDelete(DeleteBehavior.SetNull);
         builder.Entity<Incident>()
             .HasOne<Organization>()
             .WithMany()

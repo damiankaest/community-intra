@@ -31,21 +31,11 @@ public static class WorkPlanProposalGuard
                 "Der KI-Entwurf enthält zu viele Ressourcen.");
         }
 
-        var materials = new List<WorkPlanMaterial>(proposal.Materials.Count);
-        foreach (var material in proposal.Materials)
+        var materials = NormalizeMaterials(proposal.Materials);
+        if (materials is null)
         {
-            var name = Normalize(material.Name, 160);
-            var quantity = Normalize(material.Quantity, 80);
-            if (name is null || quantity is null)
-            {
-                return WorkPlanGenerationResult.Failure(
-                    "Eine Ressource im KI-Entwurf ist unvollständig.");
-            }
-
-            materials.Add(new WorkPlanMaterial(
-                name,
-                quantity,
-                Normalize(material.Notes, 300)));
+            return WorkPlanGenerationResult.Failure(
+                "Eine Ressource im KI-Entwurf ist unvollständig.");
         }
 
         var tasks = new List<WorkPlanTask>(proposal.Tasks.Count);
@@ -67,11 +57,25 @@ public static class WorkPlanProposalGuard
                 .Distinct(StringComparer.Ordinal)
                 .Take(8)
                 .ToArray();
+            if (task.Materials is null || task.Materials.Count > 24)
+            {
+                return WorkPlanGenerationResult.Failure(
+                    "Eine Aufgabe im KI-Entwurf enthält zu viele Materialien.");
+            }
+
+            var taskMaterials = NormalizeMaterials(task.Materials);
+            if (taskMaterials is null)
+            {
+                return WorkPlanGenerationResult.Failure(
+                    "Ein Material in einer Aufgabe ist unvollständig.");
+            }
+
             tasks.Add(new WorkPlanTask(
                 taskTitle,
                 description,
                 task.Priority,
-                criteria));
+                criteria,
+                taskMaterials));
         }
 
         return WorkPlanGenerationResult.Success(new WorkPlanProposal(
@@ -80,6 +84,28 @@ public static class WorkPlanProposalGuard
             message,
             materials,
             tasks));
+    }
+
+    private static List<WorkPlanMaterial>? NormalizeMaterials(
+        IReadOnlyList<WorkPlanMaterial> source)
+    {
+        var materials = new List<WorkPlanMaterial>(source.Count);
+        foreach (var material in source)
+        {
+            var name = Normalize(material.Name, 160);
+            var quantity = Normalize(material.Quantity, 80);
+            if (name is null || quantity is null)
+            {
+                return null;
+            }
+
+            materials.Add(new WorkPlanMaterial(
+                name,
+                quantity,
+                Normalize(material.Notes, 300)));
+        }
+
+        return materials;
     }
 
     private static string? Normalize(string? value, int maximumLength)
