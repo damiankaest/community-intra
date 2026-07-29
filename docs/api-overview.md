@@ -113,7 +113,7 @@ Die implementierten Endpunkte sind:
 | GET/POST       | `/projects`                                          | Projekte filtern oder erstellen                    |
 | GET/PUT/DELETE | `/projects/{projectId}`                              | Projekt lesen, bearbeiten oder abbrechen           |
 | GET/POST       | `/tasks`                                             | Aufgaben filtern oder erstellen                    |
-| GET/PUT/DELETE | `/tasks/{taskId}`                                    | Aufgabe lesen, bearbeiten oder abbrechen           |
+| GET/PUT/DELETE | `/tasks/{taskId}`                                    | Aufgabe lesen, bearbeiten oder dauerhaft löschen   |
 | PATCH          | `/tasks/{taskId}/status`                             | Aufgabenstatus ändern                              |
 | GET            | `/tasks/{taskId}/details`                            | Subtasks, Kommentare und Screenshot-Metadaten      |
 | POST           | `/tasks/{taskId}/comments`                           | Kommentar hinzufügen                               |

@@ -78,6 +78,18 @@ export function AiAssistantPanel({
     }
   }, [actions, isOpen, messages])
 
+  useEffect(() => {
+    if (isOpen) {
+      document.documentElement.dataset.chatOpen = 'true'
+    } else {
+      delete document.documentElement.dataset.chatOpen
+    }
+
+    return () => {
+      delete document.documentElement.dataset.chatOpen
+    }
+  }, [isOpen])
+
   const invalidateWorkspace = useCallback(async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['projects', organizationId] }),
@@ -225,7 +237,7 @@ export function AiAssistantPanel({
     return (
       <button
         type="button"
-        className="fixed right-5 bottom-5 z-50 flex items-center gap-2 rounded-full bg-[var(--theme-primary)] px-5 py-3 font-bold text-black shadow-2xl shadow-black/40 transition hover:-translate-y-0.5"
+        className="community-chat-trigger fixed right-5 bottom-5 z-50 flex items-center gap-2 rounded-full bg-[var(--theme-primary)] px-5 py-3 font-bold text-black shadow-2xl shadow-black/40 transition hover:-translate-y-0.5"
         onClick={() => setIsOpen(true)}
       >
         <MessageCircleMore size={19} />
@@ -237,7 +249,7 @@ export function AiAssistantPanel({
   return (
     <aside
       aria-label="Community-Chat"
-      className="fixed right-3 bottom-3 z-50 flex h-[min(760px,calc(100vh-1.5rem))] w-[calc(100vw-1.5rem)] max-w-[460px] flex-col overflow-hidden rounded-[28px] border border-white/15 bg-[color-mix(in_srgb,var(--theme-surface)_94%,black)] shadow-2xl shadow-black/60 backdrop-blur-xl"
+      className="community-chat-panel fixed right-3 bottom-3 z-50 flex h-[min(760px,calc(100vh-1.5rem))] w-[calc(100vw-1.5rem)] max-w-[460px] flex-col overflow-hidden rounded-[28px] border border-white/15 bg-[color-mix(in_srgb,var(--theme-surface)_94%,black)] shadow-2xl shadow-black/60 backdrop-blur-xl"
     >
       <header className="relative overflow-hidden border-b border-white/10 px-5 py-4">
         <div className="absolute inset-0 bg-gradient-to-r from-[var(--theme-primary)]/15 to-transparent" />

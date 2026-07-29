@@ -1,5 +1,6 @@
 using System.Net;
 using CommunityIntranet.Modules.LiveOperations.Services;
+using Xunit;
 
 namespace CommunityIntranet.Api.Tests.LiveOperations;
 

@@ -9,12 +9,14 @@ import {
   MessageSquare,
   Paperclip,
   Plus,
+  Trash2,
   X,
 } from 'lucide-react'
 import {
   addTaskComment,
   changeTaskStatus,
   createTask,
+  deleteTask,
   downloadTaskAttachment,
   getTaskDetails,
   uploadTaskScreenshot,
@@ -134,6 +136,13 @@ export function TaskDetailDrawer({
     },
     onSuccess: invalidate,
   })
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteTask(organizationId, taskId),
+    onSuccess: async () => {
+      await invalidate()
+      onClose()
+    },
+  })
 
   const task = details.data?.task
   const project = projects.find((item) => item.id === task?.projectId)
@@ -143,7 +152,8 @@ export function TaskDetailDrawer({
     statusMutation.error ??
     commentMutation.error ??
     subtaskMutation.error ??
-    uploadMutation.error
+    uploadMutation.error ??
+    deleteMutation.error
 
   return (
     <div
@@ -165,14 +175,39 @@ export function TaskDetailDrawer({
               {task?.title ?? 'Aufgabe wird geladen …'}
             </h2>
           </div>
-          <button
-            type="button"
-            aria-label="Details schließen"
-            className="rounded-xl border border-white/10 p-2 text-[var(--theme-muted)] hover:text-white"
-            onClick={onClose}
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            {task && (
+              <button
+                type="button"
+                aria-label="Aufgabe löschen"
+                className="task-delete-button"
+                disabled={deleteMutation.isPending}
+                onClick={() => {
+                  const subject = details.data?.subtasks.length
+                    ? `Aufgabe „${task.title}“ und ihre ${details.data.subtasks.length} Subtask(s)`
+                    : `Aufgabe „${task.title}“`
+                  if (
+                    window.confirm(
+                      `${subject} wirklich dauerhaft löschen? Kommentare und Screenshots werden ebenfalls gelöscht.`,
+                    )
+                  ) {
+                    deleteMutation.mutate()
+                  }
+                }}
+              >
+                <Trash2 size={17} />
+                <span>Löschen</span>
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label="Details schließen"
+              className="rounded-xl border border-white/10 p-2 text-[var(--theme-muted)] hover:text-white"
+              onClick={onClose}
+            >
+              <X size={20} />
+            </button>
+          </div>
         </header>
 
         <div className="grid gap-6 p-5 sm:p-8">

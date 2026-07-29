@@ -1451,7 +1451,7 @@ function AppShell({
   })
 
   return (
-    <div className="min-h-screen bg-[var(--theme-background)] text-[var(--theme-text)]">
+    <div className="app-workspace min-h-screen bg-[var(--theme-background)] text-[var(--theme-text)]">
       <div className="industrial-grid pointer-events-none fixed inset-0 opacity-40" />
       <header className="relative border-b border-white/10 bg-black/25 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
