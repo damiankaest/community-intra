@@ -538,10 +538,11 @@ public static class TaskEndpoints
             return Conflict();
         }
 
+        var membership = access.Membership!;
         var now = timeProvider.GetUtcNow();
         material.IsPrepared = request.IsPrepared;
         material.PreparedByMemberId = request.IsPrepared
-            ? access.Membership.MemberId
+            ? membership.MemberId
             : null;
         material.PreparedAt = request.IsPrepared ? now : null;
         material.UpdatedAt = now;
@@ -561,8 +562,7 @@ public static class TaskEndpoints
             activityWriter.Add(new ActivityDraft(
                 organizationId,
                 "task.materials_ready",
-                access.Membership.MemberId,
-                access.Membership.MemberId,
+                membership.MemberId,
                 "task",
                 task.Id,
                 new Dictionary<string, string?>
@@ -1309,7 +1309,7 @@ public static class TaskEndpoints
     private static string? Normalize(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static IReadOnlyList<CreateTaskMaterialRequest> NormalizeMaterials(
+    private static CreateTaskMaterialRequest[] NormalizeMaterials(
         IReadOnlyList<CreateTaskMaterialRequest>? materials) =>
         (materials ?? [])
             .Select(material => new CreateTaskMaterialRequest(
