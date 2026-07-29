@@ -246,6 +246,45 @@ jobs:
             "http://127.0.0.1:5080/api/organizations/$organization_id/assistant/chat" \
             > /tmp/assistant-chat.json
           test "$(jq ".messages | length" /tmp/assistant-chat.json)" = "0"
+          test "$(jq --raw-output ".title" /tmp/assistant-chat.json)" = "Neuer Chat"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_a_token" \
+            --data '{"tone":"Theme"}' \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/assistant/conversations" \
+            > /tmp/assistant-conversation.json
+          assistant_conversation_id=$(jq --raw-output ".id" /tmp/assistant-conversation.json)
+          test -n "$assistant_conversation_id"
+          test "$assistant_conversation_id" != "null"
+          test "$(jq --raw-output ".title" /tmp/assistant-conversation.json)" = "Neuer Chat"
+
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/assistant/conversations" \
+            > /tmp/assistant-conversations.json
+          test "$(jq "length" /tmp/assistant-conversations.json)" = "1"
+
+          curl --fail --silent \
+            --request PATCH \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_a_token" \
+            --data '{"title":"Aluminium-Ausbau"}' \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/assistant/conversations/$assistant_conversation_id" \
+            > /tmp/assistant-conversation-renamed.json
+          test "$(jq --raw-output ".title" /tmp/assistant-conversation-renamed.json)" = "Aluminium-Ausbau"
+
+          curl --fail --silent \
+            --request DELETE \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/assistant/conversations/$assistant_conversation_id"
+
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/organizations/$organization_id/assistant/conversations" \
+            > /tmp/assistant-conversations-empty.json
+          test "$(jq "length" /tmp/assistant-conversations-empty.json)" = "0"
 
           assistant_tenant_status=$(curl --silent \
             --output /tmp/assistant-tenant-isolation.json \
