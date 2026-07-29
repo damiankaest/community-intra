@@ -45,6 +45,7 @@ jobs:
           HETZNER_KNOWN_HOSTS: ${{ secrets.HETZNER_KNOWN_HOSTS }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           set -euo pipefail
 
@@ -56,6 +57,7 @@ jobs:
             HETZNER_KNOWN_HOSTS
             POSTGRES_PASSWORD
             JWT_SIGNING_KEY
+            OPENAI_API_KEY
           )
 
           missing=false
@@ -149,6 +151,8 @@ jobs:
           APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AI_MODEL: ${{ vars.AI_MODEL || 'gpt-5.6' }}
         run: |
           set -euo pipefail
           umask 077
@@ -167,6 +171,8 @@ jobs:
             printf 'JWT_ISSUER=https://%s\n' "$APP_DOMAIN"
             printf 'JWT_AUDIENCE=community-intranet\n'
             printf 'JWT_SIGNING_KEY=%s\n' "$JWT_SIGNING_KEY"
+            printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY"
+            printf 'AI_MODEL=%s\n' "$AI_MODEL"
           } > .deployment/deploy/.env.production
 
       - name: Upload deployment package

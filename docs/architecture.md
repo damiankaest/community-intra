@@ -30,17 +30,18 @@ ausblenden, aber niemals durchsetzen.
 
 ## Modulgrenzen
 
-| Modul | Verantwortung | Eigene Kerntypen |
-|---|---|---|
-| Identity | Benutzer, Zugangsdaten, Access-/Refresh-Token | User, RefreshToken |
-| Organizations | Mandant, Einstellungen, aktivierte Module | Organization |
-| Members | Mitgliedschaft, Abteilungen, Einladungen | OrganizationMember, Department, Invitation |
-| ThemePacks | validierte Darstellung und Terminologie | ThemePack, ThemePackConfiguration |
-| Projects | größere gemeinsame Vorhaben | Project |
-| Tasks | eigenständige und projektbezogene Aufgaben | Task |
-| Incidents | Vorfälle, Untersuchung und Auflösung | Incident |
-| Awards | Vorlagen und vergebene Auszeichnungen | Award |
-| ActivityFeed | strukturierte, renderbare Domain-Aktivitäten | Activity |
+| Modul         | Verantwortung                                 | Eigene Kerntypen                           |
+| ------------- | --------------------------------------------- | ------------------------------------------ |
+| Identity      | Benutzer, Zugangsdaten, Access-/Refresh-Token | User, RefreshToken                         |
+| Organizations | Mandant, Einstellungen, aktivierte Module     | Organization                               |
+| Members       | Mitgliedschaft, Abteilungen, Einladungen      | OrganizationMember, Department, Invitation |
+| ThemePacks    | validierte Darstellung und Terminologie       | ThemePack, ThemePackConfiguration          |
+| Projects      | größere gemeinsame Vorhaben                   | Project                                    |
+| Tasks         | eigenständige und projektbezogene Aufgaben    | Task                                       |
+| Incidents     | Vorfälle, Untersuchung und Auflösung          | Incident                                   |
+| Awards        | Vorlagen und vergebene Auszeichnungen         | Award                                      |
+| ActivityFeed  | strukturierte, renderbare Domain-Aktivitäten  | Activity                                   |
+| AiAssistant   | KI-Entwürfe und bestätigte Arbeitspläne       | WorkPlanDraft                              |
 
 Ein Modul greift nicht direkt auf interne Domain-Typen eines anderen Moduls zu.
 Notwendige Kommunikation erfolgt zunächst synchron über kleine öffentliche
@@ -158,17 +159,27 @@ möglich.
 
 Konsequenz: Renderer müssen unbekannte Ereignisversionen robust behandeln.
 
+### ADR-005: Bestätigte KI-Entwürfe und WebMCP-Adapter
+
+Die KI erzeugt zunächst einen kurzlebigen, organisationsgebundenen Entwurf.
+Erst eine explizite Bestätigung erzeugt Projekt und Aufgaben. WebMCP bildet
+denselben REST-Ablauf ab und enthält keine eigene Geschäftslogik. Damit bleiben
+Authentifizierung, Rollenprüfung, Mandantentrennung und Validierung vollständig
+im Backend.
+
 ## Technische Risiken
 
-| Risiko | Auswirkung | Gegenmaßnahme |
-|---|---|---|
-| Tenant-Leak durch vergessenen Filter | kritisch | zentraler Accessor, explizite Filter, Isolationstests |
-| Rolle und sichtbarer Titel werden vermischt | Rechteausweitung | getrennte Felder und Permission-Mapping nur aus PermissionRole |
-| Theme-Konfiguration wächst unkontrolliert | instabile UI | versioniertes Schema, Größenlimits, Allowlist für Icons/Werte |
-| Gemeinsamer DbContext koppelt Module | erschwerte Extraktion | Schema- und Projektgrenzen, keine Navigationen über Aggregate |
-| Refresh-Token-Wiederverwendung | Kontoübernahme | Hashing, Rotation, Token-Familie und Reuse-Erkennung |
-| PWA cached sensible API-Antworten | Daten auf geteilten Geräten | Network-only für `/api`, Cache nur statische Assets |
-| humorvolle Drittanbieter-Themes verletzen Rechte | rechtliches Risiko | eigene Icons/Assets, Autorenangabe, Moderation und Exportprüfung |
+| Risiko                                           | Auswirkung                             | Gegenmaßnahme                                                                 |
+| ------------------------------------------------ | -------------------------------------- | ----------------------------------------------------------------------------- |
+| Tenant-Leak durch vergessenen Filter             | kritisch                               | zentraler Accessor, explizite Filter, Isolationstests                         |
+| Rolle und sichtbarer Titel werden vermischt      | Rechteausweitung                       | getrennte Felder und Permission-Mapping nur aus PermissionRole                |
+| Theme-Konfiguration wächst unkontrolliert        | instabile UI                           | versioniertes Schema, Größenlimits, Allowlist für Icons/Werte                 |
+| Gemeinsamer DbContext koppelt Module             | erschwerte Extraktion                  | Schema- und Projektgrenzen, keine Navigationen über Aggregate                 |
+| Refresh-Token-Wiederverwendung                   | Kontoübernahme                         | Hashing, Rotation, Token-Familie und Reuse-Erkennung                          |
+| PWA cached sensible API-Antworten                | Daten auf geteilten Geräten            | Network-only für `/api`, Cache nur statische Assets                           |
+| humorvolle Drittanbieter-Themes verletzen Rechte | rechtliches Risiko                     | eigene Icons/Assets, Autorenangabe, Moderation und Exportprüfung              |
+| Prompt Injection oder fehlerhafte KI-Pläne       | ungeeignete oder schädliche Änderungen | striktes Ausgabeschema, serverseitige Normalisierung, Entwurf und Bestätigung |
+| experimenteller WebMCP-Standard ändert sich      | Browser-Integration fällt aus          | optionaler Adapter, REST-API bleibt kanonisch                                 |
 
 ## Umsetzungsreihenfolge
 
@@ -180,3 +191,4 @@ Konsequenz: Renderer müssen unbekannte Ereignisversionen robust behandeln.
 6. Incidents und Awards (Phase 6)
 7. Activity Feed und Dashboard (Phase 6)
 8. Isolationstests und responsive Stabilisierung (Phase 7)
+9. KI-Arbeitsplanung und WebMCP über bestätigte, mandantengebundene Entwürfe

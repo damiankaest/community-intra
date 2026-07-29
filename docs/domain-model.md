@@ -71,6 +71,7 @@ fest typisiert; die JSON-Spalte ist nur das Persistenzformat.
 | Incident | ja | Auflösung benötigt Resolution; Historie bleibt erhalten |
 | Award | ja | vergebene Awards werden nicht umgeschrieben, sondern ggf. zurückgezogen |
 | Activity | ja, append-only | strukturierte Daten mit Schema-/Eventversion |
+| WorkPlanDraft | ja | kurzlebig; Bestätigung erzeugt Projekt und Aufgaben genau einmal |
 
 ## Invarianten und Constraints
 
