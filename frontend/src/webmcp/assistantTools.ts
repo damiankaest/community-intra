@@ -12,6 +12,13 @@ import {
 } from '../api/features'
 import { listMembers } from '../api/members'
 import { getLiveServerStatus } from '../api/liveOperations'
+import {
+  clockIn,
+  clockOut,
+  getTimeClockOverview,
+  logWork,
+  type WorkLogKind,
+} from '../api/timeTracking'
 
 interface RegisterAssistantToolsOptions {
   organizationId: string
@@ -179,6 +186,128 @@ export function registerAssistantTools({
     execute: async () => {
       onOpenChat()
       return getLiveServerStatus(organizationId)
+    },
+  })
+
+  register({
+    name: 'community_get_time_clock',
+    title: 'Stechuhr laden',
+    description:
+      'Lädt den eigenen Stechuhr-Status, Wochenzeit, aktive Mitglieder und die letzten Logbucheinträge. Nur lesend.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {},
+    },
+    annotations: {
+      readOnlyHint: true,
+      untrustedContentHint: true,
+    },
+    execute: async () => {
+      onOpenChat()
+      return getTimeClockOverview(organizationId)
+    },
+  })
+
+  register({
+    name: 'community_clock_in',
+    title: 'Schicht beginnen',
+    description:
+      'Stempelt das aktuelle Mitglied nach sichtbarer Bestätigung ein.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {},
+    },
+    annotations: {
+      readOnlyHint: false,
+      untrustedContentHint: false,
+    },
+    execute: async () => {
+      onOpenChat()
+      if (!window.confirm('Schicht jetzt wirklich beginnen?')) {
+        return { confirmed: false, reason: 'User cancelled' }
+      }
+
+      const result = await clockIn(organizationId)
+      onChanged()
+      return { confirmed: true, ...result }
+    },
+  })
+
+  register({
+    name: 'community_clock_out',
+    title: 'Schicht beenden',
+    description:
+      'Stempelt das aktuelle Mitglied nach sichtbarer Bestätigung aus.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {},
+    },
+    annotations: {
+      readOnlyHint: false,
+      untrustedContentHint: false,
+    },
+    execute: async () => {
+      onOpenChat()
+      if (!window.confirm('Schicht wirklich beenden und Feierabend machen?')) {
+        return { confirmed: false, reason: 'User cancelled' }
+      }
+
+      const shift = await clockOut(organizationId)
+      onChanged()
+      return { confirmed: true, shift }
+    },
+  })
+
+  register({
+    name: 'community_log_work',
+    title: 'Fortschritt loggen',
+    description:
+      'Schreibt nach sichtbarer Bestätigung einen kurzen Eintrag für gebaut, gefixt, optimiert oder zerstört in die laufende Schicht.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['Built', 'Fixed', 'Optimized', 'Destroyed'],
+        },
+        note: {
+          type: 'string',
+          description: 'Kurze, konkrete Beschreibung mit maximal 240 Zeichen.',
+        },
+      },
+      required: ['kind', 'note'],
+    },
+    annotations: {
+      readOnlyHint: false,
+      untrustedContentHint: true,
+    },
+    execute: async (input) => {
+      onOpenChat()
+      const kind = asWorkLogKind(input.kind)
+      const note = String(input.note ?? '')
+        .trim()
+        .slice(0, 240)
+      if (!note) {
+        return { confirmed: false, reason: 'Note is empty' }
+      }
+
+      const label = {
+        Built: 'Gebaut',
+        Fixed: 'Gefixt',
+        Optimized: 'Optimiert',
+        Destroyed: 'Zerstört',
+      }[kind]
+      if (!window.confirm(`${label} wirklich loggen?\n\n${note}`)) {
+        return { confirmed: false, reason: 'User cancelled' }
+      }
+
+      const entry = await logWork(organizationId, kind, note)
+      onChanged()
+      return { confirmed: true, entry }
     },
   })
 
@@ -471,4 +600,10 @@ function asTaskStatus(value: unknown): TaskStatus {
   )
     ? (value as TaskStatus)
     : 'Open'
+}
+
+function asWorkLogKind(value: unknown): WorkLogKind {
+  return ['Built', 'Fixed', 'Optimized', 'Destroyed'].includes(String(value))
+    ? (value as WorkLogKind)
+    : 'Built'
 }
