@@ -375,7 +375,7 @@ public static class TaskEndpoints
             task,
             previousAssignee,
             previousStatus,
-            access.Membership.MemberId);
+            access.Membership!.MemberId);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Ok(ToResponse(task));
     }
@@ -730,7 +730,7 @@ public static class TaskEndpoints
             task,
             task.AssignedMemberId,
             previousStatus,
-            access.Membership.MemberId);
+            access.Membership!.MemberId);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Ok(ToResponse(task));
     }
@@ -783,7 +783,7 @@ public static class TaskEndpoints
             task,
             task.AssignedMemberId,
             previousStatus,
-            access.Membership.MemberId);
+            access.Membership!.MemberId);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }
