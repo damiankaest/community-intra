@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 
 namespace CommunityIntranet.Modules.AiAssistant.Services;
 
-public sealed class OpenAiWorkPlanGenerator(
+public sealed partial class OpenAiWorkPlanGenerator(
     HttpClient httpClient,
     IOptions<AiAssistantOptions> options,
     ILogger<OpenAiWorkPlanGenerator> logger)
@@ -54,9 +54,7 @@ public sealed class OpenAiWorkPlanGenerator(
                 cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning(
-                    "OpenAI work-plan generation failed with status {StatusCode}",
-                    (int)response.StatusCode);
+                LogGenerationFailed(logger, (int)response.StatusCode);
                 return WorkPlanGenerationResult.Failure(
                     "Der KI-Dienst konnte gerade keinen Entwurf erstellen.");
             }
@@ -83,26 +81,20 @@ public sealed class OpenAiWorkPlanGenerator(
         }
         catch (HttpRequestException exception)
         {
-            logger.LogWarning(
-                exception,
-                "OpenAI work-plan generation could not be reached");
+            LogGenerationUnavailable(logger, exception);
             return WorkPlanGenerationResult.Failure(
                 "Der KI-Dienst ist gerade nicht erreichbar.");
         }
         catch (OperationCanceledException exception)
             when (!cancellationToken.IsCancellationRequested)
         {
-            logger.LogWarning(
-                exception,
-                "OpenAI work-plan generation timed out");
+            LogGenerationTimedOut(logger, exception);
             return WorkPlanGenerationResult.Failure(
                 "Der KI-Dienst hat nicht rechtzeitig geantwortet.");
         }
         catch (JsonException exception)
         {
-            logger.LogWarning(
-                exception,
-                "OpenAI work-plan generation returned invalid JSON");
+            LogInvalidResponse(logger, exception);
             return WorkPlanGenerationResult.Failure(
                 "Der KI-Dienst hat einen ungültigen Entwurf geliefert.");
         }
@@ -260,4 +252,36 @@ public sealed class OpenAiWorkPlanGenerator(
             "tasks"
         }
     };
+
+    [LoggerMessage(
+        EventId = 7000,
+        Level = LogLevel.Warning,
+        Message = "OpenAI work-plan generation failed with status {StatusCode}")]
+    private static partial void LogGenerationFailed(
+        ILogger logger,
+        int statusCode);
+
+    [LoggerMessage(
+        EventId = 7001,
+        Level = LogLevel.Warning,
+        Message = "OpenAI work-plan generation could not be reached")]
+    private static partial void LogGenerationUnavailable(
+        ILogger logger,
+        Exception exception);
+
+    [LoggerMessage(
+        EventId = 7002,
+        Level = LogLevel.Warning,
+        Message = "OpenAI work-plan generation timed out")]
+    private static partial void LogGenerationTimedOut(
+        ILogger logger,
+        Exception exception);
+
+    [LoggerMessage(
+        EventId = 7003,
+        Level = LogLevel.Warning,
+        Message = "OpenAI work-plan generation returned invalid JSON")]
+    private static partial void LogInvalidResponse(
+        ILogger logger,
+        Exception exception);
 }
