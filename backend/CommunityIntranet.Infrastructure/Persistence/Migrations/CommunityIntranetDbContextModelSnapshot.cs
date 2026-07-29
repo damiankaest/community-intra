@@ -222,6 +222,9 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -236,6 +239,10 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                         .HasMaxLength(24)
                         .HasColumnType("character varying(24)");
 
+                    b.Property<string>("Title")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -243,7 +250,7 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("MemberId");
 
-                    b.HasIndex("OrganizationId", "MemberId", "UpdatedAt");
+                    b.HasIndex("OrganizationId", "MemberId", "ArchivedAt", "UpdatedAt");
 
                     b.ToTable("conversations", "ai");
                 });
