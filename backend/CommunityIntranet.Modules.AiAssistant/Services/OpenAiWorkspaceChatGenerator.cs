@@ -387,18 +387,19 @@ public sealed partial class OpenAiWorkspaceChatGenerator(
         Guid organizationId,
         CancellationToken cancellationToken)
     {
-        var members = await dbContext.OrganizationMembers
-            .AsNoTracking()
-            .Where(member =>
-                member.OrganizationId == organizationId && member.IsActive)
-            .OrderBy(member => member.DisplayName)
-            .Take(100)
-            .Select(member => new
+        var members = await (
+            from member in dbContext.OrganizationMembers.AsNoTracking()
+            join user in dbContext.Users.AsNoTracking()
+                on member.UserId equals user.Id
+            where member.OrganizationId == organizationId && member.IsActive
+            orderby user.DisplayName
+            select new
             {
                 member.Id,
-                member.DisplayName,
+                user.DisplayName,
                 member.VisibleTitle
             })
+            .Take(100)
             .ToArrayAsync(cancellationToken);
         return JsonResult(members);
     }

@@ -6,6 +6,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../CommunityIntranet.BuildingBlocks/CommunityIntranet.BuildingBlocks.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Identity/CommunityIntranet.Modules.Identity.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.Organizations/CommunityIntranet.Modules.Organizations.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.Members/CommunityIntranet.Modules.Members.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.Projects/CommunityIntranet.Modules.Projects.csproj" />
