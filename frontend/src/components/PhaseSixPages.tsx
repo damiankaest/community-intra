@@ -210,18 +210,25 @@ export function PhaseSixDashboard({ user }: PhaseSixPageProps) {
     >
       {dashboard.error && <ErrorBox error={dashboard.error} />}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Mitglieder" value={dashboard.data?.memberCount ?? 0} />
+        <Metric
+          label="Mitglieder"
+          value={dashboard.data?.memberCount ?? 0}
+          to={`/organizations/${organizationId}/members`}
+        />
         <Metric
           label={`Offene ${terminology?.task ?? 'Aufgaben'}`}
           value={dashboard.data?.openTaskCount ?? 0}
+          to={`/organizations/${organizationId}/tasks`}
         />
         <Metric
           label={`Aktive ${terminology?.project ?? 'Projekte'}`}
           value={dashboard.data?.activeProjectCount ?? 0}
+          to={`/organizations/${organizationId}/projects`}
         />
         <Metric
           label={`Offene ${terminology?.incident ?? 'Incidents'}`}
           value={dashboard.data?.openIncidentCount ?? 0}
+          to={`/organizations/${organizationId}/incidents`}
         />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
@@ -860,11 +867,36 @@ async function invalidate(
   ])
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-[var(--theme-surface)] p-5">
+function Metric({
+  label,
+  value,
+  to,
+}: {
+  label: string
+  value: number
+  to?: string
+}) {
+  const content = (
+    <>
       <p className="text-sm text-[var(--theme-muted)]">{label}</p>
       <p className="mt-2 text-4xl font-black text-white">{value}</p>
+    </>
+  )
+
+  if (to) {
+    return (
+      <Link
+        to={to}
+        className="block rounded-2xl border border-white/10 bg-[var(--theme-surface)] p-5 transition hover:border-[var(--theme-primary)]/50 hover:bg-white/[0.05]"
+      >
+        {content}
+      </Link>
+    )
+  }
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[var(--theme-surface)] p-5">
+      {content}
     </div>
   )
 }
