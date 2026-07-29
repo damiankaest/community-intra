@@ -1,6 +1,7 @@
 using System.Text.Json;
 using CommunityIntranet.Modules.AiAssistant.Domain;
 using CommunityIntranet.Modules.Tasks.Domain;
+using CommunityIntranet.Modules.TimeTracking.Domain;
 
 namespace CommunityIntranet.Modules.AiAssistant.Contracts;
 
@@ -134,3 +135,9 @@ public sealed record AddTaskCommentActionPayload(
     Guid TaskId,
     string Body,
     IReadOnlyList<Guid> MentionedMemberIds);
+
+public sealed record ClockActionPayload();
+
+public sealed record WorkLogActionPayload(
+    WorkLogKind Kind,
+    string Note);
