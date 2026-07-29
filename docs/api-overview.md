@@ -172,14 +172,14 @@ Mitgliedschaftsprüfung ausgeliefert.
 
 ## Chat-Sessions und persistente Arbeitsfläche (Phase 12)
 
-| Methode | Route                                                                          | Zweck                                  |
-| ------- | ------------------------------------------------------------------------------ | -------------------------------------- |
-| GET     | `/organizations/{organizationId}/assistant/conversations`                      | eigene aktive Chat-Sessions auflisten  |
-| POST    | `/organizations/{organizationId}/assistant/conversations`                      | neue Session anlegen                   |
-| GET     | `/organizations/{organizationId}/assistant/conversations/{id}`                 | Session mit Verlauf und Aktionen laden |
-| PATCH   | `/organizations/{organizationId}/assistant/conversations/{id}`                 | Session umbenennen                     |
-| DELETE  | `/organizations/{organizationId}/assistant/conversations/{id}`                 | Session archivieren                    |
-| POST    | `/organizations/{organizationId}/assistant/conversations/{id}/messages`        | Nachricht in dieser Session streamen   |
+| Methode | Route                                                                   | Zweck                                  |
+| ------- | ----------------------------------------------------------------------- | -------------------------------------- |
+| GET     | `/organizations/{organizationId}/assistant/conversations`               | eigene aktive Chat-Sessions auflisten  |
+| POST    | `/organizations/{organizationId}/assistant/conversations`               | neue Session anlegen                   |
+| GET     | `/organizations/{organizationId}/assistant/conversations/{id}`          | Session mit Verlauf und Aktionen laden |
+| PATCH   | `/organizations/{organizationId}/assistant/conversations/{id}`          | Session umbenennen                     |
+| DELETE  | `/organizations/{organizationId}/assistant/conversations/{id}`          | Session archivieren                    |
+| POST    | `/organizations/{organizationId}/assistant/conversations/{id}/messages` | Nachricht in dieser Session streamen   |
 
 Jede Session gehört genau einem Mitglied innerhalb einer Organisation.
 Archivierte Sessions werden nicht mehr geladen. Für eine KI-Anfrage werden
@@ -204,14 +204,37 @@ Die Dashboard-Antwort enthält zusätzlich ein Fokusprojekt, bis zu fünf
 priorisierte Aufgaben inklusive Materialfortschritt und einen aggregierten
 Sieben-Tage-Bericht.
 
+## FICSIT-Stechuhr (Phase 13)
+
+Alle Routen liegen unter
+`/organizations/{organizationId}/time-clock`:
+
+| Methode | Route        | Zweck                                              |
+| ------- | ------------ | -------------------------------------------------- |
+| GET     | `/`          | eigener Status, Zeiten, Team und Arbeitslog laden  |
+| POST    | `/clock-in`  | eigene Schicht beginnen                            |
+| POST    | `/clock-out` | eigene laufende Schicht beenden                    |
+| POST    | `/entries`   | Fortschritt in der laufenden Schicht dokumentieren |
+
+Jedes Mitglied kann sich selbst ein- und ausstempeln. Pro Mitglied und
+Organisation darf höchstens eine offene Schicht existieren; ein wiederholtes
+Einstempeln ist idempotent. Ein Arbeitslog-Eintrag benötigt eine laufende
+Schicht, eine der Arten `Built`, `Fixed`, `Optimized` oder `Destroyed` und eine
+Beschreibung mit maximal 240 Zeichen.
+
+Die Übersicht enthält die eigene Tages- und Wochenzeit, aktive Mitglieder,
+eine Wochenrangliste, die letzten organisationsweiten Arbeitslogs sowie den
+eigenen Schichtverlauf. WebMCP-Schreibaktionen werden immer erst nach einer
+sichtbaren Bestätigung ausgeführt.
+
 ## Zusammenarbeit im Alltag (Phase 9)
 
-| Methode | Route                                                   | Zweck                              |
-| ------- | ------------------------------------------------------- | ---------------------------------- |
-| GET     | `/organizations/{organizationId}/notifications`         | eigene Benachrichtigungen laden    |
-| GET     | `/organizations/{organizationId}/notifications/summary` | Zahl ungelesener Meldungen laden   |
-| POST    | `/organizations/{organizationId}/notifications/{id}/read` | Meldung als gelesen markieren    |
-| POST    | `/organizations/{organizationId}/notifications/read-all` | alle Meldungen als gelesen markieren |
+| Methode | Route                                                     | Zweck                                |
+| ------- | --------------------------------------------------------- | ------------------------------------ |
+| GET     | `/organizations/{organizationId}/notifications`           | eigene Benachrichtigungen laden      |
+| GET     | `/organizations/{organizationId}/notifications/summary`   | Zahl ungelesener Meldungen laden     |
+| POST    | `/organizations/{organizationId}/notifications/{id}/read` | Meldung als gelesen markieren        |
+| POST    | `/organizations/{organizationId}/notifications/read-all`  | alle Meldungen als gelesen markieren |
 
 Zuweisungen, Kommentare, `@Person`-Erwähnungen und Statusänderungen erzeugen
 mandantengebundene In-App-Benachrichtigungen. Der Empfänger wird immer aus der

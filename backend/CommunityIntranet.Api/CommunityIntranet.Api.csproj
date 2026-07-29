@@ -30,5 +30,6 @@
     <ProjectReference Include="../CommunityIntranet.Modules.AiAssistant/CommunityIntranet.Modules.AiAssistant.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.Notifications/CommunityIntranet.Modules.Notifications.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.LiveOperations/CommunityIntranet.Modules.LiveOperations.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.TimeTracking/CommunityIntranet.Modules.TimeTracking.csproj" />
   </ItemGroup>
 </Project>

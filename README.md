@@ -7,7 +7,7 @@ bleibt aber vollständig spielunabhängig.
 
 ## Aktueller Stand
 
-Phase 1 bis 12 liefern die dokumentierte Zielarchitektur, ein startbares
+Phase 1 bis 13 liefern die dokumentierte Zielarchitektur, ein startbares
 Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 
 - modularer ASP.NET-Core-8-Monolith mit Minimal APIs
@@ -53,6 +53,10 @@ Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 - bestätigte Chat-Karten mit Materialvorschau und direktem Aufgabenlink
 - Command Center mit Fokusprojekt, priorisierten Aufgaben, Serverstatus und
   FICSIT-Wochenbericht
+- FICSIT-Stechuhr mit Live-Timer, Tages- und Wochenzeit sowie Teamstatus
+- Quick Actions für `Gebaut`, `Gefixt`, `Optimiert` und `Zerstört`
+- persönlicher Schichtverlauf, Wochenrangliste und gemeinsames Arbeitslogbuch
+- bestätigungspflichtige Stechuhr-Aktionen über WebMCP
 - PostgreSQL über Docker Compose und eine initiale EF-Core-Migration
 - Serilog, ProblemDetails, Swagger und Health Checks
 - React-PWA mit Authentifizierung, Organisationsanlage und -auswahl
@@ -201,6 +205,6 @@ versioniert angelegt. Offizielle Spiel-Assets werden nicht verwendet.
 
 ## Nächster Schritt
 
-Als Nächstes können Zeiterfassung, Fabrik- und Produktionsketten sowie ein
-optionaler Satisfactory-Save-Import folgen. Der Kern bleibt von externen
-Integrationen unabhängig.
+Als Nächstes folgen Fabrik- und Produktionsketten sowie der automatische
+Satisfactory-Save-Import. Der Kern bleibt von externen Integrationen
+unabhängig.

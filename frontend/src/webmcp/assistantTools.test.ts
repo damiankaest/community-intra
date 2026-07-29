@@ -28,6 +28,10 @@ describe('WebMCP assistant tools', () => {
       'community_list_members',
       'community_get_task',
       'community_get_live_server_status',
+      'community_get_time_clock',
+      'community_clock_in',
+      'community_clock_out',
+      'community_log_work',
       'community_create_task',
       'community_change_task_status',
       'community_set_task_material_state',
@@ -35,10 +39,10 @@ describe('WebMCP assistant tools', () => {
       'community_add_task_comment',
     ])
     expect(
-      tools.slice(0, 5).every((tool) => tool.annotations?.readOnlyHint),
+      tools.slice(0, 6).every((tool) => tool.annotations?.readOnlyHint),
     ).toBe(true)
     expect(
-      tools.slice(5).every((tool) => tool.annotations?.readOnlyHint === false),
+      tools.slice(6).every((tool) => tool.annotations?.readOnlyHint === false),
     ).toBe(true)
   })
 
