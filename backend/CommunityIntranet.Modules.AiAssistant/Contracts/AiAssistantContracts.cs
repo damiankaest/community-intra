@@ -61,6 +61,12 @@ public sealed record SendAssistantMessageRequest(
     string? Message,
     AssistantTone Tone = AssistantTone.Theme);
 
+public sealed record CreateAssistantConversationRequest(
+    string? Title,
+    AssistantTone Tone = AssistantTone.Theme);
+
+public sealed record UpdateAssistantConversationRequest(string? Title);
+
 public sealed record AssistantMessageResponse(
     Guid Id,
     AssistantMessageRole Role,
@@ -77,8 +83,17 @@ public sealed record AssistantActionResponse(
     Guid? ResultEntityId,
     Guid ConcurrencyToken);
 
+public sealed record AssistantConversationSummaryResponse(
+    Guid Id,
+    string Title,
+    AssistantTone Tone,
+    int MessageCount,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
 public sealed record AssistantConversationResponse(
     Guid? Id,
+    string Title,
     AssistantTone Tone,
     IReadOnlyList<AssistantMessageResponse> Messages,
     IReadOnlyList<AssistantActionResponse> Actions);
