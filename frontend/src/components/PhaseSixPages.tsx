@@ -16,6 +16,7 @@ import {
   ScrollText,
   Server,
   Sparkles,
+  TimerReset,
   UserRound,
   Users,
   X,
@@ -53,6 +54,7 @@ import { listMembers } from '../api/members'
 import { getLiveServerStatus } from '../api/liveOperations'
 import { getOrganization } from '../api/organizations'
 import { getThemePack } from '../api/themePacks'
+import { getTimeClockOverview } from '../api/timeTracking'
 import { applyTheme, resetTheme } from '../theme'
 import { NotificationBell } from './NotificationBell'
 import { TaskDetailDrawer } from './TaskDetailDrawer'
@@ -222,6 +224,11 @@ export function FeatureLayout({
               icon={<Server size={17} />}
             />
             <FeatureLink
+              to="time-clock"
+              label="Stechuhr"
+              icon={<TimerReset size={17} />}
+            />
+            <FeatureLink
               to="members"
               label="Mitglieder"
               icon={<Users size={17} />}
@@ -283,6 +290,12 @@ export function PhaseSixDashboard({ user }: PhaseSixPageProps) {
     enabled: Boolean(organizationId),
     retry: false,
     refetchInterval: 60_000,
+  })
+  const timeClock = useQuery({
+    queryKey: ['time-clock', organizationId],
+    queryFn: () => getTimeClockOverview(organizationId),
+    enabled: Boolean(organizationId),
+    refetchInterval: 30_000,
   })
   const terminology = themePack.data?.configuration.terminology
   const focus = dashboard.data?.focusProject
@@ -350,7 +363,16 @@ export function PhaseSixDashboard({ user }: PhaseSixPageProps) {
         </div>
       </section>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <Metric
+          label={timeClock.data?.activeShift ? 'Schicht läuft' : 'Eigene Woche'}
+          value={
+            timeClock.data?.activeShift
+              ? 'LIVE'
+              : formatDashboardDuration(timeClock.data?.weekSeconds)
+          }
+          to={`/organizations/${organizationId}/time-clock`}
+        />
         <Metric
           label="Mitglieder"
           value={dashboard.data?.memberCount ?? 0}
@@ -467,6 +489,9 @@ export function PhaseSixDashboard({ user }: PhaseSixPageProps) {
             </QuickLink>
             <QuickLink organizationId={organizationId} path="live-operations">
               Server ansehen
+            </QuickLink>
+            <QuickLink organizationId={organizationId} path="time-clock">
+              Schicht starten
             </QuickLink>
           </div>
         </Panel>
@@ -1261,6 +1286,12 @@ function renderActivity(activity: Activity) {
       return `${activity.data.targetMemberName ?? 'Ein Mitglied'} erhielt „${activity.data.awardName ?? 'eine Auszeichnung'}“.`
     case 'assistant.work-plan-confirmed':
       return `KI-Entwurf „${activity.data.projectName ?? 'Unbenannt'}“ wurde mit ${activity.data.taskCount ?? 'mehreren'} Aufgaben bestätigt.`
+    case 'time_clock.clocked_in':
+      return 'Eine neue Schicht wurde begonnen.'
+    case 'time_clock.clocked_out':
+      return `Schicht nach ${activity.data.elapsedMinutes ?? 'einigen'} Minuten beendet.`
+    case 'time_clock.work_logged':
+      return `${workLogKindLabel(activity.data.kind)}: ${activity.data.note ?? 'Fortschritt wurde festgehalten.'}`
     default:
       return `Aktivität ${activity.activityType}`
   }
@@ -1319,7 +1350,7 @@ function Metric({
   to,
 }: {
   label: string
-  value: number
+  value: ReactNode
   to?: string
 }) {
   const content = (
@@ -1344,6 +1375,23 @@ function Metric({
     <div className="rounded-2xl border border-white/10 bg-[var(--theme-surface)] p-5">
       {content}
     </div>
+  )
+}
+
+function formatDashboardDuration(seconds = 0) {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
+}
+
+function workLogKindLabel(kind: string | undefined) {
+  return (
+    {
+      Built: 'Gebaut',
+      Fixed: 'Gefixt',
+      Optimized: 'Optimiert',
+      Destroyed: 'Zerstört',
+    }[kind ?? ''] ?? 'Arbeitslog'
   )
 }
 
