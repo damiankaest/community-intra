@@ -224,8 +224,8 @@ Beschreibung mit maximal 240 Zeichen.
 
 Die Übersicht enthält die eigene Tages- und Wochenzeit, aktive Mitglieder,
 eine Wochenrangliste, die letzten organisationsweiten Arbeitslogs sowie den
-eigenen Schichtverlauf. Chat- und WebMCP-Schreibaktionen werden immer erst nach
-einer sichtbaren Bestätigung ausgeführt.
+eigenen Schichtverlauf. WebMCP-Schreibaktionen werden immer erst nach einer
+sichtbaren Bestätigung ausgeführt.
 
 ## Zusammenarbeit im Alltag (Phase 9)
 
