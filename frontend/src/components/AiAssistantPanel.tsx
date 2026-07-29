@@ -807,21 +807,12 @@ function ActionCard({
     action.payload.title ??
     action.payload.name ??
     action.payload.body ??
-    action.payload.note ??
-    (action.kind === 'ClockIn'
-      ? 'Schicht beginnen'
-      : action.kind === 'ClockOut'
-        ? 'Schicht beenden'
-        : undefined) ??
     (action.kind === 'UpdateTask' ? 'Aufgabe anpassen' : 'Änderung vorbereiten')
   const kindLabel = {
     CreateTask: 'Neue Aufgabe',
     UpdateTask: 'Aufgabe ändern',
     CreateProject: 'Neues Projekt',
     AddTaskComment: 'Kommentar schreiben',
-    ClockIn: 'Einstempeln',
-    ClockOut: 'Ausstempeln',
-    LogWork: 'Fortschritt loggen',
   }[action.kind]
   const taskId =
     action.kind === 'CreateTask' ? action.resultEntityId : action.payload.taskId
@@ -829,10 +820,7 @@ function ActionCard({
     ? `/organizations/${organizationId}/tasks?task=${taskId}`
     : action.kind === 'CreateProject' && action.resultEntityId
       ? `/organizations/${organizationId}/projects`
-      : ['ClockIn', 'ClockOut', 'LogWork'].includes(action.kind) &&
-          action.resultEntityId
-        ? `/organizations/${organizationId}/time-clock`
-        : undefined
+      : undefined
   const isConfirmed = action.status === 'Confirmed'
 
   return (
@@ -851,9 +839,6 @@ function ActionCard({
         {action.payload.priority && <Chip>{action.payload.priority}</Chip>}
         {action.payload.dueDate && (
           <Chip>bis {formatDate(action.payload.dueDate)}</Chip>
-        )}
-        {action.payload.kind && (
-          <Chip>{workLogKindLabel(action.payload.kind)}</Chip>
         )}
       </div>
       {action.payload.materials && action.payload.materials.length > 0 && (
@@ -951,15 +936,4 @@ function formatConversationDate(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value))
-}
-
-function workLogKindLabel(
-  kind: NonNullable<AssistantAction['payload']['kind']>,
-) {
-  return {
-    Built: 'Gebaut',
-    Fixed: 'Gefixt',
-    Optimized: 'Optimiert',
-    Destroyed: 'Zerstört',
-  }[kind]
 }
