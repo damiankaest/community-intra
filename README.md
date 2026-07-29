@@ -56,7 +56,7 @@ Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 - FICSIT-Stechuhr mit Live-Timer, Tages- und Wochenzeit sowie Teamstatus
 - Quick Actions für `Gebaut`, `Gefixt`, `Optimiert` und `Zerstört`
 - persönlicher Schichtverlauf, Wochenrangliste und gemeinsames Arbeitslogbuch
-- bestätigungspflichtige Stechuhr-Aktionen im Chat und über WebMCP
+- bestätigungspflichtige Stechuhr-Aktionen über WebMCP
 - PostgreSQL über Docker Compose und eine initiale EF-Core-Migration
 - Serilog, ProblemDetails, Swagger und Health Checks
 - React-PWA mit Authentifizierung, Organisationsanlage und -auswahl
