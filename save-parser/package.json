@@ -1,0 +1,23 @@
+{
+  "name": "community-intranet-save-parser",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "test": "npm run build && node --test dist/*.test.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@etothepii/satisfactory-file-parser": "4.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "prettier": "^3.9.0",
+    "tsx": "^4.20.0",
+    "typescript": "~6.0.2"
+  }
+}

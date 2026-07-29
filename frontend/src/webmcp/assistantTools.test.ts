@@ -29,6 +29,7 @@ describe('WebMCP assistant tools', () => {
       'community_get_task',
       'community_get_live_server_status',
       'community_get_time_clock',
+      'community_get_factory_overview',
       'community_clock_in',
       'community_clock_out',
       'community_log_work',
@@ -39,10 +40,10 @@ describe('WebMCP assistant tools', () => {
       'community_add_task_comment',
     ])
     expect(
-      tools.slice(0, 6).every((tool) => tool.annotations?.readOnlyHint),
+      tools.slice(0, 7).every((tool) => tool.annotations?.readOnlyHint),
     ).toBe(true)
     expect(
-      tools.slice(6).every((tool) => tool.annotations?.readOnlyHint === false),
+      tools.slice(7).every((tool) => tool.annotations?.readOnlyHint === false),
     ).toBe(true)
   })
 

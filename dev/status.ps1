@@ -18,6 +18,7 @@ $runningServices = & docker compose `
     --file (Join-Path $repositoryRoot "docker-compose.yml") `
     ps --status running --services 2> $null
 $databaseRunning = $runningServices -contains "postgres"
+$saveParserRunning = $runningServices -contains "save-parser"
 
 $rows = @(
     [PSCustomObject]@{
@@ -36,6 +37,12 @@ $rows = @(
         Service = "PostgreSQL"
         Status = if ($databaseRunning) { "Running" } else { "Stopped" }
         Port = if ($env:POSTGRES_PORT) { $env:POSTGRES_PORT } else { 5432 }
+        PID = "-"
+    },
+    [PSCustomObject]@{
+        Service = "Save Parser"
+        Status = if ($saveParserRunning) { "Running" } else { "Stopped" }
+        Port = if ($env:SAVE_PARSER_PORT) { $env:SAVE_PARSER_PORT } else { 5091 }
         PID = "-"
     }
 )

@@ -7,7 +7,7 @@ bleibt aber vollständig spielunabhängig.
 
 ## Aktueller Stand
 
-Phase 1 bis 13 liefern die dokumentierte Zielarchitektur, ein startbares
+Phase 1 bis 14 liefern die dokumentierte Zielarchitektur, ein startbares
 Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 
 - modularer ASP.NET-Core-8-Monolith mit Minimal APIs
@@ -57,6 +57,11 @@ Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 - Quick Actions für `Gebaut`, `Gefixt`, `Optimiert` und `Zerstört`
 - persönlicher Schichtverlauf, Wochenrangliste und gemeinsames Arbeitslogbuch
 - bestätigungspflichtige Stechuhr-Aktionen über WebMCP
+- Fabrikarchiv mit manuellem Satisfactory-`.sav`-Upload
+- isolierter Save-Parser für Satisfactory 1.2 mit Gebäude- und Bereichsanalyse
+- gleiche Import-Pipeline für lokalen Upload und Gameserver-API
+- Fabrikregister, erkannte Fabrikbereiche, Bauwerkstatistik und Save-Verlauf
+- read-only Fabrikübersicht für WebMCP
 - PostgreSQL über Docker Compose und eine initiale EF-Core-Migration
 - Serilog, ProblemDetails, Swagger und Health Checks
 - React-PWA mit Authentifizierung, Organisationsanlage und -auswahl
@@ -101,9 +106,11 @@ Danach sind verfügbar:
 | Swagger    | http://localhost:5080/swagger         |
 | Health     | http://localhost:5080/api/health      |
 | Systeminfo | http://localhost:5080/api/system/info |
+| Save-Parser | http://localhost:5091/health          |
 
 `start.ps1` installiert fehlende Frontend-Abhängigkeiten, startet PostgreSQL,
-Backend und Frontend und schreibt Prozess-IDs nach `.runtime/processes.json`.
+den isolierten Save-Parser, Backend und Frontend und schreibt Prozess-IDs nach
+`.runtime/processes.json`.
 Für jede lokale Laufzeit wird ein temporärer JWT-Schlüssel erzeugt, sofern
 keiner über eine Umgebungsvariable gesetzt wurde.
 
@@ -114,9 +121,10 @@ seinen nicht konfigurierten Status an.
 
 ## Deployment auf einer Hetzner-VM
 
-Der Produktions-Stack enthält PostgreSQL, Backend, Frontend und Caddy. Nur
-Caddy veröffentlicht Ports `80/443`; PostgreSQL bleibt im internen
-Docker-Netz. Der manuell gestartete GitHub-Workflow baut versionierte Images,
+Der Produktions-Stack enthält PostgreSQL, Save-Parser, Backend, Frontend und
+Caddy. Nur Caddy veröffentlicht Ports `80/443`; Datenbank und Save-Parser
+bleiben im internen Docker-Netz. Der manuell gestartete GitHub-Workflow baut
+versionierte Images,
 überträgt die Laufzeitkonfiguration per SSH und prüft anschließend die
 öffentliche HTTPS-URL. Die VM benötigt keinen GitHub-Repository-Zugriff.
 
@@ -155,6 +163,10 @@ npm install
 npm run lint
 npm run test
 npm run build
+
+Set-Location ../save-parser
+npm install
+npm test
 ```
 
 ## Datenbank und Migrationen
@@ -205,6 +217,6 @@ versioniert angelegt. Offizielle Spiel-Assets werden nicht verwendet.
 
 ## Nächster Schritt
 
-Als Nächstes folgen Fabrik- und Produktionsketten sowie der automatische
-Satisfactory-Save-Import. Der Kern bleibt von externen Integrationen
-unabhängig.
+Als Nächstes folgen in Phase 14.5 Produktionsketten, Rezept- und
+Durchsatzberechnung sowie Vergleiche zwischen Save-Snapshots. Der Kern bleibt
+von externen Integrationen unabhängig.

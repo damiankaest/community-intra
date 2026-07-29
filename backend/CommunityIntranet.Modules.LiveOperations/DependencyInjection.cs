@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddSingleton<ISatisfactoryServerClient, SatisfactoryServerClient>();
         services.AddSingleton<IGameServerTokenProtector, GameServerTokenProtector>();
         services.AddScoped<ILiveOperationsReader, LiveOperationsReader>();
+        services.AddScoped<ISatisfactorySaveProvider, SatisfactorySaveProvider>();
         return services;
     }
 }

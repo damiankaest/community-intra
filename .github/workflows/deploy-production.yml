@@ -15,6 +15,7 @@ env:
   REGISTRY: ghcr.io
   BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/community-intra-backend
   FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/community-intra-frontend
+  SAVE_PARSER_IMAGE: ghcr.io/${{ github.repository_owner }}/community-intra-save-parser
   REMOTE_DIRECTORY: /opt/community-intra
   SSH_PORT: ${{ vars.HETZNER_SSH_PORT || '22' }}
 
@@ -131,6 +132,21 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
+      - name: Build and publish save parser
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: save-parser/Dockerfile
+          push: true
+          tags: |
+            ${{ env.SAVE_PARSER_IMAGE }}:${{ github.sha }}
+            ${{ env.SAVE_PARSER_IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=save-parser
+          cache-to: type=gha,mode=max,scope=save-parser
+
       - name: Configure SSH
         id: configure-ssh
         shell: bash
@@ -165,6 +181,7 @@ jobs:
             printf 'APP_DOMAIN=%s\n' "$APP_DOMAIN"
             printf 'BACKEND_IMAGE=%s:%s\n' "$BACKEND_IMAGE" "$GITHUB_SHA"
             printf 'FRONTEND_IMAGE=%s:%s\n' "$FRONTEND_IMAGE" "$GITHUB_SHA"
+            printf 'SAVE_PARSER_IMAGE=%s:%s\n' "$SAVE_PARSER_IMAGE" "$GITHUB_SHA"
             printf 'POSTGRES_DB=community_intranet\n'
             printf 'POSTGRES_USER=community_intranet\n'
             printf 'POSTGRES_PASSWORD=%s\n' "$POSTGRES_PASSWORD"
@@ -223,7 +240,7 @@ jobs:
               && docker compose \
                 --env-file deploy/.env.production \
                 -f deploy/docker-compose.production.yml \
-                pull backend frontend postgres caddy \
+                pull backend frontend save-parser postgres caddy \
               && docker compose \
                 --env-file deploy/.env.production \
                 -f deploy/docker-compose.production.yml \

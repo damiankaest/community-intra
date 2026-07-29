@@ -20,5 +20,23 @@ services:
       retries: 10
       start_period: 5s
 
+  save-parser:
+    build:
+      context: .
+      dockerfile: save-parser/Dockerfile
+    container_name: community-intranet-save-parser
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      MAX_SAVE_BYTES: 209715200
+    ports:
+      - "127.0.0.1:${SAVE_PARSER_PORT:-5091}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
 volumes:
   community-intranet-postgres:
