@@ -8,6 +8,7 @@ public interface IPartyDbContext
     DbSet<Party> Parties { get; }
     DbSet<PartyGuest> PartyGuests { get; }
     DbSet<PartyMedia> PartyMedia { get; }
+    DbSet<PartyMediaLike> PartyMediaLikes { get; }
     DbSet<PartyOrderItem> PartyOrderItems { get; }
     DbSet<PartyOrder> PartyOrders { get; }
     DbSet<PartyMusicRequest> PartyMusicRequests { get; }
