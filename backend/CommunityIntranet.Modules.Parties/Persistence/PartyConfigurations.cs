@@ -57,6 +57,20 @@ public sealed class PartyMediaConfiguration : IEntityTypeConfiguration<PartyMedi
     }
 }
 
+public sealed class PartyMediaLikeConfiguration : IEntityTypeConfiguration<PartyMediaLike>
+{
+    public void Configure(EntityTypeBuilder<PartyMediaLike> builder)
+    {
+        builder.ToTable("media_likes", "parties");
+        builder.HasKey(x => new { x.PartyMediaId, x.GuestId });
+        builder.HasIndex(x => x.GuestId);
+        builder.HasOne<PartyMedia>().WithMany().HasForeignKey(x => x.PartyMediaId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<PartyGuest>().WithMany().HasForeignKey(x => x.GuestId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
 public sealed class PartyOrderItemConfiguration : IEntityTypeConfiguration<PartyOrderItem>
 {
     public void Configure(EntityTypeBuilder<PartyOrderItem> builder)
