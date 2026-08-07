@@ -166,13 +166,16 @@ export function PartyGuestPage() {
       <div className="pb-24">
       {view === 'home' && (
         <PartyHome
+          slug={slug}
           partyName={party.data.name}
           name={guest.name}
           token={guest.token}
+          guestId={me.data?.id}
           welcomeText={party.data.welcomeText}
           setView={setView}
           pulse={pulse.data}
           feed={feed.data ?? []}
+          orders={orders.data ?? []}
           latestMedia={media.data?.[0]}
         />
       )}
@@ -299,24 +302,52 @@ function GuestWelcome({
 }
 
 function PartyHome({
+  slug,
   partyName,
   name,
   token,
+  guestId,
   welcomeText,
   setView,
   pulse,
   feed,
+  orders,
   latestMedia,
 }: {
+  slug: string
   partyName: string
   name: string
   token: string
+  guestId?: string
   welcomeText?: string
   setView: (view: View) => void
   pulse?: PartyPulse
   feed: PartyFeedItem[]
+  orders: PartyOrder[]
   latestMedia?: PartyMedia
 }) {
+  const queryClient = useQueryClient()
+  const openOrders = orders.filter((order) => order.status === 'Open')
+  const activity = feed.filter(
+    (item) => item.type !== 'order' && item.type !== 'claim',
+  )
+  const refreshLive = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['party-guest-orders', slug] }),
+      queryClient.invalidateQueries({ queryKey: ['party-pulse', slug] }),
+      queryClient.invalidateQueries({ queryKey: ['party-feed', slug] }),
+    ])
+  }
+  const claim = useMutation({
+    mutationFn: (orderId: string) =>
+      claimGuestOrders(slug, token, [orderId]),
+    onSuccess: refreshLive,
+  })
+  const complete = useMutation({
+    mutationFn: (orderId: string) => completeGuestOrder(slug, token, orderId),
+    onSuccess: refreshLive,
+  })
+
   return (
     <div className="py-5">
       <div className="text-center">
@@ -388,14 +419,60 @@ function PartyHome({
           </div>
         </section>
       )}
-      {feed.length > 0 && (
+      {(openOrders.length > 0 || activity.length > 0) && (
         <section className="mt-8">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-black text-white">Gerade auf der Party</h2>
             <span className="party-live-dot">LIVE</span>
           </div>
           <div className="party-card grid gap-3">
-            {feed.slice(0, 6).map((item, index) => (
+            {openOrders.slice(0, 6).map((order) => {
+              const claimedByMe = order.claimedByGuestId === guestId
+              const canClaim =
+                Boolean(guestId) &&
+                order.guestId !== guestId &&
+                !order.claimedByGuestId
+              return (
+                <div
+                  key={`live-order-${order.id}`}
+                  className="flex items-center gap-3 text-sm"
+                >
+                  <span className="text-xl">{order.icon ?? '🍹'}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-white/80">
+                      {order.claimedByGuestName
+                        ? `${order.claimedByGuestName} bringt ${order.guestName} ${order.itemName ?? order.customText ?? 'einen Drink'}.`
+                        : `${order.guestName} möchte ${order.itemName ?? order.customText ?? 'etwas zu trinken'}.`}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-white/35">
+                      {claimedByMe ? 'Von dir übernommen · ' : ''}
+                      {relativeTime(order.claimedAt ?? order.createdAt)}
+                    </p>
+                  </div>
+                  {claimedByMe && (
+                    <button
+                      type="button"
+                      className="party-done-button shrink-0"
+                      disabled={complete.isPending}
+                      onClick={() => complete.mutate(order.id)}
+                    >
+                      <CheckCircle2 size={15} /> Übergeben
+                    </button>
+                  )}
+                  {canClaim && (
+                    <button
+                      type="button"
+                      className="party-small-button shrink-0"
+                      disabled={claim.isPending}
+                      onClick={() => claim.mutate(order.id)}
+                    >
+                      <Hand size={15} /> Übernehmen
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+            {activity.slice(0, Math.max(0, 6 - openOrders.length)).map((item, index) => (
               <div
                 key={`${item.type}-${item.createdAt}-${index}`}
                 className="flex gap-3 text-sm"
