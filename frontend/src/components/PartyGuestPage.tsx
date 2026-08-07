@@ -31,7 +31,9 @@ import {
   getPartyFeed,
   getPartyGuest,
   getPartyPulse,
+  getGuestSpotifyStatus,
   getPublicParty,
+  listGuestMusicRequests,
   listGuestOrders,
   listGuestbook,
   listGuestMedia,
@@ -39,12 +41,15 @@ import {
   listOwnGuestMedia,
   listOwnMusicRequests,
   registerPartyGuest,
+  searchPartySpotify,
+  toggleGuestMusicVote,
   updatePartyGuest,
   uploadGuestMedia,
   type PartyFeedItem,
   type PartyMedia,
   type PartyOrder,
   type PartyPulse,
+  type SpotifyTrack,
 } from '../api/parties'
 import { prepareScreenshot } from '../imageProcessing'
 
@@ -724,19 +729,29 @@ function MediaView({
       try {
         updateUpload(item.id, { status: 'preparing', progress: 0, error: undefined })
         let prepared = item.file
-        if (item.file.type.startsWith('image/') && item.file.type !== 'image/gif') {
+        if (isImageUpload(item.file) && !isGifUpload(item.file)) {
           try {
             prepared = (await prepareScreenshot(item.file)).file
           } catch {
+            const directlySupported = [
+              'image/jpeg',
+              'image/png',
+              'image/webp',
+            ].includes(item.file.type)
+            if (!directlySupported) {
+              throw new Error(
+                'Dieses Foto konnte nicht vorbereitet werden. Bitte öffne es kurz in Fotos und teile/speichere es als JPEG.',
+              )
+            }
             prepared = item.file
           }
         }
-        const maximum = prepared.type.startsWith('video/')
+        const maximum = isVideoUpload(prepared)
           ? 100 * 1024 * 1024
           : 12 * 1024 * 1024
         if (prepared.size > maximum) {
           throw new Error(
-            prepared.type.startsWith('video/')
+            isVideoUpload(prepared)
               ? 'Video ist größer als 100 MB.'
               : 'Foto ist nach der Optimierung größer als 12 MB.',
           )
@@ -787,7 +802,7 @@ function MediaView({
             <input
               type="file"
               className="hidden"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*"
               capture="environment"
               onChange={(event) => {
                 addFiles(event.target.files)
@@ -802,7 +817,7 @@ function MediaView({
               type="file"
               className="hidden"
               multiple
-              accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm"
+              accept="image/*,video/mp4,video/quicktime,video/webm"
               onChange={(event) => {
                 addFiles(event.target.files)
                 event.target.value = ''
@@ -817,7 +832,7 @@ function MediaView({
           <div className="mt-4 grid grid-cols-2 gap-2">
             {uploads.map((item) => (
               <div key={item.id} className="party-upload-preview">
-                {item.file.type.startsWith('video/') ? (
+                {isVideoUpload(item.file) ? (
                   <video src={item.previewUrl} muted playsInline />
                 ) : (
                   <img src={item.previewUrl} alt="Upload-Vorschau" />
@@ -886,6 +901,23 @@ function MediaView({
   )
 }
 
+function isImageUpload(file: File) {
+  return (
+    file.type.startsWith('image/') ||
+    /\.(?:jpe?g|png|webp|gif|heic|heif)$/i.test(file.name)
+  )
+}
+
+function isGifUpload(file: File) {
+  return file.type === 'image/gif' || /\.gif$/i.test(file.name)
+}
+
+function isVideoUpload(file: File) {
+  return (
+    file.type.startsWith('video/') || /\.(?:mp4|mov|webm)$/i.test(file.name)
+  )
+}
+
 function PartyMediaPreview({
   media,
   token,
@@ -950,59 +982,237 @@ function MusicView({ slug, token }: { slug: string; token: string }) {
   const queryClient = useQueryClient()
   const [song, setSong] = useState('')
   const [artist, setArtist] = useState('')
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [sent, setSent] = useState(false)
+  useEffect(() => {
+    const handle = window.setTimeout(() => setDebouncedSearch(search.trim()), 350)
+    return () => window.clearTimeout(handle)
+  }, [search])
+
+  const spotify = useQuery({
+    queryKey: ['party-spotify', slug],
+    queryFn: () => getGuestSpotifyStatus(slug, token),
+    refetchInterval: 5000,
+    retry: false,
+  })
+  const requests = useQuery({
+    queryKey: ['party-music', slug],
+    queryFn: () => listGuestMusicRequests(slug, token),
+    refetchInterval: 5000,
+  })
+  const searchResults = useQuery({
+    queryKey: ['party-spotify-search', slug, debouncedSearch],
+    queryFn: () => searchPartySpotify(slug, token, debouncedSearch),
+    enabled: Boolean(spotify.data?.isConnected && debouncedSearch.length >= 2),
+    staleTime: 30_000,
+    retry: false,
+  })
   const mutation = useMutation({
-    mutationFn: () =>
-      addMusicRequest(slug, token, { song, artist: artist || undefined }),
+    mutationFn: (input: {
+      song: string
+      artist?: string
+      spotifyTrackId?: string
+    }) => addMusicRequest(slug, token, input),
     onSuccess: async () => {
       setSong('')
       setArtist('')
+      setSearch('')
       setSent(true)
       celebrate()
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['party-my-music', slug] }),
+        queryClient.invalidateQueries({ queryKey: ['party-music', slug] }),
+        queryClient.invalidateQueries({ queryKey: ['party-spotify', slug] }),
         queryClient.invalidateQueries({ queryKey: ['party-pulse', slug] }),
         queryClient.invalidateQueries({ queryKey: ['party-feed', slug] }),
       ])
     },
+  })
+  const vote = useMutation({
+    mutationFn: (requestId: string) => toggleGuestMusicVote(slug, token, requestId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['party-music', slug] }),
   })
   return (
     <section>
       <PartyTitle
         icon="🎵"
         title="Musikwunsch"
-        text="Welcher Song fehlt heute noch?"
+        text={spotify.data?.isConnected ? 'Spotify ist verbunden. Was soll als Nächstes laufen?' : 'Welcher Song fehlt heute noch?'}
       />
       {sent && (
         <div className="party-success">
           <CheckCircle2 size={20} /> Wunsch ist notiert!
         </div>
       )}
-      <div className="party-card grid gap-3">
-        <input
-          className="party-input"
-          maxLength={200}
-          placeholder="Song *"
-          value={song}
-          onChange={(event) => setSong(event.target.value)}
-        />
-        <input
-          className="party-input"
-          maxLength={200}
-          placeholder="Künstler (optional)"
-          value={artist}
-          onChange={(event) => setArtist(event.target.value)}
-        />
-        <button
-          className="party-primary"
-          disabled={!song.trim() || mutation.isPending}
-          onClick={() => mutation.mutate()}
-        >
-          <Music2 size={18} /> Wunsch senden
-        </button>
-      </div>
+
+      {spotify.data?.isConnected && spotify.data.nowPlaying && (
+        <div className="party-card mb-4 flex items-center gap-3 border-emerald-300/20">
+          {spotify.data.nowPlaying.albumImageUrl && (
+            <img
+              src={spotify.data.nowPlaying.albumImageUrl}
+              alt="Albumcover"
+              className="h-16 w-16 rounded-xl object-cover"
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black tracking-[0.14em] text-emerald-300 uppercase">
+              Jetzt läuft
+            </p>
+            <p className="truncate font-black text-white">{spotify.data.nowPlaying.name}</p>
+            <p className="truncate text-xs text-white/50">{spotify.data.nowPlaying.artist}</p>
+          </div>
+          <span className="text-xl">{spotify.data.nowPlaying.isPlaying ? '🔊' : '⏸️'}</span>
+        </div>
+      )}
+
+      {spotify.data?.isConnected ? (
+        <div className="party-card">
+          <div className="flex items-center gap-2">
+            <Music2 size={18} className="text-emerald-300" />
+            <strong className="text-sm text-white">Spotify durchsuchen</strong>
+          </div>
+          <input
+            className="party-input mt-3"
+            maxLength={80}
+            placeholder="Song oder Künstler …"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          {searchResults.isFetching && (
+            <p className="mt-2 text-xs text-white/40">Spotify sucht …</p>
+          )}
+          <div className="mt-3 grid gap-2">
+            {searchResults.data?.map((track) => (
+              <SpotifySearchResult
+                key={track.id}
+                track={track}
+                pending={mutation.isPending}
+                onRequest={() =>
+                  mutation.mutate({
+                    song: track.name,
+                    artist: track.artist,
+                    spotifyTrackId: track.id,
+                  })
+                }
+              />
+            ))}
+          </div>
+          {searchResults.error && <PartyError error={searchResults.error} />}
+          {spotify.data.autoQueue && (
+            <p className="mt-3 text-[11px] text-emerald-200/70">
+              ⚡ Auto-Queue aktiv: neue Spotify-Wünsche gehen direkt in die Warteschlange.
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="party-card text-sm text-white/55">
+          Spotify ist noch nicht verbunden. Du kannst trotzdem einen Wunsch eintragen.
+        </p>
+      )}
+
+      <details className="party-card mt-3" open={!spotify.data?.isConnected}>
+        <summary className="cursor-pointer text-sm font-bold text-white/70">
+          Song manuell eintragen
+        </summary>
+        <div className="mt-3 grid gap-3">
+          <input
+            className="party-input"
+            maxLength={200}
+            placeholder="Song *"
+            value={song}
+            onChange={(event) => setSong(event.target.value)}
+          />
+          <input
+            className="party-input"
+            maxLength={200}
+            placeholder="Künstler (optional)"
+            value={artist}
+            onChange={(event) => setArtist(event.target.value)}
+          />
+          <button
+            className="party-primary"
+            disabled={!song.trim() || mutation.isPending}
+            onClick={() => mutation.mutate({ song, artist: artist || undefined })}
+          >
+            <Music2 size={18} /> Wunsch senden
+          </button>
+        </div>
+      </details>
+
+      <section className="mt-7">
+        <h2 className="mb-3 text-lg font-black text-white">🔥 Party-Wünsche</h2>
+        <div className="grid gap-2">
+          {requests.data?.map((request) => (
+            <div key={request.id} className="party-card flex items-center gap-3">
+              {request.spotifyAlbumImageUrl ? (
+                <img
+                  src={request.spotifyAlbumImageUrl}
+                  alt="Albumcover"
+                  className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                />
+              ) : (
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-xl">🎵</span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-white">{request.song}</p>
+                <p className="truncate text-xs text-white/45">
+                  {request.artist ?? request.guestName}
+                  {request.spotifyQueuedAt ? ' · Queue ✓' : ''}
+                </p>
+              </div>
+              {request.status === 'Open' && (
+                <button
+                  type="button"
+                  className={`party-vote-button ${request.hasVoted ? 'party-vote-button-active' : ''}`}
+                  disabled={vote.isPending}
+                  onClick={() => vote.mutate(request.id)}
+                  aria-label={`${request.song} unterstützen`}
+                >
+                  ❤️ {request.voteCount}
+                </button>
+              )}
+            </div>
+          ))}
+          {!requests.isPending && (requests.data?.length ?? 0) === 0 && (
+            <p className="party-card text-sm text-white/45">Noch keine Wünsche – du bist dran. 🎧</p>
+          )}
+        </div>
+      </section>
       {mutation.error && <PartyError error={mutation.error} />}
+      {vote.error && <PartyError error={vote.error} />}
     </section>
+  )
+}
+
+function SpotifySearchResult({
+  track,
+  pending,
+  onRequest,
+}: {
+  track: SpotifyTrack
+  pending: boolean
+  onRequest: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="party-spotify-result"
+      disabled={pending}
+      onClick={onRequest}
+    >
+      {track.albumImageUrl ? (
+        <img src={track.albumImageUrl} alt="Albumcover" />
+      ) : (
+        <span className="party-spotify-result-placeholder">🎵</span>
+      )}
+      <span className="min-w-0 flex-1 text-left">
+        <strong className="block truncate text-sm text-white">{track.name}</strong>
+        <small className="block truncate text-white/45">{track.artist}</small>
+      </span>
+      <span className="text-xs font-black text-emerald-300">+ Wunsch</span>
+    </button>
   )
 }
 
