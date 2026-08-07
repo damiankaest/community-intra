@@ -20,6 +20,7 @@ import {
   addPartyOrderItem,
   archiveParty,
   connectPartySpotify,
+  createAdminPartyGuestSession,
   createParty,
   deleteAdminGuestbookEntry,
   deleteAdminPartyMedia,
@@ -33,6 +34,7 @@ import {
   listPartyMusic,
   listPartyOrders,
   queuePartyMusicRequest,
+  removePartyGuest,
   disconnectPartySpotify,
   setPartyMusicStatus,
   setPartyOrderStatus,
@@ -209,6 +211,32 @@ export function PartyAdminPage() {
       ])
     },
   })
+  const openGuestView = useMutation({
+    mutationFn: () => createAdminPartyGuestSession(partyId),
+    onSuccess: (session) => {
+      const slug = party.data?.slug
+      if (!slug) return
+      localStorage.setItem(
+        `community-party-guest:${slug}`,
+        JSON.stringify({
+          name: session.name,
+          token: session.sessionToken,
+          isAdmin: true,
+        }),
+      )
+      window.location.assign(`/party/${slug}`)
+    },
+  })
+  const removeGuest = useMutation({
+    mutationFn: (guestId: string) => removePartyGuest(partyId, guestId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['party-guests', partyId] }),
+        queryClient.invalidateQueries({ queryKey: ['party', partyId] }),
+        queryClient.invalidateQueries({ queryKey: ['parties'] }),
+      ])
+    },
+  })
 
   if (party.isPending)
     return (
@@ -262,15 +290,21 @@ export function PartyAdminPage() {
               {party.data.location ? ` · ${party.data.location}` : ''}
             </p>
           </div>
-          <a
+          <button
+            type="button"
             className="feature-button"
-            href={`/party/${party.data.slug}`}
-            target="_blank"
-            rel="noreferrer"
+            disabled={openGuestView.isPending}
+            onClick={() => openGuestView.mutate()}
           >
-            <ExternalLink size={17} /> Gastseite öffnen
-          </a>
+            <ExternalLink size={17} />
+            {openGuestView.isPending ? 'Gastseite wird geöffnet …' : 'Gastseite öffnen'}
+          </button>
         </div>
+        {openGuestView.error && (
+          <p className="mt-3 text-sm text-rose-300">
+            {openGuestView.error.message}
+          </p>
+        )}
 
         <section className="mt-7 rounded-2xl border border-amber-300/20 bg-amber-300/[0.06] p-5 sm:p-6">
           <div className="flex items-center justify-between">
@@ -464,16 +498,47 @@ export function PartyAdminPage() {
                 Gäste · {guests.data?.length ?? 0}
               </h2>
             </div>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 grid gap-2">
               {guests.data?.map((guest) => (
-                <span
+                <div
                   key={guest.id}
-                  className="rounded-full bg-white/[0.06] px-3 py-1.5 text-xs text-white/75"
+                  className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.05] px-3 py-2.5"
                 >
-                  {guest.name}
-                </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-white">
+                      {guest.name}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-white/40">
+                      zuletzt {formatTime(guest.lastSeenAt)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="party-small-button shrink-0 text-rose-200"
+                    disabled={removeGuest.isPending}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `${guest.name} wirklich aus dieser Party entfernen?`,
+                        )
+                      ) {
+                        removeGuest.mutate(guest.id)
+                      }
+                    }}
+                  >
+                    <Trash2 size={15} /> Rauswerfen
+                  </button>
+                </div>
               ))}
+              {guests.data?.length === 0 && (
+                <p className="text-sm text-white/45">Noch keine Gäste drin.</p>
+              )}
             </div>
+            {removeGuest.error && (
+              <p className="mt-3 text-sm text-rose-300">
+                {removeGuest.error.message}
+              </p>
+            )}
           </section>
           <section className="rounded-2xl border border-white/10 bg-[var(--theme-surface)] p-5">
             <div className="flex items-center gap-2">
