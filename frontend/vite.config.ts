@@ -33,10 +33,15 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           navigateFallback: '/index.html',
-          // Party QR links must always reach the network first. Otherwise an
-          // already-installed service worker can serve an older app shell on
-          // the first scan and React falls back to `/` before the SW updates.
-          navigateFallbackDenylist: [/^\/party\//],
+          // API callbacks and party routes must always reach the network.
+          // In particular, Spotify returns with a top-level navigation to the
+          // API callback; treating that navigation as an SPA route would serve
+          // index.html and the OAuth code would never reach the backend.
+          navigateFallbackDenylist: [
+            /^\/api\//,
+            /^\/party\//,
+            /^\/parties(?:\/|$)/,
+          ],
           runtimeCaching: [
             {
               urlPattern: /^\/api\//,
