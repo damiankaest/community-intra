@@ -283,12 +283,15 @@ internal static class AdminPartyEndpoints
             join guest in dbContext.PartyGuests.AsNoTracking() on order.GuestId equals guest.Id
             join orderItem in dbContext.PartyOrderItems.AsNoTracking() on order.OrderItemId equals orderItem.Id into orderItems
             from item in orderItems.DefaultIfEmpty()
+            join claimedGuest in dbContext.PartyGuests.AsNoTracking() on order.ClaimedByGuestId equals claimedGuest.Id into claimedGuests
+            from claimant in claimedGuests.DefaultIfEmpty()
             where order.PartyId == partyId
             orderby order.Status, order.CreatedAt
             select new PartyOrderResponse(
-                order.Id, order.GuestId, guest.Name, order.OrderItemId,
+                order.Id, order.GuestId, guest.Name, order.ClaimedByGuestId,
+                claimant == null ? null : claimant.Name, order.OrderItemId,
                 item == null ? null : item.Name, item == null ? null : item.Icon,
-                order.CustomText, order.Status, order.CreatedAt, order.CompletedAt))
+                order.CustomText, order.Status, order.CreatedAt, order.ClaimedAt, order.CompletedAt))
             .ToArrayAsync(cancellationToken);
         return Results.Ok(orders);
     }
@@ -314,6 +317,11 @@ internal static class AdminPartyEndpoints
         }
 
         order.Status = request.Status;
+        if (request.Status is PartyOrderStatus.Open or PartyOrderStatus.Cancelled)
+        {
+            order.ClaimedByGuestId = null;
+            order.ClaimedAt = null;
+        }
         order.CompletedAt = request.Status == PartyOrderStatus.Done ? timeProvider.GetUtcNow() : null;
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
