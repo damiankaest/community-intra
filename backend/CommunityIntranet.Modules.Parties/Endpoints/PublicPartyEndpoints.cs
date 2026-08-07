@@ -19,15 +19,26 @@ internal static class PublicPartyEndpoints
             .RequireRateLimiting("party-public");
 
         group.MapGet("/", GetPartyAsync);
+        group.MapGet("/manifest.webmanifest", GetManifestAsync);
         group.MapPost("/guests", RegisterGuestAsync);
+        group.MapGet("/guests/me", GetGuestAsync);
         group.MapPatch("/guests/me", UpdateGuestAsync);
+        group.MapGet("/orders", ListOrdersAsync);
         group.MapPost("/orders", CreateOrderAsync);
+        group.MapPost("/orders/claim", ClaimOrdersAsync);
+        group.MapPost("/orders/{orderId:guid}/release", ReleaseOrderAsync);
+        group.MapPost("/orders/{orderId:guid}/done", CompleteClaimedOrderAsync);
+        group.MapDelete("/orders/{orderId:guid}", CancelOwnOrderAsync);
+        group.MapGet("/pulse", GetPulseAsync);
+        group.MapGet("/feed", GetFeedAsync);
         group.MapGet("/media", ListMediaAsync);
+        group.MapGet("/media/mine", ListOwnMediaAsync);
         group.MapPost("/media", UploadMediaAsync).DisableAntiforgery();
         group.MapGet("/media/{mediaId:guid}/content", GetMediaContentAsync);
         group.MapGet("/guestbook", ListGuestbookAsync);
         group.MapPost("/guestbook", AddGuestbookAsync);
         group.MapPost("/music-requests", AddMusicAsync);
+        group.MapGet("/music-requests/mine", ListOwnMusicAsync);
         return endpoints;
     }
 
@@ -50,6 +61,36 @@ internal static class PublicPartyEndpoints
             party.Name, party.Slug, party.Description, party.Type, party.Location,
             party.StartAt, party.EndAt, party.WelcomeText, party.IsActive,
             party.GuestsCanViewGallery, party.GuestsCanViewGuestbook, items));
+    }
+
+    private static async Task<IResult> GetManifestAsync(
+        string slug,
+        IPartyDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var party = await dbContext.Parties.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Slug == slug && !x.IsArchived, cancellationToken);
+        if (party is null)
+        {
+            return Results.NotFound();
+        }
+
+        var shortName = party.Name[..Math.Min(party.Name.Length, 24)];
+        return Results.Json(new
+        {
+            name = $"{party.Name} · Party",
+            short_name = shortName,
+            id = $"/party/{party.Slug}",
+            start_url = $"/party/{party.Slug}",
+            scope = "/party/",
+            display = "standalone",
+            theme_color = "#24162b",
+            background_color = "#171326",
+            icons = new[]
+            {
+                new { src = "/favicon.svg", sizes = "any", type = "image/svg+xml", purpose = "any" }
+            }
+        }, contentType: "application/manifest+json");
     }
 
     private static async Task<IResult> RegisterGuestAsync(
@@ -87,6 +128,22 @@ internal static class PublicPartyEndpoints
         dbContext.PartyGuests.Add(guest);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Created($"/api/parties/public/{slug}/guests/me", new PartyGuestSessionResponse(guest.Id, guest.Name, rawToken));
+    }
+
+    private static async Task<IResult> GetGuestAsync(
+        string slug,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        return denied ?? Results.Ok(new PartyGuestResponse(
+            access.Guest!.Id,
+            access.Guest.Name,
+            access.Guest.FirstSeenAt,
+            access.Guest.LastSeenAt));
     }
 
     private static async Task<IResult> UpdateGuestAsync(
@@ -160,6 +217,261 @@ internal static class PublicPartyEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Created($"/api/parties/public/{slug}/orders/{order.Id}", new { order.Id, item = item?.Name ?? customText });
     }
+
+    private static async Task<IResult> ListOrdersAsync(
+        string slug,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        return Results.Ok(await QueryOrdersAsync(dbContext, access.Party!.Id, access.Guest!.Id, cancellationToken));
+    }
+
+    private static async Task<IResult> ClaimOrdersAsync(
+        string slug,
+        ClaimPartyOrdersRequest request,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var orderIds = request.OrderIds?.Distinct().Take(12).ToArray() ?? [];
+        if (orderIds.Length == 0)
+        {
+            return PartyEndpointHelpers.Validation("orderIds", "Wähle mindestens eine offene Bestellung aus.");
+        }
+
+        var now = timeProvider.GetUtcNow();
+        var claimed = await dbContext.PartyOrders
+            .Where(x => orderIds.Contains(x.Id)
+                && x.PartyId == access.Party!.Id
+                && x.GuestId != access.Guest!.Id
+                && x.Status == PartyOrderStatus.Open
+                && x.ClaimedByGuestId == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.ClaimedByGuestId, access.Guest!.Id)
+                .SetProperty(x => x.ClaimedAt, now), cancellationToken);
+
+        if (claimed == 0)
+        {
+            return Results.Conflict(new { message = "Diese Bestellung wurde gerade schon übernommen." });
+        }
+
+        return Results.Ok(new { claimed });
+    }
+
+    private static async Task<IResult> ReleaseOrderAsync(
+        string slug,
+        Guid orderId,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var changed = await dbContext.PartyOrders
+            .Where(x => x.Id == orderId && x.PartyId == access.Party!.Id
+                && x.Status == PartyOrderStatus.Open && x.ClaimedByGuestId == access.Guest!.Id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.ClaimedByGuestId, (Guid?)null)
+                .SetProperty(x => x.ClaimedAt, (DateTimeOffset?)null), cancellationToken);
+        return changed == 0 ? Results.NotFound() : Results.NoContent();
+    }
+
+    private static async Task<IResult> CompleteClaimedOrderAsync(
+        string slug,
+        Guid orderId,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var now = timeProvider.GetUtcNow();
+        var changed = await dbContext.PartyOrders
+            .Where(x => x.Id == orderId && x.PartyId == access.Party!.Id
+                && x.Status == PartyOrderStatus.Open && x.ClaimedByGuestId == access.Guest!.Id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.Status, PartyOrderStatus.Done)
+                .SetProperty(x => x.CompletedAt, now), cancellationToken);
+        return changed == 0 ? Results.NotFound() : Results.NoContent();
+    }
+
+    private static async Task<IResult> CancelOwnOrderAsync(
+        string slug,
+        Guid orderId,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var changed = await dbContext.PartyOrders
+            .Where(x => x.Id == orderId && x.PartyId == access.Party!.Id
+                && x.GuestId == access.Guest!.Id && x.Status == PartyOrderStatus.Open)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.Status, PartyOrderStatus.Cancelled)
+                .SetProperty(x => x.ClaimedByGuestId, (Guid?)null)
+                .SetProperty(x => x.ClaimedAt, (DateTimeOffset?)null), cancellationToken);
+        return changed == 0 ? Results.NotFound() : Results.NoContent();
+    }
+
+    private static async Task<IResult> GetPulseAsync(
+        string slug,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var partyId = access.Party!.Id;
+        var guestCount = await dbContext.PartyGuests.CountAsync(x => x.PartyId == partyId, cancellationToken);
+        var openOrderCount = await dbContext.PartyOrders.CountAsync(x => x.PartyId == partyId && x.Status == PartyOrderStatus.Open, cancellationToken);
+        var unclaimedOrderCount = await dbContext.PartyOrders.CountAsync(x => x.PartyId == partyId && x.Status == PartyOrderStatus.Open && x.ClaimedByGuestId == null, cancellationToken);
+        var mediaCount = await dbContext.PartyMedia.CountAsync(x => x.PartyId == partyId, cancellationToken);
+        var openMusicRequestCount = await dbContext.PartyMusicRequests.CountAsync(x => x.PartyId == partyId && x.Status == PartyMusicRequestStatus.Open, cancellationToken);
+        var guestbookEntryCount = await dbContext.PartyGuestbookEntries.CountAsync(x => x.PartyId == partyId, cancellationToken);
+        var topDrink = await (
+            from order in dbContext.PartyOrders.AsNoTracking()
+            join item in dbContext.PartyOrderItems.AsNoTracking() on order.OrderItemId equals item.Id
+            where order.PartyId == partyId && order.Status != PartyOrderStatus.Cancelled
+            group order by item.Name into drinks
+            orderby drinks.Count() descending
+            select new { Name = drinks.Key, Count = drinks.Count() })
+            .FirstOrDefaultAsync(cancellationToken);
+        return Results.Ok(new PartyPulseResponse(
+            guestCount, openOrderCount, unclaimedOrderCount, mediaCount,
+            openMusicRequestCount, guestbookEntryCount,
+            topDrink?.Name, topDrink?.Count ?? 0));
+    }
+
+    private static async Task<IResult> GetFeedAsync(
+        string slug,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var partyId = access.Party!.Id;
+        var orderEvents = await (
+            from order in dbContext.PartyOrders.AsNoTracking()
+            join guest in dbContext.PartyGuests.AsNoTracking() on order.GuestId equals guest.Id
+            join orderItem in dbContext.PartyOrderItems.AsNoTracking() on order.OrderItemId equals orderItem.Id into orderItems
+            from item in orderItems.DefaultIfEmpty()
+            where order.PartyId == partyId
+            orderby order.CreatedAt descending
+            select new { guest.Name, Item = item == null ? order.CustomText : item.Name, order.CreatedAt })
+            .Take(8).ToArrayAsync(cancellationToken);
+        var claimEvents = await (
+            from order in dbContext.PartyOrders.AsNoTracking()
+            join recipient in dbContext.PartyGuests.AsNoTracking() on order.GuestId equals recipient.Id
+            join claimant in dbContext.PartyGuests.AsNoTracking() on order.ClaimedByGuestId equals claimant.Id
+            join orderItem in dbContext.PartyOrderItems.AsNoTracking() on order.OrderItemId equals orderItem.Id into orderItems
+            from item in orderItems.DefaultIfEmpty()
+            where order.PartyId == partyId && order.ClaimedAt != null
+            orderby order.ClaimedAt descending
+            select new { Claimant = claimant.Name, Recipient = recipient.Name, Item = item == null ? order.CustomText : item.Name, At = order.ClaimedAt!.Value })
+            .Take(8).ToArrayAsync(cancellationToken);
+        var mediaEvents = await (
+            from media in dbContext.PartyMedia.AsNoTracking()
+            join guest in dbContext.PartyGuests.AsNoTracking() on media.GuestId equals guest.Id
+            where media.PartyId == partyId
+            orderby media.CreatedAt descending
+            select new { guest.Name, media.MediaType, media.CreatedAt })
+            .Take(8).ToArrayAsync(cancellationToken);
+        var musicEvents = await (
+            from music in dbContext.PartyMusicRequests.AsNoTracking()
+            join guest in dbContext.PartyGuests.AsNoTracking() on music.GuestId equals guest.Id
+            where music.PartyId == partyId
+            orderby music.CreatedAt descending
+            select new { guest.Name, music.Song, music.CreatedAt })
+            .Take(8).ToArrayAsync(cancellationToken);
+        var guestbookEvents = await (
+            from entry in dbContext.PartyGuestbookEntries.AsNoTracking()
+            join guest in dbContext.PartyGuests.AsNoTracking() on entry.GuestId equals guest.Id
+            where entry.PartyId == partyId
+            orderby entry.CreatedAt descending
+            select new { guest.Name, entry.CreatedAt })
+            .Take(8).ToArrayAsync(cancellationToken);
+
+        var feed = orderEvents.Select(x => new PartyFeedItemResponse("order", "🍹", $"{x.Name} möchte {x.Item ?? "etwas zu trinken"}.", x.CreatedAt))
+            .Concat(claimEvents.Select(x => new PartyFeedItemResponse("claim", "🏃", $"{x.Claimant} bringt {x.Recipient} {x.Item ?? "ein Getränk"}.", x.At)))
+            .Concat(mediaEvents.Select(x => new PartyFeedItemResponse("media", x.MediaType == "video" ? "🎬" : "📸", $"{x.Name} hat { (x.MediaType == "video" ? "ein Video" : "ein Foto") } hochgeladen.", x.CreatedAt)))
+            .Concat(musicEvents.Select(x => new PartyFeedItemResponse("music", "🎵", $"{x.Name} wünscht sich {x.Song}.", x.CreatedAt)))
+            .Concat(guestbookEvents.Select(x => new PartyFeedItemResponse("guestbook", "💌", $"{x.Name} hat ins Gästebuch geschrieben.", x.CreatedAt)))
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(20)
+            .ToArray();
+        return Results.Ok(feed);
+    }
+
+    private static async Task<PartyOrderResponse[]> QueryOrdersAsync(
+        IPartyDbContext dbContext,
+        Guid partyId,
+        Guid currentGuestId,
+        CancellationToken cancellationToken) =>
+        await (
+            from order in dbContext.PartyOrders.AsNoTracking()
+            join guest in dbContext.PartyGuests.AsNoTracking() on order.GuestId equals guest.Id
+            join claimedGuest in dbContext.PartyGuests.AsNoTracking() on order.ClaimedByGuestId equals claimedGuest.Id into claimedGuests
+            from claimant in claimedGuests.DefaultIfEmpty()
+            join orderItem in dbContext.PartyOrderItems.AsNoTracking() on order.OrderItemId equals orderItem.Id into orderItems
+            from item in orderItems.DefaultIfEmpty()
+            where order.PartyId == partyId && (order.Status == PartyOrderStatus.Open || order.GuestId == currentGuestId)
+            orderby order.CreatedAt descending
+            select new PartyOrderResponse(
+                order.Id, order.GuestId, guest.Name, order.ClaimedByGuestId,
+                claimant == null ? null : claimant.Name, order.OrderItemId,
+                item == null ? null : item.Name, item == null ? null : item.Icon,
+                order.CustomText, order.Status, order.CreatedAt, order.ClaimedAt, order.CompletedAt))
+        .Take(100)
+        .ToArrayAsync(cancellationToken);
 
     private static async Task<IResult> UploadMediaAsync(
         string slug,
@@ -263,6 +575,32 @@ internal static class PublicPartyEndpoints
         return Results.Ok(await AdminPartyEndpoints.QueryMedia(dbContext, access.Party.Id, $"/api/parties/public/{slug}/media", cancellationToken));
     }
 
+    private static async Task<IResult> ListOwnMediaAsync(
+        string slug,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var media = await (
+            from item in dbContext.PartyMedia.AsNoTracking()
+            where item.PartyId == access.Party!.Id && item.GuestId == access.Guest!.Id
+            orderby item.CreatedAt descending
+            select new PartyMediaResponse(
+                item.Id, item.GuestId, access.Guest.Name, item.MediaType,
+                item.FileName, item.MimeType, item.Size, item.Caption, item.CreatedAt,
+                $"/api/parties/public/{slug}/media/{item.Id}/content"))
+            .ToArrayAsync(cancellationToken);
+        return Results.Ok(media);
+    }
+
     private static async Task<IResult> GetMediaContentAsync(
         string slug,
         Guid mediaId,
@@ -278,15 +616,14 @@ internal static class PublicPartyEndpoints
         {
             return denied;
         }
-        if (!access.Party!.GuestsCanViewGallery)
-        {
-            return Results.Forbid();
-        }
-
         var media = await dbContext.PartyMedia.AsNoTracking().SingleOrDefaultAsync(x => x.Id == mediaId && x.PartyId == access.Party.Id, cancellationToken);
         if (media is null)
         {
             return Results.NotFound();
+        }
+        if (!access.Party.GuestsCanViewGallery && media.GuestId != access.Guest!.Id)
+        {
+            return Results.Forbid();
         }
         var stream = await storage.OpenReadAsync(media.StoragePath, cancellationToken);
         return stream is null ? Results.NotFound() : Results.Stream(stream, media.MimeType, enableRangeProcessing: media.MediaType == "video");
@@ -370,6 +707,30 @@ internal static class PublicPartyEndpoints
         dbContext.PartyMusicRequests.Add(music);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Created($"/api/parties/public/{slug}/music-requests/{music.Id}", new PartyMusicResponse(music.Id, music.GuestId, access.Guest.Name, music.Song, music.Artist, music.Comment, music.Status, music.CreatedAt));
+    }
+
+    private static async Task<IResult> ListOwnMusicAsync(
+        string slug,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var requests = await dbContext.PartyMusicRequests.AsNoTracking()
+            .Where(x => x.PartyId == access.Party!.Id && x.GuestId == access.Guest!.Id)
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new PartyMusicResponse(
+                x.Id, x.GuestId, access.Guest!.Name, x.Song, x.Artist,
+                x.Comment, x.Status, x.CreatedAt))
+            .ToArrayAsync(cancellationToken);
+        return Results.Ok(requests);
     }
 
     private static IResult? Denied(Party? party, PartyGuest? guest)
