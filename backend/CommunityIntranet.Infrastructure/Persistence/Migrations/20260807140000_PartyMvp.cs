@@ -10,6 +10,17 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations;
 [Migration("20260807140000_PartyMvp")]
 public sealed class PartyMvp : Migration
 {
+    private static readonly string[] PartyOwnerLookupColumns =
+        ["OwnerUserId", "IsArchived", "StartAt"];
+    private static readonly string[] GuestLookupColumns =
+        ["PartyId", "LastSeenAt"];
+    private static readonly string[] OrderItemLookupColumns =
+        ["PartyId", "SortOrder"];
+    private static readonly string[] CreatedLookupColumns =
+        ["PartyId", "CreatedAt"];
+    private static readonly string[] StatusLookupColumns =
+        ["PartyId", "Status", "CreatedAt"];
+
     protected override void Up(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.EnsureSchema(name: "parties");
@@ -169,19 +180,19 @@ public sealed class PartyMvp : Migration
             });
 
         migrationBuilder.CreateIndex("IX_parties_Slug", "parties", "parties", "Slug", unique: true);
-        migrationBuilder.CreateIndex("IX_parties_OwnerUserId_IsArchived_StartAt", "parties", "parties", new[] { "OwnerUserId", "IsArchived", "StartAt" });
+        migrationBuilder.CreateIndex(name: "IX_parties_OwnerUserId_IsArchived_StartAt", schema: "parties", table: "parties", columns: PartyOwnerLookupColumns);
         migrationBuilder.CreateIndex("IX_guests_SessionTokenHash", "parties", "guests", "SessionTokenHash", unique: true);
-        migrationBuilder.CreateIndex("IX_guests_PartyId_LastSeenAt", "parties", "guests", new[] { "PartyId", "LastSeenAt" });
-        migrationBuilder.CreateIndex("IX_order_items_PartyId_SortOrder", "parties", "order_items", new[] { "PartyId", "SortOrder" });
+        migrationBuilder.CreateIndex(name: "IX_guests_PartyId_LastSeenAt", schema: "parties", table: "guests", columns: GuestLookupColumns);
+        migrationBuilder.CreateIndex(name: "IX_order_items_PartyId_SortOrder", schema: "parties", table: "order_items", columns: OrderItemLookupColumns);
         migrationBuilder.CreateIndex("IX_guestbook_entries_GuestId", "parties", "guestbook_entries", "GuestId");
-        migrationBuilder.CreateIndex("IX_guestbook_entries_PartyId_CreatedAt", "parties", "guestbook_entries", new[] { "PartyId", "CreatedAt" });
+        migrationBuilder.CreateIndex(name: "IX_guestbook_entries_PartyId_CreatedAt", schema: "parties", table: "guestbook_entries", columns: CreatedLookupColumns);
         migrationBuilder.CreateIndex("IX_media_GuestId", "parties", "media", "GuestId");
-        migrationBuilder.CreateIndex("IX_media_PartyId_CreatedAt", "parties", "media", new[] { "PartyId", "CreatedAt" });
+        migrationBuilder.CreateIndex(name: "IX_media_PartyId_CreatedAt", schema: "parties", table: "media", columns: CreatedLookupColumns);
         migrationBuilder.CreateIndex("IX_music_requests_GuestId", "parties", "music_requests", "GuestId");
-        migrationBuilder.CreateIndex("IX_music_requests_PartyId_Status_CreatedAt", "parties", "music_requests", new[] { "PartyId", "Status", "CreatedAt" });
+        migrationBuilder.CreateIndex(name: "IX_music_requests_PartyId_Status_CreatedAt", schema: "parties", table: "music_requests", columns: StatusLookupColumns);
         migrationBuilder.CreateIndex("IX_orders_GuestId", "parties", "orders", "GuestId");
         migrationBuilder.CreateIndex("IX_orders_OrderItemId", "parties", "orders", "OrderItemId");
-        migrationBuilder.CreateIndex("IX_orders_PartyId_Status_CreatedAt", "parties", "orders", new[] { "PartyId", "Status", "CreatedAt" });
+        migrationBuilder.CreateIndex(name: "IX_orders_PartyId_Status_CreatedAt", schema: "parties", table: "orders", columns: StatusLookupColumns);
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
