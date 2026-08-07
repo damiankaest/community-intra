@@ -1583,13 +1583,16 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
                     b.Property<DateTimeOffset>("FirstSeenAt").HasColumnType("timestamp with time zone");
+                    b.Property<bool>("IsRemoved").HasColumnType("boolean");
                     b.Property<DateTimeOffset>("LastSeenAt").HasColumnType("timestamp with time zone");
                     b.Property<string>("Name").IsRequired().HasMaxLength(100).HasColumnType("character varying(100)");
                     b.Property<Guid>("PartyId").HasColumnType("uuid");
                     b.Property<string>("SessionTokenHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                    b.Property<Guid?>("UserId").HasColumnType("uuid");
                     b.HasKey("Id");
                     b.HasIndex("SessionTokenHash").IsUnique();
                     b.HasIndex("PartyId", "LastSeenAt");
+                    b.HasIndex("PartyId", "UserId").IsUnique();
                     b.ToTable("guests", "parties");
                 });
 
