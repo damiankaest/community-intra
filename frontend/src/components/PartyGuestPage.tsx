@@ -1,34 +1,54 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft,
   BookHeart,
   Camera,
   CheckCircle2,
   GlassWater,
+  Hand,
+  House,
   ImagePlus,
+  Images,
+  ListChecks,
   Music2,
   PartyPopper,
   Send,
+  Trash2,
   Upload,
+  UserRound,
+  X,
 } from 'lucide-react'
 import { useParams } from 'react-router-dom'
+import { ApiError } from '../api/client'
 import {
   addGuestbookEntry,
   addMusicRequest,
+  cancelGuestOrder,
+  claimGuestOrders,
+  completeGuestOrder,
   createGuestOrder,
   downloadGuestMedia,
+  getPartyFeed,
+  getPartyGuest,
+  getPartyPulse,
   getPublicParty,
+  listGuestOrders,
   listGuestbook,
   listGuestMedia,
+  releaseGuestOrder,
+  listOwnGuestMedia,
+  listOwnMusicRequests,
   registerPartyGuest,
   updatePartyGuest,
   uploadGuestMedia,
+  type PartyFeedItem,
   type PartyMedia,
+  type PartyOrder,
+  type PartyPulse,
 } from '../api/parties'
 import { prepareScreenshot } from '../imageProcessing'
 
-type View = 'home' | 'media' | 'order' | 'music' | 'guestbook'
+type View = 'home' | 'media' | 'order' | 'music' | 'guestbook' | 'me'
 
 interface StoredGuest {
   name: string
@@ -47,6 +67,36 @@ export function PartyGuestPage() {
     enabled: Boolean(slug),
     retry: false,
   })
+  const me = useQuery({
+    queryKey: ['party-me', slug, guest?.token],
+    queryFn: () => getPartyGuest(slug, guest!.token),
+    enabled: Boolean(slug && guest?.token),
+    retry: false,
+  })
+  const orders = useQuery({
+    queryKey: ['party-guest-orders', slug],
+    queryFn: () => listGuestOrders(slug, guest!.token),
+    enabled: Boolean(slug && guest?.token),
+    refetchInterval: 3_500,
+  })
+  const pulse = useQuery({
+    queryKey: ['party-pulse', slug],
+    queryFn: () => getPartyPulse(slug, guest!.token),
+    enabled: Boolean(slug && guest?.token),
+    refetchInterval: 4_000,
+  })
+  const feed = useQuery({
+    queryKey: ['party-feed', slug],
+    queryFn: () => getPartyFeed(slug, guest!.token),
+    enabled: Boolean(slug && guest?.token),
+    refetchInterval: 7_000,
+  })
+  const media = useQuery({
+    queryKey: ['party-media', slug],
+    queryFn: () => listGuestMedia(slug, guest!.token),
+    enabled: Boolean(slug && guest?.token && party.data?.guestsCanViewGallery),
+    refetchInterval: 10_000,
+  })
 
   useEffect(() => {
     const existing = document.querySelector<HTMLMetaElement>(
@@ -63,11 +113,35 @@ export function PartyGuestPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!slug) return
+    const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]')
+    if (!manifest) return
+    const previous = manifest.href
+    manifest.href = `/api/parties/public/${encodeURIComponent(slug)}/manifest.webmanifest`
+    return () => {
+      manifest.href = previous
+    }
+  }, [slug])
+
   if (party.isPending) return <PartyMessage text="Party wird geladen …" />
   if (party.error)
     return <PartyMessage text="Diese Party wurde nicht gefunden." />
   if (!party.data.isActive)
     return <PartyMessage text="Diese Party ist aktuell nicht aktiv. 🎈" />
+  if (guest && me.error instanceof ApiError && me.error.status === 401) {
+    return (
+      <GuestWelcome
+        partyName={party.data.name}
+        welcomeText="Deine alte Party-Session ist abgelaufen. Sag uns kurz nochmal, wer du bist."
+        onRegistered={(next) => {
+          storeGuest(slug, next)
+          setGuest(next)
+        }}
+        slug={slug}
+      />
+    )
+  }
   if (!guest) {
     return (
       <GuestWelcome
@@ -84,58 +158,64 @@ export function PartyGuestPage() {
 
   return (
     <PartyFrame>
-      {view === 'home' ? (
+      <div className="pb-24">
+      {view === 'home' && (
         <PartyHome
           partyName={party.data.name}
           name={guest.name}
-          slug={slug}
           token={guest.token}
           welcomeText={party.data.welcomeText}
           setView={setView}
+          pulse={pulse.data}
+          feed={feed.data ?? []}
+          latestMedia={media.data?.[0]}
+        />
+      )}
+      {view === 'order' && (
+        <OrderView
+          slug={slug}
+          token={guest.token}
+          guestId={me.data?.id}
+          items={party.data.orderItems}
+          orders={orders.data ?? []}
+        />
+      )}
+      {view === 'media' && (
+        <MediaView
+          slug={slug}
+          token={guest.token}
+          canViewGallery={party.data.guestsCanViewGallery}
+        />
+      )}
+      {view === 'music' && <MusicView slug={slug} token={guest.token} />}
+      {view === 'guestbook' && (
+        <GuestbookView
+          slug={slug}
+          token={guest.token}
+          canRead={party.data.guestsCanViewGuestbook}
+        />
+      )}
+      {view === 'me' && (
+        <MeView
+          slug={slug}
+          guest={guest}
+          guestId={me.data?.id}
+          firstSeenAt={me.data?.firstSeenAt}
+          orders={orders.data ?? []}
           onRenamed={(name) => {
             const next = { ...guest, name }
             storeGuest(slug, next)
             setGuest(next)
           }}
         />
-      ) : (
-        <div>
-          <button
-            type="button"
-            className="party-back"
-            onClick={() => setView('home')}
-          >
-            <ArrowLeft size={18} /> Zurück
-          </button>
-          {view === 'order' && (
-            <OrderView
-              slug={slug}
-              token={guest.token}
-              items={party.data.orderItems}
-            />
-          )}
-          {view === 'media' && (
-            <MediaView
-              slug={slug}
-              token={guest.token}
-              canViewGallery={party.data.guestsCanViewGallery}
-            />
-          )}
-          {view === 'music' && <MusicView slug={slug} token={guest.token} />}
-          {view === 'guestbook' && (
-            <GuestbookView
-              slug={slug}
-              token={guest.token}
-              canRead={party.data.guestsCanViewGuestbook}
-            />
-          )}
-        </div>
       )}
       <p className="mt-10 text-center text-[11px] leading-5 text-white/45">
         Mit dem Upload erklärst du dich damit einverstanden, dass deine Medien
         im privaten Rahmen dieser Feier gespeichert und mit den Teilnehmern
         geteilt werden können.
       </p>
+      </div>
+      <PartyBottomNavigation view={view} setView={setView} pulse={pulse.data} />
     </PartyFrame>
   )
 }
@@ -216,25 +296,22 @@ function GuestWelcome({
 function PartyHome({
   partyName,
   name,
-  slug,
   token,
   welcomeText,
   setView,
-  onRenamed,
+  pulse,
+  feed,
+  latestMedia,
 }: {
   partyName: string
   name: string
-  slug: string
   token: string
   welcomeText?: string
   setView: (view: View) => void
-  onRenamed: (name: string) => void
+  pulse?: PartyPulse
+  feed: PartyFeedItem[]
+  latestMedia?: PartyMedia
 }) {
-  const [nextName, setNextName] = useState(name)
-  const rename = useMutation({
-    mutationFn: () => updatePartyGuest(slug, token, nextName),
-    onSuccess: (updated) => onRenamed(updated.name),
-  })
   return (
     <div className="py-5">
       <div className="text-center">
@@ -243,46 +320,39 @@ function PartyHome({
           {partyName}
         </h1>
         <p className="mt-2 text-white/75">Schön, dass du da bist, {name}!</p>
-        <details className="mx-auto mt-2 max-w-xs text-xs text-white/55">
-          <summary className="cursor-pointer">Name ändern</summary>
-          <form
-            className="mt-2 flex gap-2"
-            onSubmit={(event) => {
-              event.preventDefault()
-              rename.mutate()
-            }}
-          >
-            <input
-              className="party-input"
-              maxLength={100}
-              value={nextName}
-              onChange={(event) => setNextName(event.target.value)}
-              aria-label="Gastname"
-            />
-            <button
-              className="party-small-button"
-              disabled={!nextName.trim() || rename.isPending}
-            >
-              Speichern
-            </button>
-          </form>
-          {rename.error && <PartyError error={rename.error} />}
-        </details>
         {welcomeText && (
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-white/55">
             {welcomeText}
           </p>
         )}
       </div>
+      {pulse && (
+        <div className="mt-6 grid grid-cols-3 gap-2">
+          <PartyStat icon="👥" value={pulse.guestCount} label="Gäste" />
+          <PartyStat icon="🍹" value={pulse.openOrderCount} label="offen" />
+          <PartyStat icon="📸" value={pulse.mediaCount} label="Medien" />
+        </div>
+      )}
+      {pulse?.topDrinkName && (
+        <div className="party-card mt-3 flex items-center gap-3 py-3">
+          <span className="text-2xl">🔥</span>
+          <p className="text-sm text-white/65">
+            Most wanted: <strong className="text-white">{pulse.topDrinkName}</strong>{' '}
+            <span className="text-white/40">· {pulse.topDrinkCount}× bestellt</span>
+          </p>
+        </div>
+      )}
       <div className="mt-8 grid gap-3">
         <PartyTile
           icon={<Camera />}
           label="Fotos & Videos"
+          badge={pulse?.mediaCount}
           onClick={() => setView('media')}
         />
         <PartyTile
           icon={<GlassWater />}
-          label="Getränk bestellen"
+          label="Drinks & Runde holen"
+          badge={pulse?.unclaimedOrderCount}
           onClick={() => setView('order')}
         />
         <PartyTile
@@ -296,6 +366,47 @@ function PartyHome({
           onClick={() => setView('guestbook')}
         />
       </div>
+      {latestMedia && (
+        <section className="mt-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-black text-white">Neuester Moment</h2>
+            <button
+              type="button"
+              className="text-xs font-bold text-amber-200"
+              onClick={() => setView('media')}
+            >
+              Galerie öffnen
+            </button>
+          </div>
+          <div className="mx-auto max-w-sm">
+            <PartyMediaPreview media={latestMedia} token={token} featured />
+          </div>
+        </section>
+      )}
+      {feed.length > 0 && (
+        <section className="mt-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-black text-white">Gerade auf der Party</h2>
+            <span className="party-live-dot">LIVE</span>
+          </div>
+          <div className="party-card grid gap-3">
+            {feed.slice(0, 6).map((item, index) => (
+              <div
+                key={`${item.type}-${item.createdAt}-${index}`}
+                className="flex gap-3 text-sm"
+              >
+                <span className="text-xl">{item.emoji}</span>
+                <div className="min-w-0">
+                  <p className="text-white/80">{item.text}</p>
+                  <p className="mt-0.5 text-[11px] text-white/35">
+                    {relativeTime(item.createdAt)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }
@@ -303,29 +414,88 @@ function PartyHome({
 function OrderView({
   slug,
   token,
+  guestId,
   items,
+  orders,
 }: {
   slug: string
   token: string
+  guestId?: string
   items: { id: string; name: string; icon?: string; isActive: boolean }[]
+  orders: PartyOrder[]
 }) {
+  const queryClient = useQueryClient()
   const [custom, setCustom] = useState('')
   const [confirmation, setConfirmation] = useState<string>()
-  const mutation = useMutation({
+  const [roundIds, setRoundIds] = useState<string[]>([])
+  const refreshOrders = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['party-guest-orders', slug] }),
+      queryClient.invalidateQueries({ queryKey: ['party-pulse', slug] }),
+      queryClient.invalidateQueries({ queryKey: ['party-feed', slug] }),
+    ])
+  }
+  const create = useMutation({
     mutationFn: ({ id, customText }: { id?: string; customText?: string }) =>
       createGuestOrder(slug, token, id, customText),
-    onSuccess: (result) => {
-      setConfirmation(`Alles klar, ${result.item} ist unterwegs!`)
+    onSuccess: async (result) => {
+      setConfirmation(`Alles klar, ${result.item} ist angefragt! 🍹`)
       setCustom('')
+      celebrate()
+      await refreshOrders()
       window.setTimeout(() => setConfirmation(undefined), 3500)
     },
   })
+  const claim = useMutation({
+    mutationFn: (orderIds: string[]) => claimGuestOrders(slug, token, orderIds),
+    onSuccess: async (result) => {
+      setRoundIds([])
+      setConfirmation(
+        result.claimed > 1
+          ? `Runde übernommen: ${result.claimed} Drinks! 🍻`
+          : `Du bringst den Drink! 🏃`,
+      )
+      celebrate()
+      await refreshOrders()
+    },
+  })
+  const change = useMutation({
+    mutationFn: ({
+      action,
+      orderId,
+    }: {
+      action: 'release' | 'done' | 'cancel'
+      orderId: string
+    }) => {
+      if (action === 'release') return releaseGuestOrder(slug, token, orderId)
+      if (action === 'done') return completeGuestOrder(slug, token, orderId)
+      return cancelGuestOrder(slug, token, orderId)
+    },
+    onSuccess: refreshOrders,
+  })
+  const myOrders = guestId
+    ? orders.filter((order) => order.guestId === guestId).slice(0, 8)
+    : []
+  const available = guestId
+    ? orders.filter(
+        (order) =>
+          order.status === 'Open' &&
+          order.guestId !== guestId &&
+          !order.claimedByGuestId,
+      )
+    : []
+  const claimedByMe = guestId
+    ? orders.filter(
+        (order) =>
+          order.status === 'Open' && order.claimedByGuestId === guestId,
+      )
+    : []
   return (
     <section>
       <PartyTitle
         icon="🍹"
-        title="Was darf's sein?"
-        text="Ein Tipp = ein Wunsch. Kein Warenkorb, kein Stress."
+        title="Drinks"
+        text="Bestellen, Status sehen oder jemandem direkt einen Drink mitbringen."
       />
       {confirmation && (
         <div className="party-success">
@@ -340,8 +510,8 @@ function OrderView({
               key={item.id}
               type="button"
               className="party-choice"
-              disabled={mutation.isPending}
-              onClick={() => mutation.mutate({ id: item.id })}
+              disabled={create.isPending}
+              onClick={() => create.mutate({ id: item.id })}
             >
               <span className="text-3xl">{item.icon ?? '🥤'}</span>
               <span>{item.name}</span>
@@ -360,15 +530,141 @@ function OrderView({
           className="party-icon-button"
           type="button"
           aria-label="Wunsch senden"
-          disabled={!custom.trim() || mutation.isPending}
-          onClick={() => mutation.mutate({ customText: custom })}
+          disabled={!custom.trim() || create.isPending}
+          onClick={() => create.mutate({ customText: custom })}
         >
           <Send size={20} />
         </button>
       </div>
-      {mutation.error && <PartyError error={mutation.error} />}
+      {create.error && <PartyError error={create.error} />}
+
+      <section className="mt-8">
+        <h2 className="mb-3 flex items-center gap-2 text-lg font-black text-white">
+          <ListChecks size={20} className="text-amber-200" /> Meine Bestellungen
+        </h2>
+        <div className="grid gap-2">
+          {myOrders.map((order) => (
+            <div key={order.id} className="party-card flex items-center gap-3">
+              <span className="text-2xl">{order.icon ?? '🥤'}</span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-bold text-white">{order.itemName ?? order.customText}</p>
+                <p className="mt-0.5 text-xs text-white/55">
+                  {orderStatusText(order)}
+                </p>
+              </div>
+              {order.status === 'Open' && (
+                <button
+                  type="button"
+                  className="party-small-button"
+                  aria-label="Bestellung stornieren"
+                  onClick={() => change.mutate({ action: 'cancel', orderId: order.id })}
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </div>
+          ))}
+          {myOrders.length === 0 && (
+            <p className="party-card text-sm text-white/45">Noch nichts bestellt.</p>
+          )}
+        </div>
+      </section>
+
+      {claimedByMe.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-black text-white">
+            <Hand size={20} className="text-emerald-300" /> Du bringst
+          </h2>
+          <div className="grid gap-2">
+            {claimedByMe.map((order) => (
+              <div key={order.id} className="party-card">
+                <p className="font-bold text-white">
+                  {order.icon ?? '🥤'} {order.itemName ?? order.customText} für {order.guestName}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    className="party-done-button flex-1"
+                    onClick={() => change.mutate({ action: 'done', orderId: order.id })}
+                  >
+                    <CheckCircle2 size={16} /> Übergeben
+                  </button>
+                  <button
+                    type="button"
+                    className="party-small-button"
+                    onClick={() => change.mutate({ action: 'release', orderId: order.id })}
+                  >
+                    Freigeben
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="mt-8">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-black text-white">
+              🍻 Runde holen
+            </h2>
+            <p className="mt-1 text-xs text-white/45">Offene Wünsche auswählen und gemeinsam übernehmen.</p>
+          </div>
+          {roundIds.length > 0 && (
+            <button
+              type="button"
+              className="party-primary shrink-0"
+              disabled={claim.isPending}
+              onClick={() => claim.mutate(roundIds)}
+            >
+              {roundIds.length} übernehmen
+            </button>
+          )}
+        </div>
+        <div className="grid gap-2">
+          {available.map((order) => {
+            const selected = roundIds.includes(order.id)
+            return (
+              <button
+                key={order.id}
+                type="button"
+                className={`party-claim-card ${selected ? 'party-claim-card-selected' : ''}`}
+                onClick={() =>
+                  setRoundIds((current) =>
+                    current.includes(order.id)
+                      ? current.filter((id) => id !== order.id)
+                      : [...current, order.id],
+                  )
+                }
+              >
+                <span className="text-2xl">{order.icon ?? '🥤'}</span>
+                <span className="min-w-0 flex-1 text-left">
+                  <strong className="block truncate text-white">{order.itemName ?? order.customText}</strong>
+                  <span className="text-xs text-white/50">für {order.guestName}</span>
+                </span>
+                <span className="party-claim-check">{selected ? '✓' : '+'}</span>
+              </button>
+            )
+          })}
+          {available.length === 0 && (
+            <p className="party-card text-sm text-white/45">Gerade wartet kein offener Drink. ✨</p>
+          )}
+        </div>
+        {claim.error && <PartyError error={claim.error} />}
+        {change.error && <PartyError error={change.error} />}
+      </section>
     </section>
   )
+}
+
+interface PendingMediaUpload {
+  id: string
+  file: File
+  previewUrl: string
+  progress: number
+  status: 'queued' | 'preparing' | 'uploading' | 'done' | 'error'
+  error?: string
 }
 
 function MediaView({
@@ -381,28 +677,101 @@ function MediaView({
   canViewGallery: boolean
 }) {
   const queryClient = useQueryClient()
-  const [file, setFile] = useState<File>()
+  const [uploads, setUploads] = useState<PendingMediaUpload[]>([])
   const [caption, setCaption] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
   const gallery = useQuery({
     queryKey: ['party-media', slug],
     queryFn: () => listGuestMedia(slug, token),
     enabled: canViewGallery,
     retry: false,
+    refetchInterval: 10_000,
   })
-  const upload = useMutation({
-    mutationFn: async () => {
-      if (!file) throw new Error('Bitte wähle zuerst eine Datei aus.')
-      const prepared = file.type.startsWith('image/')
-        ? (await prepareScreenshot(file)).file
-        : file
-      return uploadGuestMedia(slug, token, prepared, caption)
-    },
-    onSuccess: async () => {
-      setFile(undefined)
+
+  const addFiles = (files: FileList | null) => {
+    if (!files) return
+    const next = Array.from(files)
+      .slice(0, Math.max(0, 10 - uploads.length))
+      .map((file, index): PendingMediaUpload => ({
+        id: `${Date.now()}-${index}-${file.name}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        progress: 0,
+        status: 'queued',
+      }))
+    setUploads((current) => [...current, ...next])
+  }
+
+  const updateUpload = (id: string, patch: Partial<PendingMediaUpload>) =>
+    setUploads((current) =>
+      current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    )
+
+  const removeUpload = (id: string) => {
+    setUploads((current) => {
+      const removed = current.find((item) => item.id === id)
+      if (removed) URL.revokeObjectURL(removed.previewUrl)
+      return current.filter((item) => item.id !== id)
+    })
+  }
+
+  const uploadAll = async () => {
+    const pending = uploads.filter((item) => item.status !== 'done')
+    if (pending.length === 0) return
+    setIsUploading(true)
+    const completed = new Set<string>()
+    for (const item of pending) {
+      try {
+        updateUpload(item.id, { status: 'preparing', progress: 0, error: undefined })
+        let prepared = item.file
+        if (item.file.type.startsWith('image/') && item.file.type !== 'image/gif') {
+          try {
+            prepared = (await prepareScreenshot(item.file)).file
+          } catch {
+            prepared = item.file
+          }
+        }
+        const maximum = prepared.type.startsWith('video/')
+          ? 100 * 1024 * 1024
+          : 12 * 1024 * 1024
+        if (prepared.size > maximum) {
+          throw new Error(
+            prepared.type.startsWith('video/')
+              ? 'Video ist größer als 100 MB.'
+              : 'Foto ist nach der Optimierung größer als 12 MB.',
+          )
+        }
+        updateUpload(item.id, { status: 'uploading', progress: 1 })
+        await uploadGuestMedia(slug, token, prepared, caption, (progress) =>
+          updateUpload(item.id, { status: 'uploading', progress }),
+        )
+        updateUpload(item.id, { status: 'done', progress: 100 })
+        completed.add(item.id)
+      } catch (error) {
+        updateUpload(item.id, {
+          status: 'error',
+          error: error instanceof Error ? error.message : 'Upload fehlgeschlagen.',
+        })
+      }
+    }
+    if (completed.size > 0) {
+      celebrate()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['party-media', slug] }),
+        queryClient.invalidateQueries({ queryKey: ['party-my-media', slug] }),
+        queryClient.invalidateQueries({ queryKey: ['party-pulse', slug] }),
+        queryClient.invalidateQueries({ queryKey: ['party-feed', slug] }),
+      ])
       setCaption('')
-      await queryClient.invalidateQueries({ queryKey: ['party-media', slug] })
-    },
-  })
+      setUploads((current) => {
+        current
+          .filter((item) => completed.has(item.id))
+          .forEach((item) => URL.revokeObjectURL(item.previewUrl))
+        return current.filter((item) => !completed.has(item.id))
+      })
+    }
+    setIsUploading(false)
+  }
   return (
     <section>
       <PartyTitle
@@ -411,21 +780,77 @@ function MediaView({
         text="Lad deinen besten Schnappschuss oder ein kurzes Video hoch."
       />
       <div className="party-card">
-        <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/25 bg-white/5 p-4 text-center">
-          <ImagePlus size={28} className="text-amber-200" />
-          <span className="mt-2 text-sm font-semibold text-white">
-            {file ? file.name : 'Foto oder Video auswählen'}
-          </span>
-          <span className="mt-1 text-xs text-white/45">
-            Fotos bis 12 MB · Videos bis 100 MB
-          </span>
-          <input
-            type="file"
-            className="hidden"
-            accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm"
-            onChange={(event) => setFile(event.target.files?.[0])}
-          />
-        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="party-upload-button">
+            <Camera size={22} />
+            <span>Kamera</span>
+            <input
+              type="file"
+              className="hidden"
+              accept="image/jpeg,image/png,image/webp"
+              capture="environment"
+              onChange={(event) => {
+                addFiles(event.target.files)
+                event.target.value = ''
+              }}
+            />
+          </label>
+          <label className="party-upload-button">
+            <ImagePlus size={22} />
+            <span>Auswählen</span>
+            <input
+              type="file"
+              className="hidden"
+              multiple
+              accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm"
+              onChange={(event) => {
+                addFiles(event.target.files)
+                event.target.value = ''
+              }}
+            />
+          </label>
+        </div>
+        <p className="mt-2 text-center text-[11px] text-white/40">
+          Bis zu 10 Dateien · Fotos 12 MB · Videos 100 MB
+        </p>
+        {uploads.length > 0 && (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {uploads.map((item) => (
+              <div key={item.id} className="party-upload-preview">
+                {item.file.type.startsWith('video/') ? (
+                  <video src={item.previewUrl} muted playsInline />
+                ) : (
+                  <img src={item.previewUrl} alt="Upload-Vorschau" />
+                )}
+                {!isUploading && (
+                  <button
+                    type="button"
+                    className="party-upload-remove"
+                    aria-label="Datei entfernen"
+                    onClick={() => removeUpload(item.id)}
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+                <div className="party-upload-state">
+                  <span>
+                    {item.status === 'preparing'
+                      ? 'Optimieren …'
+                      : item.status === 'uploading'
+                        ? `${item.progress}%`
+                        : item.status === 'error'
+                          ? 'Fehler'
+                          : 'Bereit'}
+                  </span>
+                  <div className="party-upload-progress">
+                    <span style={{ width: `${item.progress}%` }} />
+                  </div>
+                </div>
+                {item.error && <p className="party-upload-error">{item.error}</p>}
+              </div>
+            ))}
+          </div>
+        )}
         <input
           className="party-input mt-3"
           maxLength={500}
@@ -435,13 +860,14 @@ function MediaView({
         />
         <button
           className="party-primary mt-3 w-full"
-          disabled={!file || upload.isPending}
-          onClick={() => upload.mutate()}
+          disabled={uploads.length === 0 || isUploading}
+          onClick={() => void uploadAll()}
         >
           <Upload size={18} />{' '}
-          {upload.isPending ? 'Wird hochgeladen …' : 'Hochladen'}
+          {isUploading
+            ? 'Uploads laufen …'
+            : `${uploads.length || ''} ${uploads.length === 1 ? 'Datei' : 'Dateien'} hochladen`}
         </button>
-        {upload.error && <PartyError error={upload.error} />}
       </div>
       {canViewGallery && (
         <div className="mt-8">
@@ -463,16 +889,33 @@ function MediaView({
 function PartyMediaPreview({
   media,
   token,
+  featured = false,
 }: {
   media: PartyMedia
   token: string
+  featured?: boolean
 }) {
+  const [loadVideo, setLoadVideo] = useState(media.mediaType !== 'video')
   const blob = useQuery({
     queryKey: ['party-media-blob', media.id],
     queryFn: async () =>
       URL.createObjectURL(await downloadGuestMedia(media.contentUrl, token)),
     staleTime: Number.POSITIVE_INFINITY,
+    enabled: loadVideo,
   })
+  if (media.mediaType === 'video' && !loadVideo) {
+    return (
+      <button
+        type="button"
+        className={`party-video-placeholder ${featured ? 'h-64' : 'aspect-square'}`}
+        onClick={() => setLoadVideo(true)}
+      >
+        <span className="text-3xl">🎬</span>
+        <strong>Video laden</strong>
+        <small>{formatMegabytes(media.size)}</small>
+      </button>
+    )
+  }
   if (!blob.data)
     return (
       <div className="aspect-square animate-pulse rounded-xl bg-white/10" />
@@ -483,31 +926,44 @@ function PartyMediaPreview({
         <video
           controls
           playsInline
-          className="aspect-square h-full w-full object-cover"
+          className={featured ? 'h-64 w-full object-cover' : 'aspect-square h-full w-full object-cover'}
           src={blob.data}
         />
       ) : (
         <img
-          className="aspect-square h-full w-full object-cover"
+          className={featured ? 'h-64 w-full object-cover' : 'aspect-square h-full w-full object-cover'}
           src={blob.data}
           alt={media.caption ?? `Foto von ${media.guestName}`}
         />
+      )}
+      {featured && (
+        <div className="px-3 py-2 text-xs text-white/55">
+          <strong className="text-white/75">{media.guestName}</strong>
+          {media.caption ? ` · ${media.caption}` : ''}
+        </div>
       )}
     </div>
   )
 }
 
 function MusicView({ slug, token }: { slug: string; token: string }) {
+  const queryClient = useQueryClient()
   const [song, setSong] = useState('')
   const [artist, setArtist] = useState('')
   const [sent, setSent] = useState(false)
   const mutation = useMutation({
     mutationFn: () =>
       addMusicRequest(slug, token, { song, artist: artist || undefined }),
-    onSuccess: () => {
+    onSuccess: async () => {
       setSong('')
       setArtist('')
       setSent(true)
+      celebrate()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['party-my-music', slug] }),
+        queryClient.invalidateQueries({ queryKey: ['party-pulse', slug] }),
+        queryClient.invalidateQueries({ queryKey: ['party-feed', slug] }),
+      ])
     },
   })
   return (
@@ -570,9 +1026,12 @@ function GuestbookView({
     mutationFn: () => addGuestbookEntry(slug, token, message),
     onSuccess: async () => {
       setMessage('')
-      await queryClient.invalidateQueries({
-        queryKey: ['party-guestbook', slug],
-      })
+      celebrate()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['party-guestbook', slug] }),
+        queryClient.invalidateQueries({ queryKey: ['party-pulse', slug] }),
+        queryClient.invalidateQueries({ queryKey: ['party-feed', slug] }),
+      ])
     },
   })
   return (
@@ -614,6 +1073,190 @@ function GuestbookView({
   )
 }
 
+function MeView({
+  slug,
+  guest,
+  guestId,
+  firstSeenAt,
+  orders,
+  onRenamed,
+}: {
+  slug: string
+  guest: StoredGuest
+  guestId?: string
+  firstSeenAt?: string
+  orders: PartyOrder[]
+  onRenamed: (name: string) => void
+}) {
+  const queryClient = useQueryClient()
+  const [name, setName] = useState(guest.name)
+  const myMedia = useQuery({
+    queryKey: ['party-my-media', slug],
+    queryFn: () => listOwnGuestMedia(slug, guest.token),
+  })
+  const myMusic = useQuery({
+    queryKey: ['party-my-music', slug],
+    queryFn: () => listOwnMusicRequests(slug, guest.token),
+  })
+  const rename = useMutation({
+    mutationFn: () => updatePartyGuest(slug, guest.token, name),
+    onSuccess: async (updated) => {
+      onRenamed(updated.name)
+      celebrate()
+      await queryClient.invalidateQueries({ queryKey: ['party-me', slug] })
+    },
+  })
+  const myOrders = guestId
+    ? orders.filter((order) => order.guestId === guestId).slice(0, 10)
+    : []
+  return (
+    <section>
+      <PartyTitle icon="🙋" title="Ich" text="Dein kleiner Party-Hub." />
+      <div className="party-card">
+        <div className="flex items-center gap-3">
+          <div className="flex size-12 items-center justify-center rounded-full bg-amber-300/15 text-xl">
+            🎉
+          </div>
+          <div>
+            <p className="font-black text-white">{guest.name}</p>
+            {firstSeenAt && (
+              <p className="text-xs text-white/45">
+                Seit {formatTime(firstSeenAt)} dabei
+              </p>
+            )}
+          </div>
+        </div>
+        <form
+          className="mt-4 flex gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            rename.mutate()
+          }}
+        >
+          <input
+            className="party-input"
+            maxLength={100}
+            value={name}
+            aria-label="Gastname"
+            onChange={(event) => setName(event.target.value)}
+          />
+          <button
+            className="party-small-button"
+            disabled={!name.trim() || rename.isPending}
+          >
+            Speichern
+          </button>
+        </form>
+        {rename.error && <PartyError error={rename.error} />}
+      </div>
+      <div className="party-card mt-3 flex items-start gap-3">
+        <span className="text-2xl">📲</span>
+        <div>
+          <p className="font-bold text-white">Party wie eine App öffnen</p>
+          <p className="mt-1 text-xs leading-5 text-white/50">
+            Im Browser „Zum Home-Bildschirm“ wählen. Der Shortcut startet direkt wieder diese Party.
+          </p>
+        </div>
+      </div>
+      <div className="mt-7">
+        <h2 className="mb-3 text-lg font-black text-white">Meine letzten Drinks</h2>
+        <div className="grid gap-2">
+          {myOrders.map((order) => (
+            <div key={order.id} className="party-card flex items-center gap-3">
+              <span className="text-2xl">{order.icon ?? '🥤'}</span>
+              <div className="min-w-0">
+                <p className="truncate font-bold text-white">{order.itemName ?? order.customText}</p>
+                <p className="text-xs text-white/50">{orderStatusText(order)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="mt-7 grid gap-3">
+        <div>
+          <h2 className="mb-3 text-lg font-black text-white">
+            Meine Uploads · {myMedia.data?.length ?? 0}
+          </h2>
+          <div className="grid grid-cols-3 gap-2">
+            {myMedia.data?.slice(0, 6).map((media) => (
+              <PartyMediaPreview key={media.id} media={media} token={guest.token} />
+            ))}
+          </div>
+        </div>
+        <div className="mt-3">
+          <h2 className="mb-3 text-lg font-black text-white">
+            Meine Musikwünsche · {myMusic.data?.length ?? 0}
+          </h2>
+          <div className="grid gap-2">
+            {myMusic.data?.slice(0, 5).map((request) => (
+              <div key={request.id} className="party-card flex items-center gap-3 py-3">
+                <span className="text-xl">🎵</span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-white">{request.song}</p>
+                  <p className="text-xs text-white/45">
+                    {request.artist ?? 'Ohne Künstler'} · {request.status}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function PartyBottomNavigation({
+  view,
+  setView,
+  pulse,
+}: {
+  view: View
+  setView: (view: View) => void
+  pulse?: PartyPulse
+}) {
+  const items: { view: View; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { view: 'home', label: 'Party', icon: <House size={20} /> },
+    {
+      view: 'order',
+      label: 'Drinks',
+      icon: <GlassWater size={20} />,
+      badge: pulse?.unclaimedOrderCount,
+    },
+    {
+      view: 'media',
+      label: 'Fotos',
+      icon: <Images size={20} />,
+      badge: pulse?.mediaCount,
+    },
+    {
+      view: 'music',
+      label: 'Musik',
+      icon: <Music2 size={20} />,
+      badge: pulse?.openMusicRequestCount,
+    },
+    { view: 'me', label: 'Ich', icon: <UserRound size={20} /> },
+  ]
+  return (
+    <nav className="party-bottom-nav" aria-label="Party Navigation">
+      {items.map((item) => (
+        <button
+          key={item.view}
+          type="button"
+          className={view === item.view ? 'party-nav-active' : ''}
+          onClick={() => setView(item.view)}
+        >
+          <span className="relative">
+            {item.icon}
+            {!!item.badge && <span className="party-nav-badge">{item.badge > 99 ? '99+' : item.badge}</span>}
+          </span>
+          <span>{item.label}</span>
+        </button>
+      ))}
+    </nav>
+  )
+}
+
 function PartyFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="party-surface min-h-screen px-4 py-6 text-white">
@@ -625,17 +1268,30 @@ function PartyFrame({ children }: { children: React.ReactNode }) {
 function PartyTile({
   icon,
   label,
+  badge,
   onClick,
 }: {
   icon: React.ReactNode
   label: string
+  badge?: number
   onClick: () => void
 }) {
   return (
     <button type="button" className="party-tile" onClick={onClick}>
       <span className="party-tile-icon">{icon}</span>
-      <span>{label}</span>
+      <span className="flex-1">{label}</span>
+      {!!badge && <span className="party-tile-badge">{badge > 99 ? '99+' : badge}</span>}
     </button>
+  )
+}
+
+function PartyStat({ icon, value, label }: { icon: string; value: number; label: string }) {
+  return (
+    <div className="party-stat">
+      <span>{icon}</span>
+      <strong>{value}</strong>
+      <small>{label}</small>
+    </div>
   )
 }
 
@@ -691,4 +1347,43 @@ function readGuest(slug: string): StoredGuest | undefined {
 }
 function storeGuest(slug: string, guest: StoredGuest) {
   localStorage.setItem(storageKey(slug), JSON.stringify(guest))
+}
+
+function orderStatusText(order: PartyOrder) {
+  if (order.status === 'Done') return '✅ Erledigt'
+  if (order.status === 'Cancelled') return '✕ Storniert'
+  if (order.claimedByGuestName) return `🏃 ${order.claimedByGuestName} bringt's`
+  return '🟡 Offen – wartet noch auf jemanden'
+}
+
+function formatTime(value: string) {
+  return new Date(value).toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatMegabytes(bytes: number) {
+  return `${Math.max(0.1, bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function relativeTime(value: string) {
+  const seconds = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 1000))
+  if (seconds < 60) return 'gerade eben'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `vor ${minutes} Min.`
+  return `vor ${Math.floor(minutes / 60)} Std.`
+}
+
+function celebrate() {
+  if ('vibrate' in navigator) navigator.vibrate(35)
+  const burst = document.createElement('div')
+  burst.className = 'party-confetti'
+  ;['🎉', '✨', '🎊', '🍻', '✨', '🎉'].forEach((emoji) => {
+    const piece = document.createElement('span')
+    piece.textContent = emoji
+    burst.append(piece)
+  })
+  document.body.append(burst)
+  window.setTimeout(() => burst.remove(), 1_100)
 }
