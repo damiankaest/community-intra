@@ -591,12 +591,15 @@ internal static class PublicPartyEndpoints
             return denied;
         }
 
+        var party = access.Party!;
+        var guest = access.Guest!;
+
         var media = await (
             from item in dbContext.PartyMedia.AsNoTracking()
-            where item.PartyId == access.Party!.Id && item.GuestId == access.Guest!.Id
+            where item.PartyId == party.Id && item.GuestId == guest.Id
             orderby item.CreatedAt descending
             select new PartyMediaResponse(
-                item.Id, item.GuestId, access.Guest.Name, item.MediaType,
+                item.Id, item.GuestId, guest.Name, item.MediaType,
                 item.FileName, item.MimeType, item.Size, item.Caption, item.CreatedAt,
                 $"/api/parties/public/{slug}/media/{item.Id}/content"))
             .ToArrayAsync(cancellationToken);
@@ -618,12 +621,16 @@ internal static class PublicPartyEndpoints
         {
             return denied;
         }
-        var media = await dbContext.PartyMedia.AsNoTracking().SingleOrDefaultAsync(x => x.Id == mediaId && x.PartyId == access.Party.Id, cancellationToken);
+
+        var party = access.Party!;
+        var guest = access.Guest!;
+
+        var media = await dbContext.PartyMedia.AsNoTracking().SingleOrDefaultAsync(x => x.Id == mediaId && x.PartyId == party.Id, cancellationToken);
         if (media is null)
         {
             return Results.NotFound();
         }
-        if (!access.Party.GuestsCanViewGallery && media.GuestId != access.Guest!.Id)
+        if (!party.GuestsCanViewGallery && media.GuestId != guest.Id)
         {
             return Results.Forbid();
         }
