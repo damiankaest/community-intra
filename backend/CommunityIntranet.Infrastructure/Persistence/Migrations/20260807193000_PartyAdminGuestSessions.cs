@@ -10,6 +10,9 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations;
 [Migration("20260807193000_PartyAdminGuestSessions")]
 public sealed class PartyAdminGuestSessions : Migration
 {
+    private static readonly string[] AdminGuestLookupColumns =
+        ["PartyId", "UserId"];
+
     protected override void Up(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.AddColumn<bool>(
@@ -31,7 +34,7 @@ public sealed class PartyAdminGuestSessions : Migration
             name: "IX_guests_PartyId_UserId",
             schema: "parties",
             table: "guests",
-            columns: new[] { "PartyId", "UserId" },
+            columns: AdminGuestLookupColumns,
             unique: true);
     }
 
