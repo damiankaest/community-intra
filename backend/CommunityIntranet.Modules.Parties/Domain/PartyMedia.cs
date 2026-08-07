@@ -13,3 +13,10 @@ public sealed class PartyMedia
     public string? Caption { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
+
+public sealed class PartyMediaLike
+{
+    public Guid PartyMediaId { get; set; }
+    public Guid GuestId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}

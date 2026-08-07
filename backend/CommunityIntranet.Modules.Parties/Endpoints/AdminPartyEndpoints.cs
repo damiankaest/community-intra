@@ -456,13 +456,24 @@ internal static class AdminPartyEndpoints
         return Results.NoContent();
     }
 
-    internal static async Task<PartyMediaResponse[]> QueryMedia(IPartyDbContext dbContext, Guid partyId, string baseUrl, CancellationToken cancellationToken) =>
+    internal static async Task<PartyMediaResponse[]> QueryMedia(
+        IPartyDbContext dbContext,
+        Guid partyId,
+        string baseUrl,
+        CancellationToken cancellationToken,
+        Guid? currentGuestId = null) =>
         await (
             from media in dbContext.PartyMedia.AsNoTracking()
             join guest in dbContext.PartyGuests.AsNoTracking() on media.GuestId equals guest.Id
             where media.PartyId == partyId
+            let likeCount = dbContext.PartyMediaLikes.Count(like => like.PartyMediaId == media.Id)
             orderby media.CreatedAt descending
-            select new PartyMediaResponse(media.Id, media.GuestId, guest.Name, media.MediaType, media.FileName, media.MimeType, media.Size, media.Caption, media.CreatedAt, $"{baseUrl}/{media.Id}/content"))
+            select new PartyMediaResponse(
+                media.Id, media.GuestId, guest.Name, media.MediaType, media.FileName,
+                media.MimeType, media.Size, media.Caption, media.CreatedAt,
+                $"{baseUrl}/{media.Id}/content", likeCount,
+                currentGuestId != null && dbContext.PartyMediaLikes.Any(
+                    like => like.PartyMediaId == media.Id && like.GuestId == currentGuestId.Value)))
             .ToArrayAsync(cancellationToken);
 
     internal static async Task<PartyGuestbookEntryResponse[]> QueryGuestbook(IPartyDbContext dbContext, Guid partyId, CancellationToken cancellationToken) =>

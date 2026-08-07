@@ -112,7 +112,11 @@ public sealed record PartyMediaResponse(
     long Size,
     string? Caption,
     DateTimeOffset CreatedAt,
-    string ContentUrl);
+    string ContentUrl,
+    int LikeCount,
+    bool HasLiked);
+
+public sealed record PartyMediaLikeResponse(int LikeCount, bool HasLiked);
 
 public sealed record CreatePartyMusicRequest(
     string? Song,

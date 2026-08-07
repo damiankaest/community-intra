@@ -1624,6 +1624,16 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                     b.ToTable("media", "parties");
                 });
 
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyMediaLike", b =>
+                {
+                    b.Property<Guid>("PartyMediaId").HasColumnType("uuid");
+                    b.Property<Guid>("GuestId").HasColumnType("uuid");
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.HasKey("PartyMediaId", "GuestId");
+                    b.HasIndex("GuestId");
+                    b.ToTable("media_likes", "parties");
+                });
+
             modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyMusicRequest", b =>
                 {
                     b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
@@ -1927,6 +1937,20 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                     b.HasOne("CommunityIntranet.Modules.Parties.Domain.Party", null)
                         .WithMany()
                         .HasForeignKey("PartyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyMediaLike", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.PartyGuest", null)
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.PartyMedia", null)
+                        .WithMany()
+                        .HasForeignKey("PartyMediaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

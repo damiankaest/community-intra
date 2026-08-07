@@ -91,6 +91,8 @@ export interface PartyMedia {
   caption?: string
   createdAt: string
   contentUrl: string
+  likeCount: number
+  hasLiked: boolean
 }
 
 export interface PartyGuestbookEntry {
@@ -453,6 +455,19 @@ export function listGuestMedia(slug: string, token: string) {
 
 export function listOwnGuestMedia(slug: string, token: string) {
   return guestRequest<PartyMedia[]>(slug, token, '/media/mine')
+}
+
+export function toggleGuestMediaLike(
+  slug: string,
+  token: string,
+  mediaId: string,
+) {
+  return guestRequest<{ likeCount: number; hasLiked: boolean }>(
+    slug,
+    token,
+    `/media/${mediaId}/like`,
+    { method: 'POST' },
+  )
 }
 
 export async function downloadGuestMedia(contentUrl: string, token: string) {

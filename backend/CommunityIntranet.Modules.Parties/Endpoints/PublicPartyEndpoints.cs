@@ -34,6 +34,7 @@ internal static class PublicPartyEndpoints
         group.MapGet("/media", ListMediaAsync);
         group.MapGet("/media/mine", ListOwnMediaAsync);
         group.MapPost("/media", UploadMediaAsync).DisableAntiforgery();
+        group.MapPost("/media/{mediaId:guid}/like", ToggleMediaLikeAsync);
         group.MapGet("/media/{mediaId:guid}/content", GetMediaContentAsync);
         group.MapGet("/guestbook", ListGuestbookAsync);
         group.MapPost("/guestbook", AddGuestbookAsync);
@@ -553,7 +554,12 @@ internal static class PublicPartyEndpoints
 
         return Results.Created(
             $"/api/parties/public/{slug}/media/{media.Id}",
-            new PartyMediaResponse(media.Id, media.GuestId, access.Guest.Name, media.MediaType, media.FileName, media.MimeType, media.Size, media.Caption, media.CreatedAt, $"/api/parties/public/{slug}/media/{media.Id}/content"));
+            new PartyMediaResponse(
+                media.Id, media.GuestId, access.Guest.Name, media.MediaType,
+                media.FileName, media.MimeType, media.Size, media.Caption,
+                media.CreatedAt,
+                $"/api/parties/public/{slug}/media/{media.Id}/content",
+                0, false));
     }
 
     private static async Task<IResult> ListMediaAsync(
@@ -574,7 +580,12 @@ internal static class PublicPartyEndpoints
             return Results.Forbid();
         }
 
-        return Results.Ok(await AdminPartyEndpoints.QueryMedia(dbContext, access.Party.Id, $"/api/parties/public/{slug}/media", cancellationToken));
+        return Results.Ok(await AdminPartyEndpoints.QueryMedia(
+            dbContext,
+            access.Party.Id,
+            $"/api/parties/public/{slug}/media",
+            cancellationToken,
+            access.Guest!.Id));
     }
 
     private static async Task<IResult> ListOwnMediaAsync(
@@ -597,11 +608,15 @@ internal static class PublicPartyEndpoints
         var media = await (
             from item in dbContext.PartyMedia.AsNoTracking()
             where item.PartyId == party.Id && item.GuestId == guest.Id
+            let likeCount = dbContext.PartyMediaLikes.Count(like => like.PartyMediaId == item.Id)
             orderby item.CreatedAt descending
             select new PartyMediaResponse(
                 item.Id, item.GuestId, guest.Name, item.MediaType,
                 item.FileName, item.MimeType, item.Size, item.Caption, item.CreatedAt,
-                $"/api/parties/public/{slug}/media/{item.Id}/content"))
+                $"/api/parties/public/{slug}/media/{item.Id}/content",
+                likeCount,
+                dbContext.PartyMediaLikes.Any(
+                    like => like.PartyMediaId == item.Id && like.GuestId == guest.Id)))
             .ToArrayAsync(cancellationToken);
         return Results.Ok(media);
     }
@@ -636,6 +651,60 @@ internal static class PublicPartyEndpoints
         }
         var stream = await storage.OpenReadAsync(media.StoragePath, cancellationToken);
         return stream is null ? Results.NotFound() : Results.Stream(stream, media.MimeType, enableRangeProcessing: media.MediaType == "video");
+    }
+
+    private static async Task<IResult> ToggleMediaLikeAsync(
+        string slug,
+        Guid mediaId,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(
+            dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var party = access.Party!;
+        var guest = access.Guest!;
+        if (!party.GuestsCanViewGallery)
+        {
+            return Results.Forbid();
+        }
+        if (!await dbContext.PartyMedia.AnyAsync(
+            media => media.Id == mediaId && media.PartyId == party.Id,
+            cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        var like = await dbContext.PartyMediaLikes.SingleOrDefaultAsync(
+            item => item.PartyMediaId == mediaId && item.GuestId == guest.Id,
+            cancellationToken);
+        var hasLiked = like is null;
+        if (like is null)
+        {
+            dbContext.PartyMediaLikes.Add(new PartyMediaLike
+            {
+                PartyMediaId = mediaId,
+                GuestId = guest.Id,
+                CreatedAt = timeProvider.GetUtcNow()
+            });
+        }
+        else
+        {
+            dbContext.PartyMediaLikes.Remove(like);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        var likeCount = await dbContext.PartyMediaLikes.CountAsync(
+            item => item.PartyMediaId == mediaId,
+            cancellationToken);
+        return Results.Ok(new PartyMediaLikeResponse(likeCount, hasLiked));
     }
 
     private static async Task<IResult> ListGuestbookAsync(
