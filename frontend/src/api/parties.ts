@@ -50,13 +50,34 @@ export interface PartyOrder {
   id: string
   guestId: string
   guestName: string
+  claimedByGuestId?: string
+  claimedByGuestName?: string
   orderItemId?: string
   itemName?: string
   icon?: string
   customText?: string
   status: 'Open' | 'Done' | 'Cancelled'
   createdAt: string
+  claimedAt?: string
   completedAt?: string
+}
+
+export interface PartyPulse {
+  guestCount: number
+  openOrderCount: number
+  unclaimedOrderCount: number
+  mediaCount: number
+  openMusicRequestCount: number
+  guestbookEntryCount: number
+  topDrinkName?: string
+  topDrinkCount: number
+}
+
+export interface PartyFeedItem {
+  type: 'order' | 'claim' | 'media' | 'music' | 'guestbook'
+  emoji: string
+  text: string
+  createdAt: string
 }
 
 export interface PartyMedia {
@@ -236,6 +257,10 @@ export function updatePartyGuest(slug: string, token: string, name: string) {
   })
 }
 
+export function getPartyGuest(slug: string, token: string) {
+  return guestRequest<PartyGuest>(slug, token, '/guests/me')
+}
+
 export function guestRequest<T>(
   slug: string,
   token: string,
@@ -262,23 +287,106 @@ export function createGuestOrder(
   })
 }
 
+export function listGuestOrders(slug: string, token: string) {
+  return guestRequest<PartyOrder[]>(slug, token, '/orders')
+}
+
+export function claimGuestOrders(
+  slug: string,
+  token: string,
+  orderIds: string[],
+) {
+  return guestRequest<{ claimed: number }>(slug, token, '/orders/claim', {
+    method: 'POST',
+    body: JSON.stringify({ orderIds }),
+  })
+}
+
+export function releaseGuestOrder(slug: string, token: string, orderId: string) {
+  return guestRequest<void>(slug, token, `/orders/${orderId}/release`, {
+    method: 'POST',
+  })
+}
+
+export function completeGuestOrder(slug: string, token: string, orderId: string) {
+  return guestRequest<void>(slug, token, `/orders/${orderId}/done`, {
+    method: 'POST',
+  })
+}
+
+export function cancelGuestOrder(slug: string, token: string, orderId: string) {
+  return guestRequest<void>(slug, token, `/orders/${orderId}`, {
+    method: 'DELETE',
+  })
+}
+
+export function getPartyPulse(slug: string, token: string) {
+  return guestRequest<PartyPulse>(slug, token, '/pulse')
+}
+
+export function getPartyFeed(slug: string, token: string) {
+  return guestRequest<PartyFeedItem[]>(slug, token, '/feed')
+}
+
 export function uploadGuestMedia(
   slug: string,
   token: string,
   file: File,
   caption?: string,
+  onProgress?: (progress: number) => void,
 ) {
   const form = new FormData()
   form.append('file', file)
   if (caption) form.append('caption', caption)
-  return guestRequest<PartyMedia>(slug, token, '/media', {
-    method: 'POST',
-    body: form,
+  return new Promise<PartyMedia>((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open(
+      'POST',
+      `/api/parties/public/${encodeURIComponent(slug)}/media`,
+    )
+    request.withCredentials = true
+    request.setRequestHeader('X-Party-Session', token)
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress?.(Math.round((event.loaded / event.total) * 100))
+      }
+    }
+    request.onerror = () =>
+      reject(new Error('Netzwerkfehler beim Upload. Bitte versuche es erneut.'))
+    request.onabort = () => reject(new Error('Upload wurde abgebrochen.'))
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.(100)
+        resolve(JSON.parse(request.responseText) as PartyMedia)
+        return
+      }
+      let message = 'Upload fehlgeschlagen. Bitte versuche es erneut.'
+      try {
+        const problem = JSON.parse(request.responseText) as {
+          title?: string
+          detail?: string
+          errors?: Record<string, string[]>
+        }
+        message =
+          problem.detail ??
+          Object.values(problem.errors ?? {})[0]?.[0] ??
+          problem.title ??
+          message
+      } catch {
+        // The generic message is intentionally used for non-JSON failures.
+      }
+      reject(new Error(message))
+    }
+    request.send(form)
   })
 }
 
 export function listGuestMedia(slug: string, token: string) {
   return guestRequest<PartyMedia[]>(slug, token, '/media')
+}
+
+export function listOwnGuestMedia(slug: string, token: string) {
+  return guestRequest<PartyMedia[]>(slug, token, '/media/mine')
 }
 
 export async function downloadGuestMedia(contentUrl: string, token: string) {
@@ -313,4 +421,8 @@ export function addMusicRequest(
     method: 'POST',
     body: JSON.stringify(input),
   })
+}
+
+export function listOwnMusicRequests(slug: string, token: string) {
+  return guestRequest<PartyMusicRequest[]>(slug, token, '/music-requests/mine')
 }
