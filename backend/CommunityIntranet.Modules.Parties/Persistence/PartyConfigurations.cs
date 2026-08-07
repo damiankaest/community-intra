@@ -16,6 +16,8 @@ public sealed class PartyConfiguration : IEntityTypeConfiguration<Party>
         builder.Property(x => x.Type).HasMaxLength(40).IsRequired();
         builder.Property(x => x.Location).HasMaxLength(240);
         builder.Property(x => x.WelcomeText).HasMaxLength(1000);
+        builder.Property(x => x.SpotifyProtectedRefreshToken).HasMaxLength(4000);
+        builder.Property(x => x.SpotifyAccountName).HasMaxLength(200);
         builder.HasIndex(x => x.Slug).IsUnique();
         builder.HasIndex(x => new { x.OwnerUserId, x.IsArchived, x.StartAt });
     }
@@ -99,9 +101,26 @@ public sealed class PartyMusicRequestConfiguration : IEntityTypeConfiguration<Pa
         builder.Property(x => x.Song).HasMaxLength(200).IsRequired();
         builder.Property(x => x.Artist).HasMaxLength(200);
         builder.Property(x => x.Comment).HasMaxLength(500);
+        builder.Property(x => x.SpotifyTrackId).HasMaxLength(100);
+        builder.Property(x => x.SpotifyUri).HasMaxLength(240);
+        builder.Property(x => x.SpotifyAlbumImageUrl).HasMaxLength(1000);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
         builder.HasIndex(x => new { x.PartyId, x.Status, x.CreatedAt });
         builder.HasOne<Party>().WithMany().HasForeignKey(x => x.PartyId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<PartyGuest>().WithMany().HasForeignKey(x => x.GuestId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public sealed class PartyMusicVoteConfiguration : IEntityTypeConfiguration<PartyMusicVote>
+{
+    public void Configure(EntityTypeBuilder<PartyMusicVote> builder)
+    {
+        builder.ToTable("music_votes", "parties");
+        builder.HasKey(x => new { x.PartyMusicRequestId, x.GuestId });
+        builder.HasIndex(x => x.GuestId);
+        builder.HasOne<PartyMusicRequest>().WithMany().HasForeignKey(x => x.PartyMusicRequestId)
             .OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<PartyGuest>().WithMany().HasForeignKey(x => x.GuestId)
             .OnDelete(DeleteBehavior.Restrict);
