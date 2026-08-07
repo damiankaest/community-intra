@@ -39,6 +39,9 @@ services:
       AiAssistant__Model: ${AI_MODEL:-gpt-5.6}
       DataProtection__KeysPath: /app/data-protection-keys
       PartyMedia__RootPath: /app/party-media
+      Spotify__ClientId: ${SPOTIFY_CLIENT_ID:-}
+      Spotify__ClientSecret: ${SPOTIFY_CLIENT_SECRET:-}
+      Spotify__RedirectUri: https://${APP_DOMAIN}/api/parties/spotify/callback
     depends_on:
       postgres:
         condition: service_healthy
