@@ -102,6 +102,7 @@ public sealed class CommunityIntranetDbContext(
     public DbSet<Party> Parties => Set<Party>();
     public DbSet<PartyGuest> PartyGuests => Set<PartyGuest>();
     public DbSet<PartyMedia> PartyMedia => Set<PartyMedia>();
+    public DbSet<PartyMediaLike> PartyMediaLikes => Set<PartyMediaLike>();
     public DbSet<PartyOrderItem> PartyOrderItems => Set<PartyOrderItem>();
     public DbSet<PartyOrder> PartyOrders => Set<PartyOrder>();
     public DbSet<PartyMusicRequest> PartyMusicRequests => Set<PartyMusicRequest>();
