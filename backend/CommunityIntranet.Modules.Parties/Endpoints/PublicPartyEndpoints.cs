@@ -146,7 +146,8 @@ internal static class PublicPartyEndpoints
             access.Guest!.Id,
             access.Guest.Name,
             access.Guest.FirstSeenAt,
-            access.Guest.LastSeenAt));
+            access.Guest.LastSeenAt,
+            access.Guest.UserId is not null));
     }
 
     private static async Task<IResult> UpdateGuestAsync(
@@ -170,7 +171,12 @@ internal static class PublicPartyEndpoints
 
         access.Guest!.Name = request.Name.Trim();
         await dbContext.SaveChangesAsync(cancellationToken);
-        return Results.Ok(new PartyGuestResponse(access.Guest.Id, access.Guest.Name, access.Guest.FirstSeenAt, access.Guest.LastSeenAt));
+        return Results.Ok(new PartyGuestResponse(
+            access.Guest.Id,
+            access.Guest.Name,
+            access.Guest.FirstSeenAt,
+            access.Guest.LastSeenAt,
+            access.Guest.UserId is not null));
     }
 
     private static async Task<IResult> CreateOrderAsync(
@@ -367,7 +373,9 @@ internal static class PublicPartyEndpoints
         }
 
         var partyId = access.Party!.Id;
-        var guestCount = await dbContext.PartyGuests.CountAsync(x => x.PartyId == partyId, cancellationToken);
+        var guestCount = await dbContext.PartyGuests.CountAsync(
+            x => x.PartyId == partyId && !x.IsRemoved && x.UserId == null,
+            cancellationToken);
         var openOrderCount = await dbContext.PartyOrders.CountAsync(x => x.PartyId == partyId && x.Status == PartyOrderStatus.Open, cancellationToken);
         var unclaimedOrderCount = await dbContext.PartyOrders.CountAsync(x => x.PartyId == partyId && x.Status == PartyOrderStatus.Open && x.ClaimedByGuestId == null, cancellationToken);
         var mediaCount = await dbContext.PartyMedia.CountAsync(x => x.PartyId == partyId, cancellationToken);
