@@ -4,8 +4,12 @@ import {
   BookHeart,
   Camera,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
   GlassWater,
   Hand,
+  Heart,
   House,
   ImagePlus,
   Images,
@@ -43,6 +47,7 @@ import {
   registerPartyGuest,
   searchPartySpotify,
   toggleGuestMusicVote,
+  toggleGuestMediaLike,
   updatePartyGuest,
   uploadGuestMedia,
   type PartyFeedItem,
@@ -66,6 +71,9 @@ export function PartyGuestPage() {
     readGuest(slug),
   )
   const [view, setView] = useState<View>('home')
+  const [seenMediaAt, setSeenMediaAt] = useState<string | undefined>(() =>
+    readMediaSeenAt(slug),
+  )
   const party = useQuery({
     queryKey: ['public-party', slug],
     queryFn: () => getPublicParty(slug),
@@ -102,6 +110,29 @@ export function PartyGuestPage() {
     enabled: Boolean(slug && guest?.token && party.data?.guestsCanViewGallery),
     refetchInterval: 10_000,
   })
+
+  const markMediaSeen = () => {
+    const latest = media.data?.[0]?.createdAt
+    if (!latest) return
+    storeMediaSeenAt(slug, latest)
+    setSeenMediaAt(latest)
+  }
+  const changeView = (next: View) => {
+    if (next === 'media') markMediaSeen()
+    setView(next)
+  }
+  const mediaBadge =
+    view === 'media'
+      ? 0
+      : media.data
+        ? seenMediaAt
+          ? media.data.filter(
+              (item) => new Date(item.createdAt) > new Date(seenMediaAt),
+            ).length
+          : media.data.length
+        : seenMediaAt
+          ? 0
+          : pulse.data?.mediaCount
 
   useEffect(() => {
     const existing = document.querySelector<HTMLMetaElement>(
@@ -172,8 +203,9 @@ export function PartyGuestPage() {
           token={guest.token}
           guestId={me.data?.id}
           welcomeText={party.data.welcomeText}
-          setView={setView}
+          setView={changeView}
           pulse={pulse.data}
+          mediaBadge={mediaBadge}
           feed={feed.data ?? []}
           orders={orders.data ?? []}
           latestMedia={media.data?.[0]}
@@ -223,7 +255,12 @@ export function PartyGuestPage() {
         geteilt werden können.
       </p>
       </div>
-      <PartyBottomNavigation view={view} setView={setView} pulse={pulse.data} />
+      <PartyBottomNavigation
+        view={view}
+        setView={changeView}
+        pulse={pulse.data}
+        mediaBadge={mediaBadge}
+      />
     </PartyFrame>
   )
 }
@@ -310,6 +347,7 @@ function PartyHome({
   welcomeText,
   setView,
   pulse,
+  mediaBadge,
   feed,
   orders,
   latestMedia,
@@ -322,6 +360,7 @@ function PartyHome({
   welcomeText?: string
   setView: (view: View) => void
   pulse?: PartyPulse
+  mediaBadge?: number
   feed: PartyFeedItem[]
   orders: PartyOrder[]
   latestMedia?: PartyMedia
@@ -382,7 +421,7 @@ function PartyHome({
         <PartyTile
           icon={<Camera />}
           label="Fotos & Videos"
-          badge={pulse?.mediaCount}
+          badge={mediaBadge}
           onClick={() => setView('media')}
         />
         <PartyTile
@@ -762,6 +801,7 @@ function MediaView({
   const [uploads, setUploads] = useState<PendingMediaUpload[]>([])
   const [caption, setCaption] = useState('')
   const [isUploading, setIsUploading] = useState(false)
+  const [selectedMediaId, setSelectedMediaId] = useState<string>()
   const gallery = useQuery({
     queryKey: ['party-media', slug],
     queryFn: () => listGuestMedia(slug, token),
@@ -769,6 +809,16 @@ function MediaView({
     retry: false,
     refetchInterval: 10_000,
   })
+  const selectedIndex =
+    gallery.data?.findIndex((item) => item.id === selectedMediaId) ?? -1
+  const selectedMedia =
+    selectedIndex >= 0 ? gallery.data?.[selectedIndex] : undefined
+  const moveSelection = (offset: number) => {
+    if (!gallery.data?.length || selectedIndex < 0) return
+    const next =
+      (selectedIndex + offset + gallery.data.length) % gallery.data.length
+    setSelectedMediaId(gallery.data[next].id)
+  }
 
   const addFiles = (files: FileList | null) => {
     if (!files) return
@@ -969,10 +1019,32 @@ function MediaView({
           )}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {gallery.data?.map((media) => (
-              <PartyMediaPreview key={media.id} media={media} token={token} />
+              <div key={media.id} className="relative">
+                <PartyMediaPreview
+                  media={media}
+                  token={token}
+                  onOpen={() => setSelectedMediaId(media.id)}
+                />
+                {media.likeCount > 0 && (
+                  <span className="pointer-events-none absolute right-2 bottom-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-1 text-[11px] font-bold text-rose-200 backdrop-blur">
+                    <Heart size={12} fill="currentColor" /> {media.likeCount}
+                  </span>
+                )}
+              </div>
             ))}
           </div>
         </div>
+      )}
+      {selectedMedia && (
+        <PartyMediaLightbox
+          media={selectedMedia}
+          slug={slug}
+          token={token}
+          hasMultiple={(gallery.data?.length ?? 0) > 1}
+          onClose={() => setSelectedMediaId(undefined)}
+          onPrevious={() => moveSelection(-1)}
+          onNext={() => moveSelection(1)}
+        />
       )}
     </section>
   )
@@ -999,10 +1071,12 @@ function PartyMediaPreview({
   media,
   token,
   featured = false,
+  onOpen,
 }: {
   media: PartyMedia
   token: string
   featured?: boolean
+  onOpen?: () => void
 }) {
   const [loadVideo, setLoadVideo] = useState(media.mediaType !== 'video')
   const blob = useQuery({
@@ -1017,7 +1091,7 @@ function PartyMediaPreview({
       <button
         type="button"
         className={`party-video-placeholder ${featured ? 'h-64' : 'aspect-square'}`}
-        onClick={() => setLoadVideo(true)}
+        onClick={() => (onOpen ? onOpen() : setLoadVideo(true))}
       >
         <span className="text-3xl">🎬</span>
         <strong>Video laden</strong>
@@ -1029,6 +1103,31 @@ function PartyMediaPreview({
     return (
       <div className="aspect-square animate-pulse rounded-xl bg-white/10" />
     )
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        className="block aspect-square w-full overflow-hidden rounded-xl bg-black/30"
+        aria-label={`${media.mediaType === 'video' ? 'Video' : 'Foto'} von ${media.guestName} groß öffnen`}
+        onClick={onOpen}
+      >
+        {media.mediaType === 'video' ? (
+          <video
+            muted
+            playsInline
+            className="aspect-square h-full w-full object-cover"
+            src={blob.data}
+          />
+        ) : (
+          <img
+            className="aspect-square h-full w-full object-cover"
+            src={blob.data}
+            alt={media.caption ?? `Foto von ${media.guestName}`}
+          />
+        )}
+      </button>
+    )
+  }
   return (
     <div className="overflow-hidden rounded-xl bg-black/30">
       {media.mediaType === 'video' ? (
@@ -1051,6 +1150,166 @@ function PartyMediaPreview({
           {media.caption ? ` · ${media.caption}` : ''}
         </div>
       )}
+    </div>
+  )
+}
+
+function PartyMediaLightbox({
+  media,
+  slug,
+  token,
+  hasMultiple,
+  onClose,
+  onPrevious,
+  onNext,
+}: {
+  media: PartyMedia
+  slug: string
+  token: string
+  hasMultiple: boolean
+  onClose: () => void
+  onPrevious: () => void
+  onNext: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [touchStart, setTouchStart] = useState<number>()
+  const blob = useQuery({
+    queryKey: ['party-media-blob', media.id],
+    queryFn: async () =>
+      URL.createObjectURL(await downloadGuestMedia(media.contentUrl, token)),
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+  const like = useMutation({
+    mutationFn: () => toggleGuestMediaLike(slug, token, media.id),
+    onSuccess: (result) => {
+      const applyLike = (current: PartyMedia[] | undefined) =>
+        current?.map((item) =>
+          item.id === media.id
+            ? { ...item, likeCount: result.likeCount, hasLiked: result.hasLiked }
+            : item,
+        )
+      queryClient.setQueryData<PartyMedia[]>(['party-media', slug], applyLike)
+      queryClient.setQueryData<PartyMedia[]>(['party-my-media', slug], applyLike)
+    },
+  })
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+      if (event.key === 'ArrowLeft' && hasMultiple) onPrevious()
+      if (event.key === 'ArrowRight' && hasMultiple) onNext()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [hasMultiple, onClose, onNext, onPrevious])
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex flex-col bg-black/95 p-3 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Medienansicht"
+      onClick={onClose}
+      onTouchStart={(event) => setTouchStart(event.changedTouches[0]?.clientX)}
+      onTouchEnd={(event) => {
+        if (touchStart === undefined || !hasMultiple) return
+        const touchEnd = event.changedTouches[0]?.clientX
+        if (touchEnd === undefined) return
+        const distance = touchEnd - touchStart
+        setTouchStart(undefined)
+        if (Math.abs(distance) < 60) return
+        if (distance > 0) onPrevious()
+        else onNext()
+      }}
+    >
+      <div className="flex items-center justify-between gap-3 px-1 pb-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-white">{media.guestName}</p>
+          <p className="text-[11px] text-white/45">{relativeTime(media.createdAt)}</p>
+        </div>
+        <button
+          type="button"
+          className="flex size-10 items-center justify-center rounded-full bg-white/10 text-white"
+          aria-label="Galerie schließen"
+          onClick={onClose}
+        >
+          <X size={20} />
+        </button>
+      </div>
+
+      <div
+        className="relative flex min-h-0 flex-1 items-center justify-center"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {blob.data ? (
+          media.mediaType === 'video' ? (
+            <video
+              src={blob.data}
+              controls
+              autoPlay
+              playsInline
+              className="max-h-full max-w-full rounded-xl object-contain"
+            />
+          ) : (
+            <img
+              src={blob.data}
+              alt={media.caption ?? `Foto von ${media.guestName}`}
+              className="max-h-full max-w-full rounded-xl object-contain"
+            />
+          )
+        ) : (
+          <div className="size-16 animate-pulse rounded-2xl bg-white/10" />
+        )}
+        {hasMultiple && (
+          <>
+            <button
+              type="button"
+              className="absolute left-1 flex size-10 items-center justify-center rounded-full bg-black/60 text-white sm:left-3"
+              aria-label="Vorheriges Medium"
+              onClick={onPrevious}
+            >
+              <ChevronLeft size={24} />
+            </button>
+            <button
+              type="button"
+              className="absolute right-1 flex size-10 items-center justify-center rounded-full bg-black/60 text-white sm:right-3"
+              aria-label="Nächstes Medium"
+              onClick={onNext}
+            >
+              <ChevronRight size={24} />
+            </button>
+          </>
+        )}
+      </div>
+
+      <div
+        className="mx-auto mt-3 w-full max-w-lg rounded-2xl bg-white/[0.08] p-3"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {media.caption && (
+          <p className="mb-3 text-sm leading-5 text-white/75">{media.caption}</p>
+        )}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className={`party-small-button flex-1 justify-center ${media.hasLiked ? 'text-rose-300' : ''}`}
+            disabled={like.isPending}
+            onClick={() => like.mutate()}
+          >
+            <Heart size={17} fill={media.hasLiked ? 'currentColor' : 'none'} />
+            {media.likeCount > 0 ? media.likeCount : 'Gefällt mir'}
+          </button>
+          {blob.data && (
+            <a
+              href={blob.data}
+              download={media.fileName}
+              className="party-small-button flex-1 justify-center"
+            >
+              <Download size={17} /> Speichern
+            </a>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -1497,10 +1756,12 @@ function PartyBottomNavigation({
   view,
   setView,
   pulse,
+  mediaBadge,
 }: {
   view: View
   setView: (view: View) => void
   pulse?: PartyPulse
+  mediaBadge?: number
 }) {
   const items: { view: View; label: string; icon: React.ReactNode; badge?: number }[] = [
     { view: 'home', label: 'Party', icon: <House size={20} /> },
@@ -1514,7 +1775,7 @@ function PartyBottomNavigation({
       view: 'media',
       label: 'Fotos',
       icon: <Images size={20} />,
-      badge: pulse?.mediaCount,
+      badge: mediaBadge,
     },
     {
       view: 'music',
@@ -1634,6 +1895,16 @@ function readGuest(slug: string): StoredGuest | undefined {
 }
 function storeGuest(slug: string, guest: StoredGuest) {
   localStorage.setItem(storageKey(slug), JSON.stringify(guest))
+}
+
+function mediaSeenKey(slug: string) {
+  return `community-party-media-seen:${slug}`
+}
+function readMediaSeenAt(slug: string) {
+  return slug ? localStorage.getItem(mediaSeenKey(slug)) ?? undefined : undefined
+}
+function storeMediaSeenAt(slug: string, createdAt: string) {
+  localStorage.setItem(mediaSeenKey(slug), createdAt)
 }
 
 function orderStatusText(order: PartyOrder) {
