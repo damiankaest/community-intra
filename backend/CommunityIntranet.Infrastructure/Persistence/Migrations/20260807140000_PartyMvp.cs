@@ -74,7 +74,13 @@ public sealed class PartyMvp : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_guests", x => x.Id);
-                table.ForeignKey("FK_guests_parties_PartyId", x => x.PartyId, "parties", "parties", "Id", onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_guests_parties_PartyId",
+                    column: x => x.PartyId,
+                    principalSchema: "parties",
+                    principalTable: "parties",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
             });
 
         migrationBuilder.CreateTable(
@@ -92,7 +98,13 @@ public sealed class PartyMvp : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_order_items", x => x.Id);
-                table.ForeignKey("FK_order_items_parties_PartyId", x => x.PartyId, "parties", "parties", "Id", onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_order_items_parties_PartyId",
+                    column: x => x.PartyId,
+                    principalSchema: "parties",
+                    principalTable: "parties",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
             });
 
         migrationBuilder.CreateTable(
@@ -109,8 +121,20 @@ public sealed class PartyMvp : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_guestbook_entries", x => x.Id);
-                table.ForeignKey("FK_guestbook_entries_guests_GuestId", x => x.GuestId, "parties", "guests", "Id", onDelete: ReferentialAction.Restrict);
-                table.ForeignKey("FK_guestbook_entries_parties_PartyId", x => x.PartyId, "parties", "parties", "Id", onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_guestbook_entries_guests_GuestId",
+                    column: x => x.GuestId,
+                    principalSchema: "parties",
+                    principalTable: "guests",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Restrict);
+                table.ForeignKey(
+                    name: "FK_guestbook_entries_parties_PartyId",
+                    column: x => x.PartyId,
+                    principalSchema: "parties",
+                    principalTable: "parties",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
             });
 
         migrationBuilder.CreateTable(
@@ -132,8 +156,20 @@ public sealed class PartyMvp : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_media", x => x.Id);
-                table.ForeignKey("FK_media_guests_GuestId", x => x.GuestId, "parties", "guests", "Id", onDelete: ReferentialAction.Restrict);
-                table.ForeignKey("FK_media_parties_PartyId", x => x.PartyId, "parties", "parties", "Id", onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_media_guests_GuestId",
+                    column: x => x.GuestId,
+                    principalSchema: "parties",
+                    principalTable: "guests",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Restrict);
+                table.ForeignKey(
+                    name: "FK_media_parties_PartyId",
+                    column: x => x.PartyId,
+                    principalSchema: "parties",
+                    principalTable: "parties",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
             });
 
         migrationBuilder.CreateTable(
@@ -153,8 +189,20 @@ public sealed class PartyMvp : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_music_requests", x => x.Id);
-                table.ForeignKey("FK_music_requests_guests_GuestId", x => x.GuestId, "parties", "guests", "Id", onDelete: ReferentialAction.Restrict);
-                table.ForeignKey("FK_music_requests_parties_PartyId", x => x.PartyId, "parties", "parties", "Id", onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_music_requests_guests_GuestId",
+                    column: x => x.GuestId,
+                    principalSchema: "parties",
+                    principalTable: "guests",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Restrict);
+                table.ForeignKey(
+                    name: "FK_music_requests_parties_PartyId",
+                    column: x => x.PartyId,
+                    principalSchema: "parties",
+                    principalTable: "parties",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
             });
 
         migrationBuilder.CreateTable(
@@ -174,24 +222,42 @@ public sealed class PartyMvp : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_orders", x => x.Id);
-                table.ForeignKey("FK_orders_guests_GuestId", x => x.GuestId, "parties", "guests", "Id", onDelete: ReferentialAction.Restrict);
-                table.ForeignKey("FK_orders_order_items_OrderItemId", x => x.OrderItemId, "parties", "order_items", "Id", onDelete: ReferentialAction.SetNull);
-                table.ForeignKey("FK_orders_parties_PartyId", x => x.PartyId, "parties", "parties", "Id", onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_orders_guests_GuestId",
+                    column: x => x.GuestId,
+                    principalSchema: "parties",
+                    principalTable: "guests",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Restrict);
+                table.ForeignKey(
+                    name: "FK_orders_order_items_OrderItemId",
+                    column: x => x.OrderItemId,
+                    principalSchema: "parties",
+                    principalTable: "order_items",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.SetNull);
+                table.ForeignKey(
+                    name: "FK_orders_parties_PartyId",
+                    column: x => x.PartyId,
+                    principalSchema: "parties",
+                    principalTable: "parties",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
             });
 
-        migrationBuilder.CreateIndex("IX_parties_Slug", "parties", "parties", "Slug", unique: true);
+        migrationBuilder.CreateIndex(name: "IX_parties_Slug", schema: "parties", table: "parties", column: "Slug", unique: true);
         migrationBuilder.CreateIndex(name: "IX_parties_OwnerUserId_IsArchived_StartAt", schema: "parties", table: "parties", columns: PartyOwnerLookupColumns);
-        migrationBuilder.CreateIndex("IX_guests_SessionTokenHash", "parties", "guests", "SessionTokenHash", unique: true);
+        migrationBuilder.CreateIndex(name: "IX_guests_SessionTokenHash", schema: "parties", table: "guests", column: "SessionTokenHash", unique: true);
         migrationBuilder.CreateIndex(name: "IX_guests_PartyId_LastSeenAt", schema: "parties", table: "guests", columns: GuestLookupColumns);
         migrationBuilder.CreateIndex(name: "IX_order_items_PartyId_SortOrder", schema: "parties", table: "order_items", columns: OrderItemLookupColumns);
-        migrationBuilder.CreateIndex("IX_guestbook_entries_GuestId", "parties", "guestbook_entries", "GuestId");
+        migrationBuilder.CreateIndex(name: "IX_guestbook_entries_GuestId", schema: "parties", table: "guestbook_entries", column: "GuestId");
         migrationBuilder.CreateIndex(name: "IX_guestbook_entries_PartyId_CreatedAt", schema: "parties", table: "guestbook_entries", columns: CreatedLookupColumns);
-        migrationBuilder.CreateIndex("IX_media_GuestId", "parties", "media", "GuestId");
+        migrationBuilder.CreateIndex(name: "IX_media_GuestId", schema: "parties", table: "media", column: "GuestId");
         migrationBuilder.CreateIndex(name: "IX_media_PartyId_CreatedAt", schema: "parties", table: "media", columns: CreatedLookupColumns);
-        migrationBuilder.CreateIndex("IX_music_requests_GuestId", "parties", "music_requests", "GuestId");
+        migrationBuilder.CreateIndex(name: "IX_music_requests_GuestId", schema: "parties", table: "music_requests", column: "GuestId");
         migrationBuilder.CreateIndex(name: "IX_music_requests_PartyId_Status_CreatedAt", schema: "parties", table: "music_requests", columns: StatusLookupColumns);
-        migrationBuilder.CreateIndex("IX_orders_GuestId", "parties", "orders", "GuestId");
-        migrationBuilder.CreateIndex("IX_orders_OrderItemId", "parties", "orders", "OrderItemId");
+        migrationBuilder.CreateIndex(name: "IX_orders_GuestId", schema: "parties", table: "orders", column: "GuestId");
+        migrationBuilder.CreateIndex(name: "IX_orders_OrderItemId", schema: "parties", table: "orders", column: "OrderItemId");
         migrationBuilder.CreateIndex(name: "IX_orders_PartyId_Status_CreatedAt", schema: "parties", table: "orders", columns: StatusLookupColumns);
     }
 
