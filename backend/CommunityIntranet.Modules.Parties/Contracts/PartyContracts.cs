@@ -62,7 +62,12 @@ public sealed record PartyPublicResponse(
 public sealed record RegisterPartyGuestRequest(string? Name);
 public sealed record UpdatePartyGuestRequest(string? Name);
 public sealed record PartyGuestSessionResponse(Guid GuestId, string Name, string SessionToken);
-public sealed record PartyGuestResponse(Guid Id, string Name, DateTimeOffset FirstSeenAt, DateTimeOffset LastSeenAt);
+public sealed record PartyGuestResponse(
+    Guid Id,
+    string Name,
+    DateTimeOffset FirstSeenAt,
+    DateTimeOffset LastSeenAt,
+    bool IsAdmin);
 
 public sealed record UpsertPartyOrderItemRequest(string? Name, string? Icon, int SortOrder, bool IsActive = true);
 public sealed record PartyOrderItemResponse(Guid Id, string Name, string? Icon, int SortOrder, bool IsActive);
