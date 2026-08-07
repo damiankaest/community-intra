@@ -229,6 +229,13 @@ export function registerPartyGuest(slug: string, name: string) {
   )
 }
 
+export function updatePartyGuest(slug: string, token: string, name: string) {
+  return guestRequest<PartyGuest>(slug, token, '/guests/me', {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  })
+}
+
 export function guestRequest<T>(
   slug: string,
   token: string,
