@@ -11,6 +11,7 @@ public interface IPartyDbContext
     DbSet<PartyOrderItem> PartyOrderItems { get; }
     DbSet<PartyOrder> PartyOrders { get; }
     DbSet<PartyMusicRequest> PartyMusicRequests { get; }
+    DbSet<PartyMusicVote> PartyMusicVotes { get; }
     DbSet<PartyGuestbookEntry> PartyGuestbookEntries { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
