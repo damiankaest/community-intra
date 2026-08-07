@@ -394,6 +394,37 @@ jobs:
             > /tmp/party-feed.json
           test "$(jq length /tmp/party-feed.json)" -ge 2
 
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "X-Party-Session: $party_guest_token" \
+            --data '{"song":"CI Test Song","artist":"CI Artist"}' \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/music-requests" \
+            > /tmp/party-music-request.json
+          party_music_request_id=$(jq --raw-output ".id" /tmp/party-music-request.json)
+          test "$(jq --raw-output ".voteCount" /tmp/party-music-request.json)" = "1"
+
+          curl --fail --silent \
+            --request POST \
+            --header "X-Party-Session: $party_runner_token" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/music-requests/$party_music_request_id/vote" \
+            > /tmp/party-music-vote.json
+          test "$(jq --raw-output ".voteCount" /tmp/party-music-vote.json)" = "2"
+          test "$(jq --raw-output ".hasVoted" /tmp/party-music-vote.json)" = "true"
+
+          curl --fail --silent \
+            --header "X-Party-Session: $party_runner_token" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/music-requests" \
+            > /tmp/party-music-list.json
+          test "$(jq --raw-output ".[0].id" /tmp/party-music-list.json)" = "$party_music_request_id"
+          test "$(jq --raw-output ".[0].voteCount" /tmp/party-music-list.json)" = "2"
+
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/parties/$party_id/spotify" \
+            > /tmp/party-spotify-status.json
+          test "$(jq --raw-output ".isConnected" /tmp/party-spotify-status.json)" = "false"
+
           printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' \
             | base64 --decode > /tmp/party-image.png
           curl --fail --silent \
