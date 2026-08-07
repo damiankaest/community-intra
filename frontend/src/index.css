@@ -396,6 +396,59 @@ body {
   font-size: 0.62rem;
 }
 
+.party-spotify-result {
+  display: flex;
+  min-height: 3.8rem;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  border: 1px solid rgb(52 211 153 / 12%);
+  border-radius: 0.9rem;
+  background: rgb(255 255 255 / 5%);
+  padding: 0.45rem 0.65rem;
+  color: white;
+  cursor: pointer;
+}
+
+.party-spotify-result:active {
+  transform: scale(0.99);
+}
+
+.party-spotify-result > img,
+.party-spotify-result-placeholder {
+  width: 2.9rem;
+  height: 2.9rem;
+  flex: none;
+  border-radius: 0.65rem;
+  object-fit: cover;
+}
+
+.party-spotify-result-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(255 255 255 / 7%);
+}
+
+.party-vote-button {
+  min-width: 3.8rem;
+  min-height: 2.5rem;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 6%);
+  padding: 0.45rem 0.7rem;
+  color: rgb(255 255 255 / 65%);
+  font-size: 0.75rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.party-vote-button-active {
+  border-color: rgb(251 113 133 / 35%);
+  background: rgb(244 63 94 / 14%);
+  color: #fecdd3;
+}
+
 .party-video-placeholder {
   display: flex;
   width: 100%;
