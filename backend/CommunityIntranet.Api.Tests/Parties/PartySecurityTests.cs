@@ -1,4 +1,5 @@
 using System.Text;
+using CommunityIntranet.Modules.Parties.Contracts;
 using CommunityIntranet.Modules.Parties.Services;
 using Xunit;
 
@@ -29,6 +30,12 @@ public sealed class PartySecurityTests
         Assert.Equal(64, PartyTokenService.Hash(first).Length);
         Assert.Equal(PartyTokenService.Hash(first), PartyTokenService.Hash(first));
         Assert.NotEqual(first, PartyTokenService.Hash(first));
+    }
+
+    [Fact]
+    public void PartySlugCannotBeChangedThroughTheUpdateContract()
+    {
+        Assert.Null(typeof(UpdatePartyRequest).GetProperty("Slug"));
     }
 
     [Theory]
