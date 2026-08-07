@@ -38,7 +38,9 @@ internal static class PublicPartyEndpoints
         group.MapGet("/guestbook", ListGuestbookAsync);
         group.MapPost("/guestbook", AddGuestbookAsync);
         group.MapPost("/music-requests", AddMusicAsync);
+        group.MapGet("/music-requests", ListMusicAsync);
         group.MapGet("/music-requests/mine", ListOwnMusicAsync);
+        group.MapPost("/music-requests/{requestId:guid}/vote", ToggleMusicVoteAsync);
         return endpoints;
     }
 
@@ -683,6 +685,7 @@ internal static class PublicPartyEndpoints
         CreatePartyMusicRequest request,
         HttpContext httpContext,
         IPartyDbContext dbContext,
+        IPartySpotifyClient spotify,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -692,21 +695,134 @@ internal static class PublicPartyEndpoints
         {
             return denied;
         }
-        if (string.IsNullOrWhiteSpace(request.Song) || request.Song.Trim().Length > 200)
+        var party = access.Party!;
+        var guest = access.Guest!;
+        SpotifyTrackResponse? spotifyTrack = null;
+        if (!string.IsNullOrWhiteSpace(request.SpotifyTrackId))
+        {
+            if (request.SpotifyTrackId.Trim().Length > 100
+                || string.IsNullOrWhiteSpace(party.SpotifyProtectedRefreshToken))
+            {
+                return PartyEndpointHelpers.Validation("spotifyTrackId", "Spotify-Track ist ungültig oder Spotify ist nicht verbunden.");
+            }
+            try
+            {
+                spotifyTrack = await spotify.GetTrackAsync(
+                    party,
+                    request.SpotifyTrackId.Trim(),
+                    cancellationToken);
+            }
+            catch (PartySpotifyException exception)
+            {
+                return Results.Problem(exception.Message, statusCode: StatusCodes.Status502BadGateway);
+            }
+            if (spotifyTrack is null)
+            {
+                return PartyEndpointHelpers.Validation("spotifyTrackId", "Spotify-Track wurde nicht gefunden.");
+            }
+
+            var duplicate = await dbContext.PartyMusicRequests.FirstOrDefaultAsync(
+                x => x.PartyId == party.Id
+                    && x.Status == PartyMusicRequestStatus.Open
+                    && x.SpotifyTrackId == spotifyTrack.Id,
+                cancellationToken);
+            if (duplicate is not null)
+            {
+                if (!await dbContext.PartyMusicVotes.AnyAsync(
+                    x => x.PartyMusicRequestId == duplicate.Id && x.GuestId == guest.Id,
+                    cancellationToken))
+                {
+                    dbContext.PartyMusicVotes.Add(new PartyMusicVote
+                    {
+                        PartyMusicRequestId = duplicate.Id,
+                        GuestId = guest.Id,
+                        CreatedAt = timeProvider.GetUtcNow()
+                    });
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
+                return Results.Ok(await ToMusicResponseAsync(
+                    dbContext,
+                    duplicate.Id,
+                    guest.Id,
+                    cancellationToken));
+            }
+        }
+
+        var song = spotifyTrack?.Name ?? request.Song?.Trim();
+        if (string.IsNullOrWhiteSpace(song) || song.Length > 200)
         {
             return PartyEndpointHelpers.Validation("song", "Bitte gib einen Song mit maximal 200 Zeichen an.");
         }
 
         var music = new PartyMusicRequest
         {
-            Id = Guid.NewGuid(), PartyId = access.Party!.Id, GuestId = access.Guest!.Id,
-            Song = request.Song.Trim(), Artist = PartyEndpointHelpers.Clean(request.Artist, 200),
+            Id = Guid.NewGuid(), PartyId = party.Id, GuestId = guest.Id,
+            Song = song, Artist = spotifyTrack?.Artist ?? PartyEndpointHelpers.Clean(request.Artist, 200),
             Comment = PartyEndpointHelpers.Clean(request.Comment, 500),
+            SpotifyTrackId = spotifyTrack?.Id,
+            SpotifyUri = spotifyTrack?.Uri,
+            SpotifyAlbumImageUrl = spotifyTrack?.AlbumImageUrl,
+            DurationMs = spotifyTrack?.DurationMs,
             Status = PartyMusicRequestStatus.Open, CreatedAt = timeProvider.GetUtcNow()
         };
         dbContext.PartyMusicRequests.Add(music);
+        dbContext.PartyMusicVotes.Add(new PartyMusicVote
+        {
+            PartyMusicRequestId = music.Id,
+            GuestId = guest.Id,
+            CreatedAt = music.CreatedAt
+        });
         await dbContext.SaveChangesAsync(cancellationToken);
-        return Results.Created($"/api/parties/public/{slug}/music-requests/{music.Id}", new PartyMusicResponse(music.Id, music.GuestId, access.Guest.Name, music.Song, music.Artist, music.Comment, music.Status, music.CreatedAt));
+
+        if (party.SpotifyAutoQueue && !string.IsNullOrWhiteSpace(music.SpotifyUri))
+        {
+            try
+            {
+                await spotify.AddToQueueAsync(party, music.SpotifyUri, cancellationToken);
+                music.SpotifyQueuedAt = timeProvider.GetUtcNow();
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (PartySpotifyException)
+            {
+                // The wish remains visible and can still be queued manually by the admin.
+            }
+        }
+
+        return Results.Created(
+            $"/api/parties/public/{slug}/music-requests/{music.Id}",
+            await ToMusicResponseAsync(dbContext, music.Id, guest.Id, cancellationToken));
+    }
+
+    private static async Task<IResult> ListMusicAsync(
+        string slug,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var guestId = access.Guest!.Id;
+        var requests = await (
+            from music in dbContext.PartyMusicRequests.AsNoTracking()
+            join guest in dbContext.PartyGuests.AsNoTracking() on music.GuestId equals guest.Id
+            where music.PartyId == access.Party!.Id && music.Status != PartyMusicRequestStatus.Rejected
+            let voteCount = dbContext.PartyMusicVotes.Count(vote => vote.PartyMusicRequestId == music.Id)
+            orderby music.Status, voteCount descending, music.CreatedAt
+            select new PartyMusicResponse(
+                music.Id, music.GuestId, guest.Name, music.Song, music.Artist,
+                music.Comment, music.Status, music.CreatedAt, music.SpotifyTrackId,
+                music.SpotifyUri, music.SpotifyAlbumImageUrl, music.DurationMs,
+                music.SpotifyQueuedAt, voteCount,
+                dbContext.PartyMusicVotes.Any(vote => vote.PartyMusicRequestId == music.Id && vote.GuestId == guestId)))
+            .Take(100)
+            .ToArrayAsync(cancellationToken);
+        return Results.Ok(requests);
     }
 
     private static async Task<IResult> ListOwnMusicAsync(
@@ -723,15 +839,86 @@ internal static class PublicPartyEndpoints
             return denied;
         }
 
+        var partyId = access.Party!.Id;
+        var guestId = access.Guest!.Id;
+        var guestName = access.Guest.Name;
         var requests = await dbContext.PartyMusicRequests.AsNoTracking()
-            .Where(x => x.PartyId == access.Party!.Id && x.GuestId == access.Guest!.Id)
+            .Where(x => x.PartyId == partyId && x.GuestId == guestId)
             .OrderByDescending(x => x.CreatedAt)
             .Select(x => new PartyMusicResponse(
-                x.Id, x.GuestId, access.Guest!.Name, x.Song, x.Artist,
-                x.Comment, x.Status, x.CreatedAt))
+                x.Id, x.GuestId, guestName, x.Song, x.Artist,
+                x.Comment, x.Status, x.CreatedAt, x.SpotifyTrackId, x.SpotifyUri,
+                x.SpotifyAlbumImageUrl, x.DurationMs, x.SpotifyQueuedAt,
+                dbContext.PartyMusicVotes.Count(vote => vote.PartyMusicRequestId == x.Id),
+                dbContext.PartyMusicVotes.Any(vote => vote.PartyMusicRequestId == x.Id && vote.GuestId == guestId)))
             .ToArrayAsync(cancellationToken);
         return Results.Ok(requests);
     }
+
+    private static async Task<IResult> ToggleMusicVoteAsync(
+        string slug,
+        Guid requestId,
+        HttpContext httpContext,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var access = await PartyEndpointHelpers.GetGuestAccessAsync(dbContext, slug, httpContext, timeProvider, cancellationToken);
+        var denied = Denied(access.Party, access.Guest);
+        if (denied is not null)
+        {
+            return denied;
+        }
+        if (!await dbContext.PartyMusicRequests.AnyAsync(
+            x => x.Id == requestId
+                && x.PartyId == access.Party!.Id
+                && x.Status == PartyMusicRequestStatus.Open,
+            cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        var vote = await dbContext.PartyMusicVotes.SingleOrDefaultAsync(
+            x => x.PartyMusicRequestId == requestId && x.GuestId == access.Guest!.Id,
+            cancellationToken);
+        var hasVoted = vote is null;
+        if (vote is null)
+        {
+            dbContext.PartyMusicVotes.Add(new PartyMusicVote
+            {
+                PartyMusicRequestId = requestId,
+                GuestId = access.Guest!.Id,
+                CreatedAt = timeProvider.GetUtcNow()
+            });
+        }
+        else
+        {
+            dbContext.PartyMusicVotes.Remove(vote);
+        }
+        await dbContext.SaveChangesAsync(cancellationToken);
+        var count = await dbContext.PartyMusicVotes.CountAsync(
+            x => x.PartyMusicRequestId == requestId,
+            cancellationToken);
+        return Results.Ok(new PartyMusicVoteResponse(count, hasVoted));
+    }
+
+    private static async Task<PartyMusicResponse> ToMusicResponseAsync(
+        IPartyDbContext dbContext,
+        Guid requestId,
+        Guid currentGuestId,
+        CancellationToken cancellationToken) =>
+        await (
+            from music in dbContext.PartyMusicRequests.AsNoTracking()
+            join guest in dbContext.PartyGuests.AsNoTracking() on music.GuestId equals guest.Id
+            where music.Id == requestId
+            select new PartyMusicResponse(
+                music.Id, music.GuestId, guest.Name, music.Song, music.Artist,
+                music.Comment, music.Status, music.CreatedAt, music.SpotifyTrackId,
+                music.SpotifyUri, music.SpotifyAlbumImageUrl, music.DurationMs,
+                music.SpotifyQueuedAt,
+                dbContext.PartyMusicVotes.Count(vote => vote.PartyMusicRequestId == music.Id),
+                dbContext.PartyMusicVotes.Any(vote => vote.PartyMusicRequestId == music.Id && vote.GuestId == currentGuestId)))
+            .SingleAsync(cancellationToken);
 
     private static IResult? Denied(Party? party, PartyGuest? guest)
     {
