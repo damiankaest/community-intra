@@ -262,6 +262,11 @@ export function PartyAdminPage() {
                     {order.icon} {order.itemName ?? order.customText} ·{' '}
                     {formatTime(order.createdAt)}
                   </p>
+                  {order.claimedByGuestName && (
+                    <p className="mt-1 text-xs font-semibold text-emerald-300">
+                      🏃 {order.claimedByGuestName} bringt&apos;s
+                    </p>
+                  )}
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <button
