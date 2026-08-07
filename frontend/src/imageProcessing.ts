@@ -58,13 +58,25 @@ async function prepareImageSource(
   const thumbnailBlob = await render(source, preview, 0.72)
   const baseName = fileName.replace(/\.[^.]+$/, '') || 'screenshot'
   return {
-    file: new File([fullBlob], `${baseName}.webp`, {
-      type: 'image/webp',
-    }),
-    thumbnail: new File([thumbnailBlob], `${baseName}-preview.webp`, {
-      type: 'image/webp',
-    }),
+    file: imageBlobToFile(fullBlob, baseName),
+    thumbnail: imageBlobToFile(thumbnailBlob, `${baseName}-preview`),
   }
+}
+
+export function imageBlobToFile(blob: Blob, baseName: string) {
+  const type = blob.type.toLowerCase()
+  const extension =
+    type === 'image/webp'
+      ? '.webp'
+      : type === 'image/jpeg'
+        ? '.jpg'
+        : type === 'image/png'
+          ? '.png'
+          : undefined
+  if (!extension) {
+    throw new Error('Das optimierte Foto hat ein nicht unterstütztes Format.')
+  }
+  return new File([blob], `${baseName}${extension}`, { type })
 }
 
 async function loadImage(file: File) {
