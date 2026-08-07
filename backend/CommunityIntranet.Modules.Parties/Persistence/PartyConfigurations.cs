@@ -32,6 +32,7 @@ public sealed class PartyGuestConfiguration : IEntityTypeConfiguration<PartyGues
         builder.Property(x => x.Name).HasMaxLength(100).IsRequired();
         builder.Property(x => x.SessionTokenHash).HasMaxLength(64).IsRequired();
         builder.HasIndex(x => x.SessionTokenHash).IsUnique();
+        builder.HasIndex(x => new { x.PartyId, x.UserId }).IsUnique();
         builder.HasIndex(x => new { x.PartyId, x.LastSeenAt });
         builder.HasOne<Party>().WithMany().HasForeignKey(x => x.PartyId)
             .OnDelete(DeleteBehavior.Cascade);
