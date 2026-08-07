@@ -263,15 +263,31 @@ export function PartyAdminPage() {
                     {formatTime(order.createdAt)}
                   </p>
                 </div>
-                <button
-                  className="party-done-button"
-                  disabled={statusMutation.isPending}
-                  onClick={() =>
-                    statusMutation.mutate({ orderId: order.id, status: 'Done' })
-                  }
-                >
-                  <Check size={18} /> Erledigt
-                </button>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    className="party-small-button"
+                    title="Bestellung stornieren"
+                    aria-label="Bestellung stornieren"
+                    disabled={statusMutation.isPending}
+                    onClick={() =>
+                      statusMutation.mutate({
+                        orderId: order.id,
+                        status: 'Cancelled',
+                      })
+                    }
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                  <button
+                    className="party-done-button"
+                    disabled={statusMutation.isPending}
+                    onClick={() =>
+                      statusMutation.mutate({ orderId: order.id, status: 'Done' })
+                    }
+                  >
+                    <Check size={18} /> Erledigt
+                  </button>
+                </div>
               </div>
             ))}
             {openOrders.length === 0 && (
@@ -475,12 +491,20 @@ function CreatePartyForm({
           <option>Hochzeit</option>
           <option>Sonstiges</option>
         </select>
-        <input
-          required
-          name="startAt"
-          type="datetime-local"
-          className="feature-input"
+        <textarea
+          name="description"
+          maxLength={1200}
+          className="feature-input min-h-20 sm:col-span-2"
+          placeholder="Beschreibung (optional)"
         />
+        <label className="grid gap-1 text-xs text-[var(--theme-muted)]">
+          Datum
+          <input required name="date" type="date" className="feature-input" />
+        </label>
+        <label className="grid gap-1 text-xs text-[var(--theme-muted)]">
+          Startzeit (optional)
+          <input name="startTime" type="time" className="feature-input" />
+        </label>
         <input name="endAt" type="datetime-local" className="feature-input" />
         <input
           name="location"
@@ -594,6 +618,12 @@ function PartySettings({
           defaultValue={party.location}
           className="feature-input"
           placeholder="Ort"
+        />
+        <textarea
+          name="description"
+          defaultValue={party.description}
+          className="feature-input min-h-20"
+          placeholder="Beschreibung"
         />
         <textarea
           name="welcomeText"
@@ -777,11 +807,17 @@ function AdminHeader({ title }: { title: string }) {
 }
 
 function partyInputFromForm(form: FormData, fallback?: Party): PartyInput {
-  const start = String(form.get('startAt') ?? '')
+  const date = String(form.get('date') ?? '')
+  const startTime = String(form.get('startTime') ?? '')
+  const start =
+    String(form.get('startAt') ?? '') ||
+    (date ? `${date}T${startTime || '00:00'}` : '')
   const end = String(form.get('endAt') ?? '')
   return {
     name: String(form.get('name') ?? ''),
-    description: fallback?.description,
+    description:
+      String(form.get('description') ?? fallback?.description ?? '') ||
+      undefined,
     type: String(form.get('type') ?? fallback?.type ?? 'Sonstiges'),
     location: String(form.get('location') ?? '') || undefined,
     startAt: new Date(start).toISOString(),
@@ -798,10 +834,13 @@ function toLocalInput(value: string) {
   return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16)
 }
 function formatDate(value: string) {
-  return new Date(value).toLocaleString('de-DE', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
+  const date = new Date(value)
+  return date.toLocaleString(
+    'de-DE',
+    date.getHours() === 0 && date.getMinutes() === 0
+      ? { dateStyle: 'medium' }
+      : { dateStyle: 'medium', timeStyle: 'short' },
+  )
 }
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString('de-DE', {
