@@ -8,6 +8,7 @@ using CommunityIntranet.Modules.LiveOperations.Persistence;
 using CommunityIntranet.Modules.Members.Persistence;
 using CommunityIntranet.Modules.Notifications.Persistence;
 using CommunityIntranet.Modules.Organizations.Persistence;
+using CommunityIntranet.Modules.Parties.Persistence;
 using CommunityIntranet.Modules.Projects.Persistence;
 using CommunityIntranet.Modules.Tasks.Persistence;
 using CommunityIntranet.Modules.ThemePacks.Persistence;
@@ -61,6 +62,8 @@ public static class DependencyInjection
         services.AddScoped<ILiveOperationsDbContext>(
             provider => provider.GetRequiredService<CommunityIntranetDbContext>());
         services.AddScoped<ITimeTrackingDbContext>(
+            provider => provider.GetRequiredService<CommunityIntranetDbContext>());
+        services.AddScoped<IPartyDbContext>(
             provider => provider.GetRequiredService<CommunityIntranetDbContext>());
 
         return services;

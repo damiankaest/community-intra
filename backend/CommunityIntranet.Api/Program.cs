@@ -32,6 +32,8 @@ using CommunityIntranet.Modules.ThemePacks;
 using CommunityIntranet.Modules.ThemePacks.Endpoints;
 using CommunityIntranet.Modules.TimeTracking;
 using CommunityIntranet.Modules.TimeTracking.Endpoints;
+using CommunityIntranet.Modules.Parties;
+using CommunityIntranet.Modules.Parties.Endpoints;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
@@ -122,6 +124,7 @@ try
     builder.Services.AddNotificationsModule();
     builder.Services.AddLiveOperationsModule(builder.Configuration);
     builder.Services.AddTimeTrackingModule();
+    builder.Services.AddPartiesModule(builder.Configuration);
     builder.Services.AddScoped<DatabaseInitializer>();
     builder.Services.AddRateLimiter(options =>
     {
@@ -158,6 +161,17 @@ try
                 _ => new FixedWindowRateLimiterOptions
                 {
                     PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                }));
+        options.AddPolicy(
+            "party-public",
+            httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 120,
                     Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0,
                     AutoReplenishment = true
@@ -229,6 +243,7 @@ try
     app.MapNotificationEndpoints();
     app.MapLiveOperationsEndpoints();
     app.MapTimeTrackingEndpoints();
+    app.MapPartyEndpoints();
 
     await app.RunAsync();
 }

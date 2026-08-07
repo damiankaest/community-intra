@@ -38,6 +38,7 @@ services:
       AiAssistant__ApiKey: ${OPENAI_API_KEY}
       AiAssistant__Model: ${AI_MODEL:-gpt-5.6}
       DataProtection__KeysPath: /app/data-protection-keys
+      PartyMedia__RootPath: /app/party-media
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,6 +62,7 @@ services:
     volumes:
       - backend-logs:/app/logs
       - backend-data-protection:/app/data-protection-keys
+      - party-media:/app/party-media
     networks:
       - internal
 
@@ -110,5 +112,6 @@ volumes:
   postgres-data:
   backend-logs:
   backend-data-protection:
+  party-media:
   caddy-data:
   caddy-config:

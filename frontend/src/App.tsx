@@ -16,6 +16,7 @@ import {
   FolderTree,
   LogIn,
   LogOut,
+  PartyPopper,
   Plus,
   RotateCcw,
   ShieldCheck,
@@ -81,6 +82,8 @@ import { AiAssistantPanel } from './components/AiAssistantPanel'
 import { LiveOperationsPage } from './components/LiveOperationsPage'
 import { TimeClockPage } from './components/TimeClockPage'
 import { ThemeIcon } from './components/ThemeIcon'
+import { PartyGuestPage } from './components/PartyGuestPage'
+import { PartyAdminPage, PartyListPage } from './components/PartyAdminPage'
 import { applyTheme, getThemeCssVariables, resetTheme } from './theme'
 
 const currentUserKey = ['current-user'] as const
@@ -124,6 +127,23 @@ function App() {
             user={currentUser.data}
             isCheckingSession={currentUser.isPending}
           />
+        }
+      />
+      <Route path="/party/:slug" element={<PartyGuestPage />} />
+      <Route
+        path="/parties"
+        element={
+          <ProtectedRoute query={currentUser}>
+            <PartyListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/parties/:partyId"
+        element={
+          <ProtectedRoute query={currentUser}>
+            <PartyAdminPage />
+          </ProtectedRoute>
         }
       />
       <Route
@@ -1460,6 +1480,13 @@ function AppShell({
             </span>
           </a>
           <div className="flex items-center gap-3">
+            <a
+              href="/parties"
+              className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-bold text-[var(--theme-muted)] hover:text-white"
+            >
+              <PartyPopper size={16} />
+              <span className="hidden sm:inline">Partys</span>
+            </a>
             <div className="hidden text-right sm:block">
               <p className="text-sm font-semibold text-white">
                 {user.displayName}

@@ -1551,6 +1551,121 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                     b.ToTable("tasks", "tasks");
                 });
 
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.Party", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<string>("Description").HasMaxLength(2000).HasColumnType("character varying(2000)");
+                    b.Property<DateTimeOffset?>("EndAt").HasColumnType("timestamp with time zone");
+                    b.Property<bool>("GuestsCanViewGallery").HasColumnType("boolean");
+                    b.Property<bool>("GuestsCanViewGuestbook").HasColumnType("boolean");
+                    b.Property<bool>("IsActive").HasColumnType("boolean");
+                    b.Property<bool>("IsArchived").HasColumnType("boolean");
+                    b.Property<string>("Location").HasMaxLength(240).HasColumnType("character varying(240)");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(160).HasColumnType("character varying(160)");
+                    b.Property<Guid>("OwnerUserId").HasColumnType("uuid");
+                    b.Property<string>("Slug").IsRequired().HasMaxLength(190).HasColumnType("character varying(190)");
+                    b.Property<DateTimeOffset>("StartAt").HasColumnType("timestamp with time zone");
+                    b.Property<string>("Type").IsRequired().HasMaxLength(40).HasColumnType("character varying(40)");
+                    b.Property<DateTimeOffset>("UpdatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<string>("WelcomeText").HasMaxLength(1000).HasColumnType("character varying(1000)");
+                    b.HasKey("Id");
+                    b.HasIndex("Slug").IsUnique();
+                    b.HasIndex("OwnerUserId", "IsArchived", "StartAt");
+                    b.ToTable("parties", "parties");
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyGuest", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                    b.Property<DateTimeOffset>("FirstSeenAt").HasColumnType("timestamp with time zone");
+                    b.Property<DateTimeOffset>("LastSeenAt").HasColumnType("timestamp with time zone");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(100).HasColumnType("character varying(100)");
+                    b.Property<Guid>("PartyId").HasColumnType("uuid");
+                    b.Property<string>("SessionTokenHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                    b.HasKey("Id");
+                    b.HasIndex("SessionTokenHash").IsUnique();
+                    b.HasIndex("PartyId", "LastSeenAt");
+                    b.ToTable("guests", "parties");
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyGuestbookEntry", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<Guid>("GuestId").HasColumnType("uuid");
+                    b.Property<string>("Message").IsRequired().HasMaxLength(1000).HasColumnType("character varying(1000)");
+                    b.Property<Guid>("PartyId").HasColumnType("uuid");
+                    b.HasKey("Id");
+                    b.HasIndex("GuestId");
+                    b.HasIndex("PartyId", "CreatedAt");
+                    b.ToTable("guestbook_entries", "parties");
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyMedia", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                    b.Property<string>("Caption").HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<string>("FileName").IsRequired().HasMaxLength(240).HasColumnType("character varying(240)");
+                    b.Property<Guid>("GuestId").HasColumnType("uuid");
+                    b.Property<string>("MediaType").IsRequired().HasMaxLength(16).HasColumnType("character varying(16)");
+                    b.Property<string>("MimeType").IsRequired().HasMaxLength(100).HasColumnType("character varying(100)");
+                    b.Property<Guid>("PartyId").HasColumnType("uuid");
+                    b.Property<long>("Size").HasColumnType("bigint");
+                    b.Property<string>("StoragePath").IsRequired().HasMaxLength(300).HasColumnType("character varying(300)");
+                    b.HasKey("Id");
+                    b.HasIndex("GuestId");
+                    b.HasIndex("PartyId", "CreatedAt");
+                    b.ToTable("media", "parties");
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyMusicRequest", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                    b.Property<string>("Artist").HasMaxLength(200).HasColumnType("character varying(200)");
+                    b.Property<string>("Comment").HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<Guid>("GuestId").HasColumnType("uuid");
+                    b.Property<Guid>("PartyId").HasColumnType("uuid");
+                    b.Property<string>("Song").IsRequired().HasMaxLength(200).HasColumnType("character varying(200)");
+                    b.Property<string>("Status").IsRequired().HasMaxLength(20).HasColumnType("character varying(20)");
+                    b.HasKey("Id");
+                    b.HasIndex("GuestId");
+                    b.HasIndex("PartyId", "Status", "CreatedAt");
+                    b.ToTable("music_requests", "parties");
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyOrder", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                    b.Property<DateTimeOffset?>("CompletedAt").HasColumnType("timestamp with time zone");
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<string>("CustomText").HasMaxLength(160).HasColumnType("character varying(160)");
+                    b.Property<Guid>("GuestId").HasColumnType("uuid");
+                    b.Property<Guid?>("OrderItemId").HasColumnType("uuid");
+                    b.Property<Guid>("PartyId").HasColumnType("uuid");
+                    b.Property<string>("Status").IsRequired().HasMaxLength(20).HasColumnType("character varying(20)");
+                    b.HasKey("Id");
+                    b.HasIndex("GuestId");
+                    b.HasIndex("OrderItemId");
+                    b.HasIndex("PartyId", "Status", "CreatedAt");
+                    b.ToTable("orders", "parties");
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyOrderItem", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                    b.Property<string>("Icon").HasMaxLength(20).HasColumnType("character varying(20)");
+                    b.Property<bool>("IsActive").HasColumnType("boolean");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(100).HasColumnType("character varying(100)");
+                    b.Property<Guid>("PartyId").HasColumnType("uuid");
+                    b.Property<int>("SortOrder").HasColumnType("integer");
+                    b.HasKey("Id");
+                    b.HasIndex("PartyId", "SortOrder");
+                    b.ToTable("order_items", "parties");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1746,6 +1861,93 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ThemePackId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.Party", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Identity.Domain.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyGuest", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.Party", null)
+                        .WithMany()
+                        .HasForeignKey("PartyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyGuestbookEntry", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.PartyGuest", null)
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.Party", null)
+                        .WithMany()
+                        .HasForeignKey("PartyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyMedia", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.PartyGuest", null)
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.Party", null)
+                        .WithMany()
+                        .HasForeignKey("PartyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyMusicRequest", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.PartyGuest", null)
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.Party", null)
+                        .WithMany()
+                        .HasForeignKey("PartyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyOrder", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.PartyGuest", null)
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.PartyOrderItem", null)
+                        .WithMany()
+                        .HasForeignKey("OrderItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.Party", null)
+                        .WithMany()
+                        .HasForeignKey("PartyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyOrderItem", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.Party", null)
+                        .WithMany()
+                        .HasForeignKey("PartyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
