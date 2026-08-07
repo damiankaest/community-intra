@@ -44,6 +44,7 @@ export interface PartyGuest {
   name: string
   firstSeenAt: string
   lastSeenAt: string
+  isAdmin: boolean
 }
 
 export interface PartyOrder {
@@ -236,6 +237,18 @@ export function deleteAdminPartyMedia(partyId: string, mediaId: string) {
 
 export function listPartyGuests(partyId: string) {
   return apiRequest<PartyGuest[]>(`/api/parties/${partyId}/guests`)
+}
+
+export function createAdminPartyGuestSession(partyId: string) {
+  return apiRequest<PartyGuestSession>(`/api/parties/${partyId}/guest-session`, {
+    method: 'POST',
+  })
+}
+
+export function removePartyGuest(partyId: string, guestId: string) {
+  return apiRequest<void>(`/api/parties/${partyId}/guests/${guestId}`, {
+    method: 'DELETE',
+  })
 }
 
 export async function downloadAdminPartyMedia(contentUrl: string) {
