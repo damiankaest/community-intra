@@ -63,6 +63,7 @@ type View = 'home' | 'media' | 'order' | 'music' | 'guestbook' | 'me'
 interface StoredGuest {
   name: string
   token: string
+  isAdmin?: boolean
 }
 
 export function PartyGuestPage() {
@@ -74,6 +75,7 @@ export function PartyGuestPage() {
   const [seenMediaAt, setSeenMediaAt] = useState<string | undefined>(() =>
     readMediaSeenAt(slug),
   )
+  const [showInstallHint, setShowInstallHint] = useState(false)
   const party = useQuery({
     queryKey: ['public-party', slug],
     queryFn: () => getPublicParty(slug),
@@ -173,6 +175,10 @@ export function PartyGuestPage() {
         onRegistered={(next) => {
           storeGuest(slug, next)
           setGuest(next)
+          if (shouldShowInstallHint(slug)) {
+            markInstallHintSeen(slug)
+            setShowInstallHint(true)
+          }
         }}
         slug={slug}
       />
@@ -186,6 +192,10 @@ export function PartyGuestPage() {
         onRegistered={(next) => {
           storeGuest(slug, next)
           setGuest(next)
+          if (shouldShowInstallHint(slug)) {
+            markInstallHintSeen(slug)
+            setShowInstallHint(true)
+          }
         }}
         slug={slug}
       />
@@ -261,7 +271,54 @@ export function PartyGuestPage() {
         pulse={pulse.data}
         mediaBadge={mediaBadge}
       />
+      {showInstallHint && (
+        <PartyInstallHint onClose={() => setShowInstallHint(false)} />
+      )}
     </PartyFrame>
+  )
+}
+
+function PartyInstallHint({ onClose }: { onClose: () => void }) {
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-[100] px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+      <div className="mx-auto max-w-lg rounded-3xl border border-amber-200/25 bg-[#1c1928]/95 p-5 shadow-2xl backdrop-blur-xl">
+        <div className="flex items-start gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-amber-300/15 text-2xl">
+            ⚡
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-black text-white">
+              Noch schneller zur Party
+            </h2>
+            <p className="mt-1 text-sm leading-5 text-white/60">
+              Pack CouchClash wie eine App auf deinen Home-Bildschirm – dann
+              bist du mit einem Tipp wieder hier.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 rounded-2xl bg-white/[0.06] p-3 text-sm leading-6 text-white/80">
+          {isIos ? (
+            <p>
+              <strong className="text-white">iPhone / Safari:</strong> Teilen
+              {' '}⬆️ → <strong>Zum Home-Bildschirm</strong> → Hinzufügen
+            </p>
+          ) : (
+            <p>
+              <strong className="text-white">Android / Chrome:</strong> Menü
+              {' '}⋮ → <strong>App installieren</strong> oder Zum Startbildschirm
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          className="party-primary mt-4 w-full"
+          onClick={onClose}
+        >
+          Verstanden 👍
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -1895,6 +1952,26 @@ function readGuest(slug: string): StoredGuest | undefined {
 }
 function storeGuest(slug: string, guest: StoredGuest) {
   localStorage.setItem(storageKey(slug), JSON.stringify(guest))
+}
+
+function installHintKey(slug: string) {
+  return `community-party-install-hint:${slug}`
+}
+function isStandalonePwa() {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
+  )
+}
+function shouldShowInstallHint(slug: string) {
+  return (
+    Boolean(slug) &&
+    !isStandalonePwa() &&
+    localStorage.getItem(installHintKey(slug)) !== 'seen'
+  )
+}
+function markInstallHintSeen(slug: string) {
+  localStorage.setItem(installHintKey(slug), 'seen')
 }
 
 function mediaSeenKey(slug: string) {

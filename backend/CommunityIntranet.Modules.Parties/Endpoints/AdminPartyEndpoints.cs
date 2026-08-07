@@ -29,6 +29,8 @@ internal static class AdminPartyEndpoints
         group.MapGet("/{partyId:guid}/orders", ListOrdersAsync);
         group.MapPatch("/{partyId:guid}/orders/{orderId:guid}", ChangeOrderStatusAsync);
         group.MapGet("/{partyId:guid}/guests", ListGuestsAsync);
+        group.MapPost("/{partyId:guid}/guest-session", CreateOwnerGuestSessionAsync);
+        group.MapDelete("/{partyId:guid}/guests/{guestId:guid}", RemoveGuestAsync);
         group.MapGet("/{partyId:guid}/media", ListMediaAsync);
         group.MapGet("/{partyId:guid}/media/{mediaId:guid}/content", GetMediaContentAsync);
         group.MapDelete("/{partyId:guid}/media/{mediaId:guid}", DeleteMediaAsync);
@@ -335,11 +337,96 @@ internal static class AdminPartyEndpoints
         }
 
         var guests = await dbContext.PartyGuests.AsNoTracking()
-            .Where(x => x.PartyId == partyId)
+            .Where(x => x.PartyId == partyId && !x.IsRemoved && x.UserId == null)
             .OrderByDescending(x => x.LastSeenAt)
-            .Select(x => new PartyGuestResponse(x.Id, x.Name, x.FirstSeenAt, x.LastSeenAt))
+            .Select(x => new PartyGuestResponse(
+                x.Id, x.Name, x.FirstSeenAt, x.LastSeenAt, false))
             .ToArrayAsync(cancellationToken);
         return Results.Ok(guests);
+    }
+
+    private static async Task<IResult> CreateOwnerGuestSessionAsync(
+        Guid partyId,
+        ClaimsPrincipal principal,
+        IPartyDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var party = await PartyEndpointHelpers.GetOwnedPartyAsync(
+            dbContext, partyId, principal, cancellationToken);
+        var userId = PartyEndpointHelpers.GetUserId(principal);
+        if (party is null || userId is null)
+        {
+            return Results.NotFound();
+        }
+        if (!party.IsActive)
+        {
+            return Results.Conflict(new { message = "Aktiviere die Party, bevor du die Gastansicht öffnest." });
+        }
+
+        var now = timeProvider.GetUtcNow();
+        var rawToken = PartyTokenService.CreateToken();
+        var name = PartyEndpointHelpers.Clean(
+            principal.FindFirstValue(ClaimTypes.Name), 100) ?? "Admin";
+        var guest = await dbContext.PartyGuests.SingleOrDefaultAsync(
+            item => item.PartyId == partyId && item.UserId == userId,
+            cancellationToken);
+        if (guest is null)
+        {
+            guest = new PartyGuest
+            {
+                Id = Guid.NewGuid(),
+                PartyId = partyId,
+                UserId = userId,
+                Name = name,
+                SessionTokenHash = PartyTokenService.Hash(rawToken),
+                FirstSeenAt = now,
+                LastSeenAt = now
+            };
+            dbContext.PartyGuests.Add(guest);
+        }
+        else
+        {
+            guest.Name = name;
+            guest.SessionTokenHash = PartyTokenService.Hash(rawToken);
+            guest.IsRemoved = false;
+            guest.LastSeenAt = now;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new PartyGuestSessionResponse(
+            guest.Id, guest.Name, rawToken));
+    }
+
+    private static async Task<IResult> RemoveGuestAsync(
+        Guid partyId,
+        Guid guestId,
+        ClaimsPrincipal principal,
+        IPartyDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        if (await PartyEndpointHelpers.GetOwnedPartyAsync(
+            dbContext, partyId, principal, cancellationToken) is null)
+        {
+            return Results.NotFound();
+        }
+
+        var guest = await dbContext.PartyGuests.SingleOrDefaultAsync(
+            item => item.Id == guestId && item.PartyId == partyId,
+            cancellationToken);
+        if (guest is null)
+        {
+            return Results.NotFound();
+        }
+        if (guest.UserId is not null)
+        {
+            return Results.Conflict(new { message = "Die Admin-Session kann nicht entfernt werden." });
+        }
+
+        guest.IsRemoved = true;
+        guest.SessionTokenHash = PartyTokenService.Hash(PartyTokenService.CreateToken());
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> ListMediaAsync(Guid partyId, ClaimsPrincipal principal, IPartyDbContext dbContext, CancellationToken cancellationToken)
@@ -487,7 +574,9 @@ internal static class AdminPartyEndpoints
 
     private static async Task<PartyResponse> ToResponseAsync(IPartyDbContext dbContext, Party party, CancellationToken cancellationToken)
     {
-        var guestCount = await dbContext.PartyGuests.AsNoTracking().CountAsync(x => x.PartyId == party.Id, cancellationToken);
+        var guestCount = await dbContext.PartyGuests.AsNoTracking().CountAsync(
+            x => x.PartyId == party.Id && !x.IsRemoved && x.UserId == null,
+            cancellationToken);
         var openOrderCount = await dbContext.PartyOrders.AsNoTracking().CountAsync(x => x.PartyId == party.Id && x.Status == PartyOrderStatus.Open, cancellationToken);
         var items = await dbContext.PartyOrderItems.AsNoTracking()
             .Where(x => x.PartyId == party.Id)

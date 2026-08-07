@@ -67,7 +67,9 @@ internal static class PartyEndpointHelpers
 
         var tokenHash = PartyTokenService.Hash(rawToken);
         var guest = await dbContext.PartyGuests.SingleOrDefaultAsync(
-            item => item.PartyId == party.Id && item.SessionTokenHash == tokenHash,
+            item => item.PartyId == party.Id
+                && item.SessionTokenHash == tokenHash
+                && !item.IsRemoved,
             cancellationToken);
         if (guest is not null)
         {
