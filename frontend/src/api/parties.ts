@@ -110,6 +110,41 @@ export interface PartyMusicRequest {
   comment?: string
   status: 'Open' | 'Played' | 'Rejected'
   createdAt: string
+  spotifyTrackId?: string
+  spotifyUri?: string
+  spotifyAlbumImageUrl?: string
+  durationMs?: number
+  spotifyQueuedAt?: string
+  voteCount: number
+  hasVoted: boolean
+}
+
+export interface SpotifyTrack {
+  id: string
+  uri: string
+  name: string
+  artist: string
+  albumImageUrl?: string
+  durationMs: number
+}
+
+export interface SpotifyNowPlaying extends SpotifyTrack {
+  isPlaying: boolean
+  progressMs: number
+}
+
+export interface PartySpotifyAdminStatus {
+  isConfigured: boolean
+  isConnected: boolean
+  accountName?: string
+  autoQueue: boolean
+  nowPlaying?: SpotifyNowPlaying
+}
+
+export interface PartySpotifyPublicStatus {
+  isConnected: boolean
+  autoQueue: boolean
+  nowPlaying?: SpotifyNowPlaying
 }
 
 export interface PartyInput {
@@ -224,6 +259,37 @@ export function setPartyMusicStatus(
       method: 'PATCH',
       body: JSON.stringify({ status }),
     },
+  )
+}
+
+export function getPartySpotifyStatus(partyId: string) {
+  return apiRequest<PartySpotifyAdminStatus>(`/api/parties/${partyId}/spotify`)
+}
+
+export function connectPartySpotify(partyId: string) {
+  return apiRequest<{ authorizeUrl: string }>(
+    `/api/parties/${partyId}/spotify/connect`,
+    { method: 'POST' },
+  )
+}
+
+export function disconnectPartySpotify(partyId: string) {
+  return apiRequest<void>(`/api/parties/${partyId}/spotify/disconnect`, {
+    method: 'POST',
+  })
+}
+
+export function updatePartySpotify(partyId: string, autoQueue: boolean) {
+  return apiRequest<void>(`/api/parties/${partyId}/spotify`, {
+    method: 'PATCH',
+    body: JSON.stringify({ autoQueue }),
+  })
+}
+
+export function queuePartyMusicRequest(partyId: string, requestId: string) {
+  return apiRequest<void>(
+    `/api/parties/${partyId}/spotify/queue/${requestId}`,
+    { method: 'POST' },
   )
 }
 
@@ -415,12 +481,50 @@ export function addGuestbookEntry(
 export function addMusicRequest(
   slug: string,
   token: string,
-  input: { song: string; artist?: string; comment?: string },
+  input: {
+    song: string
+    artist?: string
+    comment?: string
+    spotifyTrackId?: string
+  },
 ) {
   return guestRequest<PartyMusicRequest>(slug, token, '/music-requests', {
     method: 'POST',
     body: JSON.stringify(input),
   })
+}
+
+export function listGuestMusicRequests(slug: string, token: string) {
+  return guestRequest<PartyMusicRequest[]>(slug, token, '/music-requests')
+}
+
+export function toggleGuestMusicVote(
+  slug: string,
+  token: string,
+  requestId: string,
+) {
+  return guestRequest<{ voteCount: number; hasVoted: boolean }>(
+    slug,
+    token,
+    `/music-requests/${requestId}/vote`,
+    { method: 'POST' },
+  )
+}
+
+export function getGuestSpotifyStatus(slug: string, token: string) {
+  return guestRequest<PartySpotifyPublicStatus>(slug, token, '/spotify')
+}
+
+export function searchPartySpotify(
+  slug: string,
+  token: string,
+  query: string,
+) {
+  return guestRequest<SpotifyTrack[]>(
+    slug,
+    token,
+    `/spotify/search?q=${encodeURIComponent(query)}`,
+  )
 }
 
 export function listOwnMusicRequests(slug: string, token: string) {
