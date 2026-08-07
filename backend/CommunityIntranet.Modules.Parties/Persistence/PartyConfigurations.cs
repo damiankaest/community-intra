@@ -77,10 +77,13 @@ public sealed class PartyOrderConfiguration : IEntityTypeConfiguration<PartyOrde
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.CustomText).HasMaxLength(160);
+        builder.HasIndex(x => x.ClaimedByGuestId);
         builder.HasIndex(x => new { x.PartyId, x.Status, x.CreatedAt });
         builder.HasOne<Party>().WithMany().HasForeignKey(x => x.PartyId)
             .OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<PartyGuest>().WithMany().HasForeignKey(x => x.GuestId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<PartyGuest>().WithMany().HasForeignKey(x => x.ClaimedByGuestId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<PartyOrderItem>().WithMany().HasForeignKey(x => x.OrderItemId)
             .OnDelete(DeleteBehavior.SetNull);
