@@ -1564,6 +1564,10 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                     b.Property<string>("Location").HasMaxLength(240).HasColumnType("character varying(240)");
                     b.Property<string>("Name").IsRequired().HasMaxLength(160).HasColumnType("character varying(160)");
                     b.Property<Guid>("OwnerUserId").HasColumnType("uuid");
+                    b.Property<string>("SpotifyAccountName").HasMaxLength(200).HasColumnType("character varying(200)");
+                    b.Property<bool>("SpotifyAutoQueue").HasColumnType("boolean");
+                    b.Property<DateTimeOffset?>("SpotifyConnectedAt").HasColumnType("timestamp with time zone");
+                    b.Property<string>("SpotifyProtectedRefreshToken").HasMaxLength(4000).HasColumnType("character varying(4000)");
                     b.Property<string>("Slug").IsRequired().HasMaxLength(190).HasColumnType("character varying(190)");
                     b.Property<DateTimeOffset>("StartAt").HasColumnType("timestamp with time zone");
                     b.Property<string>("Type").IsRequired().HasMaxLength(40).HasColumnType("character varying(40)");
@@ -1626,14 +1630,29 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                     b.Property<string>("Artist").HasMaxLength(200).HasColumnType("character varying(200)");
                     b.Property<string>("Comment").HasMaxLength(500).HasColumnType("character varying(500)");
                     b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<int?>("DurationMs").HasColumnType("integer");
                     b.Property<Guid>("GuestId").HasColumnType("uuid");
                     b.Property<Guid>("PartyId").HasColumnType("uuid");
                     b.Property<string>("Song").IsRequired().HasMaxLength(200).HasColumnType("character varying(200)");
+                    b.Property<string>("SpotifyAlbumImageUrl").HasMaxLength(1000).HasColumnType("character varying(1000)");
+                    b.Property<DateTimeOffset?>("SpotifyQueuedAt").HasColumnType("timestamp with time zone");
+                    b.Property<string>("SpotifyTrackId").HasMaxLength(100).HasColumnType("character varying(100)");
+                    b.Property<string>("SpotifyUri").HasMaxLength(240).HasColumnType("character varying(240)");
                     b.Property<string>("Status").IsRequired().HasMaxLength(20).HasColumnType("character varying(20)");
                     b.HasKey("Id");
                     b.HasIndex("GuestId");
                     b.HasIndex("PartyId", "Status", "CreatedAt");
                     b.ToTable("music_requests", "parties");
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyMusicVote", b =>
+                {
+                    b.Property<Guid>("PartyMusicRequestId").HasColumnType("uuid");
+                    b.Property<Guid>("GuestId").HasColumnType("uuid");
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.HasKey("PartyMusicRequestId", "GuestId");
+                    b.HasIndex("GuestId");
+                    b.ToTable("music_votes", "parties");
                 });
 
             modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyOrder", b =>
@@ -1922,6 +1941,20 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                     b.HasOne("CommunityIntranet.Modules.Parties.Domain.Party", null)
                         .WithMany()
                         .HasForeignKey("PartyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyMusicVote", b =>
+                {
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.PartyGuest", null)
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.PartyMusicRequest", null)
+                        .WithMany()
+                        .HasForeignKey("PartyMusicRequestId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
