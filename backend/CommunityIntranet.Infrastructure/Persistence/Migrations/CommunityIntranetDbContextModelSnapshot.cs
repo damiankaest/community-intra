@@ -1639,6 +1639,8 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyOrder", b =>
                 {
                     b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                    b.Property<DateTimeOffset?>("ClaimedAt").HasColumnType("timestamp with time zone");
+                    b.Property<Guid?>("ClaimedByGuestId").HasColumnType("uuid");
                     b.Property<DateTimeOffset?>("CompletedAt").HasColumnType("timestamp with time zone");
                     b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone");
                     b.Property<string>("CustomText").HasMaxLength(160).HasColumnType("character varying(160)");
@@ -1647,6 +1649,7 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("PartyId").HasColumnType("uuid");
                     b.Property<string>("Status").IsRequired().HasMaxLength(20).HasColumnType("character varying(20)");
                     b.HasKey("Id");
+                    b.HasIndex("ClaimedByGuestId");
                     b.HasIndex("GuestId");
                     b.HasIndex("OrderItemId");
                     b.HasIndex("PartyId", "Status", "CreatedAt");
@@ -1925,6 +1928,10 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CommunityIntranet.Modules.Parties.Domain.PartyOrder", b =>
                 {
+                    b.HasOne("CommunityIntranet.Modules.Parties.Domain.PartyGuest", null)
+                        .WithMany()
+                        .HasForeignKey("ClaimedByGuestId")
+                        .OnDelete(DeleteBehavior.Restrict);
                     b.HasOne("CommunityIntranet.Modules.Parties.Domain.PartyGuest", null)
                         .WithMany()
                         .HasForeignKey("GuestId")
