@@ -33,6 +33,10 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           navigateFallback: '/index.html',
+          // Party QR links must always reach the network first. Otherwise an
+          // already-installed service worker can serve an older app shell on
+          // the first scan and React falls back to `/` before the SW updates.
+          navigateFallbackDenylist: [/^\/party\//],
           runtimeCaching: [
             {
               urlPattern: /^\/api\//,
