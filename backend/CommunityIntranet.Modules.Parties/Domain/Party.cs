@@ -16,6 +16,10 @@ public sealed class Party
     public bool IsArchived { get; set; }
     public bool GuestsCanViewGallery { get; set; } = true;
     public bool GuestsCanViewGuestbook { get; set; } = true;
+    public string? SpotifyProtectedRefreshToken { get; set; }
+    public string? SpotifyAccountName { get; set; }
+    public DateTimeOffset? SpotifyConnectedAt { get; set; }
+    public bool SpotifyAutoQueue { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

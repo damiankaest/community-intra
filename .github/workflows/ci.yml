@@ -333,6 +333,15 @@ jobs:
           curl --fail --silent \
             --request POST \
             --header "Content-Type: application/json" \
+            --data '{"name":"CI Runner"}' \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/guests" \
+            > /tmp/party-runner.json
+          party_runner_token=$(jq --raw-output ".sessionToken" /tmp/party-runner.json)
+          test -n "$party_runner_token"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
             --header "X-Party-Session: $party_guest_token" \
             --data "{\"orderItemId\":\"$party_order_item_id\"}" \
             "http://127.0.0.1:5080/api/parties/public/$party_slug/orders" \
@@ -341,17 +350,80 @@ jobs:
           test -n "$party_order_id"
 
           curl --fail --silent \
+            --header "X-Party-Session: $party_runner_token" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/orders" \
+            > /tmp/party-runner-orders.json
+          test "$(jq --raw-output ".[0].id" /tmp/party-runner-orders.json)" = "$party_order_id"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "X-Party-Session: $party_runner_token" \
+            --data "{\"orderIds\":[\"$party_order_id\"]}" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/orders/claim" \
+            > /tmp/party-claim.json
+          test "$(jq --raw-output ".claimed" /tmp/party-claim.json)" = "1"
+
+          curl --fail --silent \
+            --header "X-Party-Session: $party_guest_token" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/orders" \
+            > /tmp/party-claimed-orders.json
+          test "$(jq --raw-output ".[0].claimedByGuestName" /tmp/party-claimed-orders.json)" = "CI Runner"
+
+          curl --fail --silent \
+            --request POST \
+            --header "X-Party-Session: $party_runner_token" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/orders/$party_order_id/done"
+
+          curl --fail --silent \
             --header "Authorization: Bearer $user_a_token" \
             "http://127.0.0.1:5080/api/parties/$party_id/orders" \
             > /tmp/party-orders.json
-          test "$(jq --raw-output ".[0].status" /tmp/party-orders.json)" = "Open"
+          test "$(jq --raw-output ".[0].status" /tmp/party-orders.json)" = "Done"
+          test "$(jq --raw-output ".[0].claimedByGuestName" /tmp/party-orders.json)" = "CI Runner"
 
           curl --fail --silent \
-            --request PATCH \
+            --header "X-Party-Session: $party_guest_token" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/pulse" \
+            > /tmp/party-pulse.json
+          test "$(jq --raw-output ".guestCount" /tmp/party-pulse.json)" = "2"
+
+          curl --fail --silent \
+            --header "X-Party-Session: $party_guest_token" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/feed" \
+            > /tmp/party-feed.json
+          test "$(jq length /tmp/party-feed.json)" -ge 2
+
+          curl --fail --silent \
+            --request POST \
             --header "Content-Type: application/json" \
+            --header "X-Party-Session: $party_guest_token" \
+            --data '{"song":"CI Test Song","artist":"CI Artist"}' \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/music-requests" \
+            > /tmp/party-music-request.json
+          party_music_request_id=$(jq --raw-output ".id" /tmp/party-music-request.json)
+          test "$(jq --raw-output ".voteCount" /tmp/party-music-request.json)" = "1"
+
+          curl --fail --silent \
+            --request POST \
+            --header "X-Party-Session: $party_runner_token" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/music-requests/$party_music_request_id/vote" \
+            > /tmp/party-music-vote.json
+          test "$(jq --raw-output ".voteCount" /tmp/party-music-vote.json)" = "2"
+          test "$(jq --raw-output ".hasVoted" /tmp/party-music-vote.json)" = "true"
+
+          curl --fail --silent \
+            --header "X-Party-Session: $party_runner_token" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/music-requests" \
+            > /tmp/party-music-list.json
+          test "$(jq --raw-output ".[0].id" /tmp/party-music-list.json)" = "$party_music_request_id"
+          test "$(jq --raw-output ".[0].voteCount" /tmp/party-music-list.json)" = "2"
+
+          curl --fail --silent \
             --header "Authorization: Bearer $user_a_token" \
-            --data '{"status":"Done"}' \
-            "http://127.0.0.1:5080/api/parties/$party_id/orders/$party_order_id"
+            "http://127.0.0.1:5080/api/parties/$party_id/spotify" \
+            > /tmp/party-spotify-status.json
+          test "$(jq --raw-output ".isConnected" /tmp/party-spotify-status.json)" = "false"
 
           printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' \
             | base64 --decode > /tmp/party-image.png
@@ -388,6 +460,7 @@ jobs:
             "http://127.0.0.1:5080/api/parties/$party_id" \
             > /tmp/party-disabled.json
           test "$(jq --raw-output ".isActive" /tmp/party-disabled.json)" = "false"
+          test "$(jq --raw-output ".slug" /tmp/party-disabled.json)" = "$party_slug"
 
           party_disabled_order_status=$(curl --silent \
             --output /dev/null \
@@ -661,13 +734,18 @@ jobs:
           test "$(jq length /tmp/tasks-after-delete.json)" = "0"
 
           for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:5173 > /tmp/frontend.html; then
+          if curl --fail --silent http://127.0.0.1:5173 > /tmp/frontend.html; then
               break
             fi
             sleep 1
           done
 
+          curl --fail --silent \
+            "http://127.0.0.1:5173/party/qr-deep-link-test" \
+            > /tmp/party-deep-link.html
+
           grep --quiet "Community Intranet" /tmp/frontend.html
+          grep --quiet "Community Intranet" /tmp/party-deep-link.html
           grep --quiet '"status":"Operational"' /tmp/system-info.json
           grep --quiet '"status":"Healthy"' /tmp/health.json
 

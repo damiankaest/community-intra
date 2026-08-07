@@ -209,6 +209,313 @@ body {
   font-weight: 700;
 }
 
+.party-stat {
+  display: grid;
+  min-height: 5rem;
+  place-items: center;
+  align-content: center;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 6%);
+  line-height: 1.1;
+}
+
+.party-stat strong {
+  margin-top: 0.25rem;
+  color: white;
+  font-size: 1.1rem;
+}
+
+.party-stat small {
+  margin-top: 0.15rem;
+  color: rgb(255 255 255 / 45%);
+  font-size: 0.65rem;
+}
+
+.party-live-dot,
+.party-tile-badge,
+.party-nav-badge {
+  border-radius: 999px;
+  background: #fb7185;
+  color: white;
+  font-size: 0.62rem;
+  font-weight: 900;
+}
+
+.party-live-dot {
+  padding: 0.2rem 0.45rem;
+  letter-spacing: 0.08em;
+}
+
+.party-tile-badge {
+  min-width: 1.6rem;
+  padding: 0.25rem 0.45rem;
+  text-align: center;
+}
+
+.party-confetti {
+  position: fixed;
+  z-index: 100;
+  top: 52%;
+  left: 50%;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.party-confetti span {
+  position: absolute;
+  font-size: 1.5rem;
+  animation: party-confetti-pop 1s ease-out forwards;
+}
+
+.party-confetti span:nth-child(1) { --party-x: -8rem; --party-y: -10rem; }
+.party-confetti span:nth-child(2) { --party-x: -4rem; --party-y: -12rem; }
+.party-confetti span:nth-child(3) { --party-x: 1rem; --party-y: -11rem; }
+.party-confetti span:nth-child(4) { --party-x: 5rem; --party-y: -9rem; }
+.party-confetti span:nth-child(5) { --party-x: 8rem; --party-y: -5rem; }
+.party-confetti span:nth-child(6) { --party-x: -7rem; --party-y: -5rem; }
+
+@keyframes party-confetti-pop {
+  0% { transform: translate(-50%, -50%) scale(0.3) rotate(0deg); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(var(--party-x), var(--party-y)) scale(1.2) rotate(260deg); opacity: 0; }
+}
+
+.party-claim-card {
+  display: flex;
+  min-height: 4.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 6%);
+  padding: 0.8rem;
+  color: white;
+  cursor: pointer;
+}
+
+.party-claim-card-selected {
+  border-color: rgb(52 211 153 / 55%);
+  background: rgb(52 211 153 / 12%);
+}
+
+.party-claim-check {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 10%);
+  font-weight: 900;
+}
+
+.party-upload-button {
+  display: flex;
+  min-height: 5.5rem;
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px dashed rgb(255 255 255 / 24%);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 5%);
+  color: #fde68a;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.party-upload-preview {
+  position: relative;
+  min-height: 9rem;
+  overflow: hidden;
+  border-radius: 0.9rem;
+  background: rgb(0 0 0 / 35%);
+}
+
+.party-upload-preview > img,
+.party-upload-preview > video {
+  width: 100%;
+  height: 9rem;
+  object-fit: cover;
+}
+
+.party-upload-remove {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 70%);
+  color: white;
+  cursor: pointer;
+}
+
+.party-upload-state {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(transparent, rgb(0 0 0 / 85%));
+  padding: 1.5rem 0.55rem 0.5rem;
+  color: white;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.party-upload-progress {
+  height: 0.22rem;
+  overflow: hidden;
+  margin-top: 0.3rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 20%);
+}
+
+.party-upload-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #fbbf24;
+  transition: width 150ms ease;
+}
+
+.party-upload-error {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  background: rgb(159 18 57 / 90%);
+  padding: 0.4rem;
+  color: white;
+  font-size: 0.62rem;
+}
+
+.party-spotify-result {
+  display: flex;
+  min-height: 3.8rem;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  border: 1px solid rgb(52 211 153 / 12%);
+  border-radius: 0.9rem;
+  background: rgb(255 255 255 / 5%);
+  padding: 0.45rem 0.65rem;
+  color: white;
+  cursor: pointer;
+}
+
+.party-spotify-result:active {
+  transform: scale(0.99);
+}
+
+.party-spotify-result > img,
+.party-spotify-result-placeholder {
+  width: 2.9rem;
+  height: 2.9rem;
+  flex: none;
+  border-radius: 0.65rem;
+  object-fit: cover;
+}
+
+.party-spotify-result-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(255 255 255 / 7%);
+}
+
+.party-vote-button {
+  min-width: 3.8rem;
+  min-height: 2.5rem;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 6%);
+  padding: 0.45rem 0.7rem;
+  color: rgb(255 255 255 / 65%);
+  font-size: 0.75rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.party-vote-button-active {
+  border-color: rgb(251 113 133 / 35%);
+  background: rgb(244 63 94 / 14%);
+  color: #fecdd3;
+}
+
+.party-video-placeholder {
+  display: flex;
+  width: 100%;
+  min-height: 8rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: rgb(0 0 0 / 28%);
+  color: white;
+  cursor: pointer;
+}
+
+.party-video-placeholder small {
+  color: rgb(255 255 255 / 45%);
+}
+
+.party-bottom-nav {
+  position: fixed;
+  z-index: 50;
+  bottom: 0;
+  left: 50%;
+  display: grid;
+  width: min(100%, 34rem);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  transform: translateX(-50%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-bottom: 0;
+  border-radius: 1.3rem 1.3rem 0 0;
+  background: rgb(18 16 29 / 94%);
+  padding: 0.45rem 0.35rem calc(0.45rem + env(safe-area-inset-bottom));
+  box-shadow: 0 -12px 40px rgb(0 0 0 / 30%);
+  backdrop-filter: blur(18px);
+}
+
+.party-bottom-nav button {
+  display: flex;
+  min-height: 3.4rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.22rem;
+  border: 0;
+  border-radius: 0.85rem;
+  background: transparent;
+  color: rgb(255 255 255 / 45%);
+  font-size: 0.62rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.party-bottom-nav button.party-nav-active {
+  background: rgb(251 191 36 / 12%);
+  color: #fde68a;
+}
+
+.party-nav-badge {
+  position: absolute;
+  top: -0.55rem;
+  right: -0.8rem;
+  min-width: 1.15rem;
+  padding: 0.12rem 0.28rem;
+  text-align: center;
+}
+
 .party-check {
   display: flex;
   align-items: center;

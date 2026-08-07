@@ -46,6 +46,8 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
         run: |
           set -euo pipefail
 
@@ -58,6 +60,8 @@ jobs:
             POSTGRES_PASSWORD
             JWT_SIGNING_KEY
             OPENAI_API_KEY
+            SPOTIFY_CLIENT_ID
+            SPOTIFY_CLIENT_SECRET
           )
 
           missing=false
@@ -152,6 +156,8 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
           AI_MODEL: ${{ vars.AI_MODEL || 'gpt-5.6' }}
         run: |
           set -euo pipefail
@@ -173,6 +179,8 @@ jobs:
             printf 'JWT_SIGNING_KEY=%s\n' "$JWT_SIGNING_KEY"
             printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY"
             printf 'AI_MODEL=%s\n' "$AI_MODEL"
+            printf 'SPOTIFY_CLIENT_ID=%s\n' "$SPOTIFY_CLIENT_ID"
+            printf 'SPOTIFY_CLIENT_SECRET=%s\n' "$SPOTIFY_CLIENT_SECRET"
           } > .deployment/deploy/.env.production
 
       - name: Upload deployment package

@@ -83,6 +83,8 @@ der
 | `POSTGRES_PASSWORD`       | langes zufälliges Datenbankpasswort                     |
 | `JWT_SIGNING_KEY`         | zufälliger Schlüssel mit mindestens 32 Zeichen          |
 | `OPENAI_API_KEY`          | API-Schlüssel für die serverseitige KI-Arbeitsplanung   |
+| `SPOTIFY_CLIENT_ID`       | Client-ID der Spotify Developer App                     |
+| `SPOTIFY_CLIENT_SECRET`   | Client-Secret der Spotify Developer App                 |
 
 Geeignete zufällige Werte:
 
@@ -106,9 +108,15 @@ aktiven Sitzungen ab.
 Eine Änderung von `OPENAI_API_KEY` oder `AI_MODEL` erfordert lediglich ein
 erneutes Deployment; die PostgreSQL-Daten bleiben unverändert.
 
+Für die Party-Musikfunktion muss in der Spotify Developer App zusätzlich exakt
+`https://<APP_DOMAIN>/api/parties/spotify/callback` als Redirect URI hinterlegt
+sein. Danach verbindet der Party-Admin seinen Spotify-Premium-Account direkt in
+der Party-Oberfläche. Refresh-Tokens werden serverseitig verschlüsselt gespeichert;
+Gäste erhalten weder Spotify-Zugangsdaten noch Tokens.
+
 Der Produktions-Stack persistiert zusätzlich die ASP.NET-Data-Protection-Keys
 im Volume `backend-data-protection`. Dieses Volume wird für die verschlüsselte
-Satisfactory-Serverkonfiguration benötigt und darf bei normalen Deployments
+Satisfactory-Serverkonfiguration und Spotify-Refresh-Tokens benötigt und darf bei normalen Deployments
 nicht gelöscht werden. Für die Live-Anbindung ist kein weiteres GitHub Secret
 erforderlich; Host, Port, API-Token und bestätigter Zertifikat-Fingerprint
 werden später durch einen Owner in der Intranet-Oberfläche eingetragen.

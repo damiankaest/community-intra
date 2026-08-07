@@ -19,21 +19,26 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   addPartyOrderItem,
   archiveParty,
+  connectPartySpotify,
   createParty,
   deleteAdminGuestbookEntry,
   deleteAdminPartyMedia,
   downloadAdminPartyMedia,
   getParty,
+  getPartySpotifyStatus,
   listAdminGuestbook,
   listAdminPartyMedia,
   listParties,
   listPartyGuests,
   listPartyMusic,
   listPartyOrders,
+  queuePartyMusicRequest,
+  disconnectPartySpotify,
   setPartyMusicStatus,
   setPartyOrderStatus,
   updateParty,
   updatePartyOrderItem,
+  updatePartySpotify,
   type Party,
   type PartyInput,
   type PartyMedia,
@@ -150,6 +155,12 @@ export function PartyAdminPage() {
     queryFn: () => listPartyMusic(partyId),
     enabled: Boolean(partyId),
   })
+  const spotify = useQuery({
+    queryKey: ['party-spotify', partyId],
+    queryFn: () => getPartySpotifyStatus(partyId),
+    enabled: Boolean(partyId),
+    refetchInterval: 5000,
+  })
   const invalidate = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['party', partyId] }),
@@ -174,6 +185,29 @@ export function PartyAdminPage() {
   const archiveMutation = useMutation({
     mutationFn: () => archiveParty(partyId),
     onSuccess: () => navigate('/parties', { replace: true }),
+  })
+  const connectSpotify = useMutation({
+    mutationFn: () => connectPartySpotify(partyId),
+    onSuccess: ({ authorizeUrl }) => window.location.assign(authorizeUrl),
+  })
+  const disconnectSpotify = useMutation({
+    mutationFn: () => disconnectPartySpotify(partyId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['party-spotify', partyId] }),
+  })
+  const updateSpotify = useMutation({
+    mutationFn: (autoQueue: boolean) => updatePartySpotify(partyId, autoQueue),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['party-spotify', partyId] }),
+  })
+  const queueMusic = useMutation({
+    mutationFn: (requestId: string) => queuePartyMusicRequest(partyId, requestId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['party-music', partyId] }),
+        queryClient.invalidateQueries({ queryKey: ['party-spotify', partyId] }),
+      ])
+    },
   })
 
   if (party.isPending)
@@ -262,6 +296,11 @@ export function PartyAdminPage() {
                     {order.icon} {order.itemName ?? order.customText} ·{' '}
                     {formatTime(order.createdAt)}
                   </p>
+                  {order.claimedByGuestName && (
+                    <p className="mt-1 text-xs font-semibold text-emerald-300">
+                      🏃 {order.claimedByGuestName} bringt&apos;s
+                    </p>
+                  )}
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <button
@@ -296,6 +335,91 @@ export function PartyAdminPage() {
               </p>
             )}
           </div>
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-emerald-400/20 bg-[var(--theme-surface)] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Music2 size={19} className="text-emerald-300" />
+                <h2 className="font-bold text-white">Spotify</h2>
+              </div>
+              {!spotify.data?.isConfigured ? (
+                <p className="mt-2 text-sm text-white/50">
+                  Spotify ist auf dem Server noch nicht konfiguriert.
+                </p>
+              ) : spotify.data.isConnected ? (
+                <p className="mt-2 text-sm text-emerald-200">
+                  Verbunden{spotify.data.accountName ? ` mit ${spotify.data.accountName}` : ''} ✓
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-white/55">
+                  Verbinde deinen Premium-Account. Gäste brauchen keinen Spotify-Login.
+                </p>
+              )}
+            </div>
+            {spotify.data?.isConfigured && !spotify.data.isConnected && (
+              <button
+                type="button"
+                className="party-primary"
+                disabled={connectSpotify.isPending}
+                onClick={() => connectSpotify.mutate()}
+              >
+                <Music2 size={17} /> Spotify verbinden
+              </button>
+            )}
+          </div>
+
+          {spotify.data?.isConnected && (
+            <>
+              {spotify.data.nowPlaying && (
+                <div className="mt-4 flex items-center gap-3 rounded-xl bg-emerald-400/[0.07] p-3">
+                  {spotify.data.nowPlaying.albumImageUrl && (
+                    <img
+                      src={spotify.data.nowPlaying.albumImageUrl}
+                      alt="Albumcover"
+                      className="h-14 w-14 rounded-lg object-cover"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold tracking-wide text-emerald-300 uppercase">
+                      Jetzt läuft
+                    </p>
+                    <p className="truncate text-sm font-bold text-white">
+                      {spotify.data.nowPlaying.name}
+                    </p>
+                    <p className="truncate text-xs text-white/45">
+                      {spotify.data.nowPlaying.artist}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 text-sm text-white/70">
+                  <input
+                    type="checkbox"
+                    checked={spotify.data.autoQueue}
+                    disabled={updateSpotify.isPending}
+                    onChange={(event) => updateSpotify.mutate(event.target.checked)}
+                  />
+                  Wünsche automatisch in die Spotify-Queue
+                </label>
+                <button
+                  type="button"
+                  className="text-xs font-bold text-rose-300"
+                  disabled={disconnectSpotify.isPending}
+                  onClick={() => disconnectSpotify.mutate()}
+                >
+                  Verbindung trennen
+                </button>
+              </div>
+            </>
+          )}
+          {(connectSpotify.error || disconnectSpotify.error || updateSpotify.error) && (
+            <p className="mt-3 text-sm text-rose-300">
+              {(connectSpotify.error ?? disconnectSpotify.error ?? updateSpotify.error)?.message}
+            </p>
+          )}
         </section>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -360,31 +484,57 @@ export function PartyAdminPage() {
               {music.data?.map((request) => (
                 <div
                   key={request.id}
-                  className="rounded-xl bg-white/[0.04] p-3"
+                  className="flex gap-3 rounded-xl bg-white/[0.04] p-3"
                 >
-                  <p className="text-sm font-bold text-white">
-                    {request.song}
-                    {request.artist ? ` · ${request.artist}` : ''}
-                  </p>
-                  <p className="mt-1 text-xs text-white/45">
-                    {request.guestName}
-                  </p>
-                  {request.status === 'Open' && (
-                    <button
-                      className="mt-2 text-xs font-bold text-emerald-300"
-                      onClick={async () => {
-                        await setPartyMusicStatus(partyId, request.id, 'Played')
-                        await queryClient.invalidateQueries({
-                          queryKey: ['party-music', partyId],
-                        })
-                      }}
-                    >
-                      Als gespielt markieren
-                    </button>
+                  {request.spotifyAlbumImageUrl && (
+                    <img
+                      src={request.spotifyAlbumImageUrl}
+                      alt="Albumcover"
+                      className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                    />
                   )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-white">
+                      {request.song}
+                      {request.artist ? ` · ${request.artist}` : ''}
+                    </p>
+                    <p className="mt-1 text-xs text-white/45">
+                      {request.guestName} · ❤️ {request.voteCount}
+                      {request.spotifyQueuedAt ? ' · in Spotify-Queue ✓' : ''}
+                    </p>
+                    {request.status === 'Open' && (
+                      <div className="mt-2 flex flex-wrap gap-3">
+                        {spotify.data?.isConnected &&
+                          request.spotifyUri &&
+                          !request.spotifyQueuedAt && (
+                          <button
+                            className="text-xs font-bold text-emerald-300"
+                            disabled={queueMusic.isPending}
+                            onClick={() => queueMusic.mutate(request.id)}
+                          >
+                            ▶ In Spotify-Queue
+                          </button>
+                        )}
+                        <button
+                          className="text-xs font-bold text-white/60"
+                          onClick={async () => {
+                            await setPartyMusicStatus(partyId, request.id, 'Played')
+                            await queryClient.invalidateQueries({
+                              queryKey: ['party-music', partyId],
+                            })
+                          }}
+                        >
+                          Als gespielt markieren
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
+            {queueMusic.error && (
+              <p className="mt-3 text-sm text-rose-300">{queueMusic.error.message}</p>
+            )}
           </section>
         </div>
 

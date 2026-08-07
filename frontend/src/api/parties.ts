@@ -50,13 +50,34 @@ export interface PartyOrder {
   id: string
   guestId: string
   guestName: string
+  claimedByGuestId?: string
+  claimedByGuestName?: string
   orderItemId?: string
   itemName?: string
   icon?: string
   customText?: string
   status: 'Open' | 'Done' | 'Cancelled'
   createdAt: string
+  claimedAt?: string
   completedAt?: string
+}
+
+export interface PartyPulse {
+  guestCount: number
+  openOrderCount: number
+  unclaimedOrderCount: number
+  mediaCount: number
+  openMusicRequestCount: number
+  guestbookEntryCount: number
+  topDrinkName?: string
+  topDrinkCount: number
+}
+
+export interface PartyFeedItem {
+  type: 'order' | 'claim' | 'media' | 'music' | 'guestbook'
+  emoji: string
+  text: string
+  createdAt: string
 }
 
 export interface PartyMedia {
@@ -89,6 +110,41 @@ export interface PartyMusicRequest {
   comment?: string
   status: 'Open' | 'Played' | 'Rejected'
   createdAt: string
+  spotifyTrackId?: string
+  spotifyUri?: string
+  spotifyAlbumImageUrl?: string
+  durationMs?: number
+  spotifyQueuedAt?: string
+  voteCount: number
+  hasVoted: boolean
+}
+
+export interface SpotifyTrack {
+  id: string
+  uri: string
+  name: string
+  artist: string
+  albumImageUrl?: string
+  durationMs: number
+}
+
+export interface SpotifyNowPlaying extends SpotifyTrack {
+  isPlaying: boolean
+  progressMs: number
+}
+
+export interface PartySpotifyAdminStatus {
+  isConfigured: boolean
+  isConnected: boolean
+  accountName?: string
+  autoQueue: boolean
+  nowPlaying?: SpotifyNowPlaying
+}
+
+export interface PartySpotifyPublicStatus {
+  isConnected: boolean
+  autoQueue: boolean
+  nowPlaying?: SpotifyNowPlaying
 }
 
 export interface PartyInput {
@@ -206,6 +262,37 @@ export function setPartyMusicStatus(
   )
 }
 
+export function getPartySpotifyStatus(partyId: string) {
+  return apiRequest<PartySpotifyAdminStatus>(`/api/parties/${partyId}/spotify`)
+}
+
+export function connectPartySpotify(partyId: string) {
+  return apiRequest<{ authorizeUrl: string }>(
+    `/api/parties/${partyId}/spotify/connect`,
+    { method: 'POST' },
+  )
+}
+
+export function disconnectPartySpotify(partyId: string) {
+  return apiRequest<void>(`/api/parties/${partyId}/spotify/disconnect`, {
+    method: 'POST',
+  })
+}
+
+export function updatePartySpotify(partyId: string, autoQueue: boolean) {
+  return apiRequest<void>(`/api/parties/${partyId}/spotify`, {
+    method: 'PATCH',
+    body: JSON.stringify({ autoQueue }),
+  })
+}
+
+export function queuePartyMusicRequest(partyId: string, requestId: string) {
+  return apiRequest<void>(
+    `/api/parties/${partyId}/spotify/queue/${requestId}`,
+    { method: 'POST' },
+  )
+}
+
 export function listAdminGuestbook(partyId: string) {
   return apiRequest<PartyGuestbookEntry[]>(`/api/parties/${partyId}/guestbook`)
 }
@@ -236,6 +323,10 @@ export function updatePartyGuest(slug: string, token: string, name: string) {
   })
 }
 
+export function getPartyGuest(slug: string, token: string) {
+  return guestRequest<PartyGuest>(slug, token, '/guests/me')
+}
+
 export function guestRequest<T>(
   slug: string,
   token: string,
@@ -262,23 +353,106 @@ export function createGuestOrder(
   })
 }
 
+export function listGuestOrders(slug: string, token: string) {
+  return guestRequest<PartyOrder[]>(slug, token, '/orders')
+}
+
+export function claimGuestOrders(
+  slug: string,
+  token: string,
+  orderIds: string[],
+) {
+  return guestRequest<{ claimed: number }>(slug, token, '/orders/claim', {
+    method: 'POST',
+    body: JSON.stringify({ orderIds }),
+  })
+}
+
+export function releaseGuestOrder(slug: string, token: string, orderId: string) {
+  return guestRequest<void>(slug, token, `/orders/${orderId}/release`, {
+    method: 'POST',
+  })
+}
+
+export function completeGuestOrder(slug: string, token: string, orderId: string) {
+  return guestRequest<void>(slug, token, `/orders/${orderId}/done`, {
+    method: 'POST',
+  })
+}
+
+export function cancelGuestOrder(slug: string, token: string, orderId: string) {
+  return guestRequest<void>(slug, token, `/orders/${orderId}`, {
+    method: 'DELETE',
+  })
+}
+
+export function getPartyPulse(slug: string, token: string) {
+  return guestRequest<PartyPulse>(slug, token, '/pulse')
+}
+
+export function getPartyFeed(slug: string, token: string) {
+  return guestRequest<PartyFeedItem[]>(slug, token, '/feed')
+}
+
 export function uploadGuestMedia(
   slug: string,
   token: string,
   file: File,
   caption?: string,
+  onProgress?: (progress: number) => void,
 ) {
   const form = new FormData()
   form.append('file', file)
   if (caption) form.append('caption', caption)
-  return guestRequest<PartyMedia>(slug, token, '/media', {
-    method: 'POST',
-    body: form,
+  return new Promise<PartyMedia>((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open(
+      'POST',
+      `/api/parties/public/${encodeURIComponent(slug)}/media`,
+    )
+    request.withCredentials = true
+    request.setRequestHeader('X-Party-Session', token)
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress?.(Math.round((event.loaded / event.total) * 100))
+      }
+    }
+    request.onerror = () =>
+      reject(new Error('Netzwerkfehler beim Upload. Bitte versuche es erneut.'))
+    request.onabort = () => reject(new Error('Upload wurde abgebrochen.'))
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.(100)
+        resolve(JSON.parse(request.responseText) as PartyMedia)
+        return
+      }
+      let message = 'Upload fehlgeschlagen. Bitte versuche es erneut.'
+      try {
+        const problem = JSON.parse(request.responseText) as {
+          title?: string
+          detail?: string
+          errors?: Record<string, string[]>
+        }
+        message =
+          problem.detail ??
+          Object.values(problem.errors ?? {})[0]?.[0] ??
+          problem.title ??
+          message
+      } catch {
+        // The generic message is intentionally used for non-JSON failures.
+      }
+      reject(new Error(message))
+    }
+    request.send(form)
   })
 }
 
 export function listGuestMedia(slug: string, token: string) {
   return guestRequest<PartyMedia[]>(slug, token, '/media')
+}
+
+export function listOwnGuestMedia(slug: string, token: string) {
+  return guestRequest<PartyMedia[]>(slug, token, '/media/mine')
 }
 
 export async function downloadGuestMedia(contentUrl: string, token: string) {
@@ -307,10 +481,52 @@ export function addGuestbookEntry(
 export function addMusicRequest(
   slug: string,
   token: string,
-  input: { song: string; artist?: string; comment?: string },
+  input: {
+    song: string
+    artist?: string
+    comment?: string
+    spotifyTrackId?: string
+  },
 ) {
   return guestRequest<PartyMusicRequest>(slug, token, '/music-requests', {
     method: 'POST',
     body: JSON.stringify(input),
   })
+}
+
+export function listGuestMusicRequests(slug: string, token: string) {
+  return guestRequest<PartyMusicRequest[]>(slug, token, '/music-requests')
+}
+
+export function toggleGuestMusicVote(
+  slug: string,
+  token: string,
+  requestId: string,
+) {
+  return guestRequest<{ voteCount: number; hasVoted: boolean }>(
+    slug,
+    token,
+    `/music-requests/${requestId}/vote`,
+    { method: 'POST' },
+  )
+}
+
+export function getGuestSpotifyStatus(slug: string, token: string) {
+  return guestRequest<PartySpotifyPublicStatus>(slug, token, '/spotify')
+}
+
+export function searchPartySpotify(
+  slug: string,
+  token: string,
+  query: string,
+) {
+  return guestRequest<SpotifyTrack[]>(
+    slug,
+    token,
+    `/spotify/search?q=${encodeURIComponent(query)}`,
+  )
+}
+
+export function listOwnMusicRequests(slug: string, token: string) {
+  return guestRequest<PartyMusicRequest[]>(slug, token, '/music-requests/mine')
 }

@@ -8,6 +8,7 @@ public static class PartyEndpoints
     {
         AdminPartyEndpoints.Map(endpoints);
         PublicPartyEndpoints.Map(endpoints);
+        SpotifyPartyEndpoints.Map(endpoints);
         return endpoints;
     }
 }
