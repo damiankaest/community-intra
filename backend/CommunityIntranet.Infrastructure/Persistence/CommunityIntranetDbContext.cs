@@ -105,6 +105,7 @@ public sealed class CommunityIntranetDbContext(
     public DbSet<PartyOrderItem> PartyOrderItems => Set<PartyOrderItem>();
     public DbSet<PartyOrder> PartyOrders => Set<PartyOrder>();
     public DbSet<PartyMusicRequest> PartyMusicRequests => Set<PartyMusicRequest>();
+    public DbSet<PartyMusicVote> PartyMusicVotes => Set<PartyMusicVote>();
     public DbSet<PartyGuestbookEntry> PartyGuestbookEntries => Set<PartyGuestbookEntry>();
 
     protected override void OnModelCreating(ModelBuilder builder)
