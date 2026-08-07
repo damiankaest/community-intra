@@ -22,6 +22,7 @@ import {
   listGuestbook,
   listGuestMedia,
   registerPartyGuest,
+  updatePartyGuest,
   uploadGuestMedia,
   type PartyMedia,
 } from '../api/parties'
@@ -87,8 +88,15 @@ export function PartyGuestPage() {
         <PartyHome
           partyName={party.data.name}
           name={guest.name}
+          slug={slug}
+          token={guest.token}
           welcomeText={party.data.welcomeText}
           setView={setView}
+          onRenamed={(name) => {
+            const next = { ...guest, name }
+            storeGuest(slug, next)
+            setGuest(next)
+          }}
         />
       ) : (
         <div>
@@ -208,14 +216,25 @@ function GuestWelcome({
 function PartyHome({
   partyName,
   name,
+  slug,
+  token,
   welcomeText,
   setView,
+  onRenamed,
 }: {
   partyName: string
   name: string
+  slug: string
+  token: string
   welcomeText?: string
   setView: (view: View) => void
+  onRenamed: (name: string) => void
 }) {
+  const [nextName, setNextName] = useState(name)
+  const rename = useMutation({
+    mutationFn: () => updatePartyGuest(slug, token, nextName),
+    onSuccess: (updated) => onRenamed(updated.name),
+  })
   return (
     <div className="py-5">
       <div className="text-center">
@@ -224,6 +243,31 @@ function PartyHome({
           {partyName}
         </h1>
         <p className="mt-2 text-white/75">Schön, dass du da bist, {name}!</p>
+        <details className="mx-auto mt-2 max-w-xs text-xs text-white/55">
+          <summary className="cursor-pointer">Name ändern</summary>
+          <form
+            className="mt-2 flex gap-2"
+            onSubmit={(event) => {
+              event.preventDefault()
+              rename.mutate()
+            }}
+          >
+            <input
+              className="party-input"
+              maxLength={100}
+              value={nextName}
+              onChange={(event) => setNextName(event.target.value)}
+              aria-label="Gastname"
+            />
+            <button
+              className="party-small-button"
+              disabled={!nextName.trim() || rename.isPending}
+            >
+              Speichern
+            </button>
+          </form>
+          {rename.error && <PartyError error={rename.error} />}
+        </details>
         {welcomeText && (
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-white/55">
             {welcomeText}
