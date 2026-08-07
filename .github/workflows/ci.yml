@@ -286,6 +286,119 @@ jobs:
             > /tmp/register-b.json
           user_b_token=$(jq --raw-output ".accessToken" /tmp/register-b.json)
 
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_a_token" \
+            --data '{"name":"CI Geburtstag","description":"Party smoke test","type":"Geburtstag","location":"CI Garten","startAt":"2026-08-22T17:00:00Z","endAt":"2026-08-23T00:00:00Z","welcomeText":"Schön, dass du da bist!","isActive":true,"guestsCanViewGallery":true,"guestsCanViewGuestbook":true}' \
+            http://127.0.0.1:5080/api/parties \
+            > /tmp/party.json
+          party_id=$(jq --raw-output ".id" /tmp/party.json)
+          party_slug=$(jq --raw-output ".slug" /tmp/party.json)
+          party_order_item_id=$(jq --raw-output ".orderItems[0].id" /tmp/party.json)
+          test -n "$party_id"
+          test "$party_id" != "null"
+          test "$party_slug" != "null"
+          test "$(jq ".orderItems | length" /tmp/party.json)" -ge 1
+
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/parties/$party_id" \
+            > /tmp/party-owned.json
+          test "$(jq --raw-output ".id" /tmp/party-owned.json)" = "$party_id"
+
+          party_tenant_status=$(curl --silent \
+            --output /dev/null \
+            --write-out "%{http_code}" \
+            --header "Authorization: Bearer $user_b_token" \
+            "http://127.0.0.1:5080/api/parties/$party_id")
+          test "$party_tenant_status" = "404"
+
+          party_missing_status=$(curl --silent \
+            --output /dev/null \
+            --write-out "%{http_code}" \
+            "http://127.0.0.1:5080/api/parties/public/not-a-real-party")
+          test "$party_missing_status" = "404"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --data '{"name":"CI Gast"}' \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/guests" \
+            > /tmp/party-guest.json
+          party_guest_token=$(jq --raw-output ".sessionToken" /tmp/party-guest.json)
+          test -n "$party_guest_token"
+          test "$party_guest_token" != "null"
+
+          curl --fail --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "X-Party-Session: $party_guest_token" \
+            --data "{\"orderItemId\":\"$party_order_item_id\"}" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/orders" \
+            > /tmp/party-order.json
+          party_order_id=$(jq --raw-output ".id" /tmp/party-order.json)
+          test -n "$party_order_id"
+
+          curl --fail --silent \
+            --header "Authorization: Bearer $user_a_token" \
+            "http://127.0.0.1:5080/api/parties/$party_id/orders" \
+            > /tmp/party-orders.json
+          test "$(jq --raw-output ".[0].status" /tmp/party-orders.json)" = "Open"
+
+          curl --fail --silent \
+            --request PATCH \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_a_token" \
+            --data '{"status":"Done"}' \
+            "http://127.0.0.1:5080/api/parties/$party_id/orders/$party_order_id"
+
+          printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' \
+            | base64 --decode > /tmp/party-image.png
+          curl --fail --silent \
+            --request POST \
+            --header "X-Party-Session: $party_guest_token" \
+            --form "file=@/tmp/party-image.png;type=image/png" \
+            --form "caption=CI Partyfoto" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/media" \
+            > /tmp/party-media.json
+          party_media_url=$(jq --raw-output ".contentUrl" /tmp/party-media.json)
+          test "$(jq --raw-output ".mediaType" /tmp/party-media.json)" = "image"
+          curl --fail --silent \
+            --header "X-Party-Session: $party_guest_token" \
+            "http://127.0.0.1:5080$party_media_url" \
+            > /tmp/party-media-download.png
+          test -s /tmp/party-media-download.png
+
+          printf 'MZ executable pretending to be an image' > /tmp/fake-party-image.png
+          party_bad_upload_status=$(curl --silent \
+            --output /dev/null \
+            --write-out "%{http_code}" \
+            --request POST \
+            --header "X-Party-Session: $party_guest_token" \
+            --form "file=@/tmp/fake-party-image.png;type=image/png" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/media")
+          test "$party_bad_upload_status" = "400"
+
+          curl --fail --silent \
+            --request PUT \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer $user_a_token" \
+            --data '{"name":"CI Geburtstag","description":"Party smoke test","type":"Geburtstag","location":"CI Garten","startAt":"2026-08-22T17:00:00Z","endAt":"2026-08-23T00:00:00Z","welcomeText":"Schön, dass du da bist!","isActive":false,"guestsCanViewGallery":true,"guestsCanViewGuestbook":true}' \
+            "http://127.0.0.1:5080/api/parties/$party_id" \
+            > /tmp/party-disabled.json
+          test "$(jq --raw-output ".isActive" /tmp/party-disabled.json)" = "false"
+
+          party_disabled_order_status=$(curl --silent \
+            --output /dev/null \
+            --write-out "%{http_code}" \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "X-Party-Session: $party_guest_token" \
+            --data "{\"orderItemId\":\"$party_order_item_id\"}" \
+            "http://127.0.0.1:5080/api/parties/public/$party_slug/orders")
+          test "$party_disabled_order_status" = "409"
+
           time_clock_tenant_status=$(curl --silent \
             --output /dev/null \
             --write-out "%{http_code}" \

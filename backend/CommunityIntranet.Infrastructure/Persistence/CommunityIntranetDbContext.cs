@@ -24,6 +24,8 @@ using CommunityIntranet.Modules.ThemePacks.Domain;
 using CommunityIntranet.Modules.ThemePacks.Persistence;
 using CommunityIntranet.Modules.TimeTracking.Domain;
 using CommunityIntranet.Modules.TimeTracking.Persistence;
+using CommunityIntranet.Modules.Parties.Domain;
+using CommunityIntranet.Modules.Parties.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -45,7 +47,8 @@ public sealed class CommunityIntranetDbContext(
         IAiAssistantDbContext,
         INotificationDbContext,
         ILiveOperationsDbContext,
-        ITimeTrackingDbContext
+        ITimeTrackingDbContext,
+        IPartyDbContext
 {
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
@@ -96,6 +99,14 @@ public sealed class CommunityIntranetDbContext(
 
     public DbSet<WorkLogEntry> WorkLogEntries => Set<WorkLogEntry>();
 
+    public DbSet<Party> Parties => Set<Party>();
+    public DbSet<PartyGuest> PartyGuests => Set<PartyGuest>();
+    public DbSet<PartyMedia> PartyMedia => Set<PartyMedia>();
+    public DbSet<PartyOrderItem> PartyOrderItems => Set<PartyOrderItem>();
+    public DbSet<PartyOrder> PartyOrders => Set<PartyOrder>();
+    public DbSet<PartyMusicRequest> PartyMusicRequests => Set<PartyMusicRequest>();
+    public DbSet<PartyGuestbookEntry> PartyGuestbookEntries => Set<PartyGuestbookEntry>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -113,6 +124,7 @@ public sealed class CommunityIntranetDbContext(
         builder.ApplyConfigurationsFromAssembly(typeof(MemberNotification).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(GameServerConnection).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(WorkShift).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(Party).Assembly);
 
         builder.Entity<IdentityRole<Guid>>().ToTable("roles", "identity");
         builder.Entity<IdentityUserClaim<Guid>>()
@@ -130,6 +142,11 @@ public sealed class CommunityIntranetDbContext(
             .HasOne<ApplicationUser>()
             .WithMany()
             .HasForeignKey(organization => organization.OwnerUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<Party>()
+            .HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(party => party.OwnerUserId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.Entity<OrganizationMember>()
             .HasOne<ApplicationUser>()
