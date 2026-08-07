@@ -73,13 +73,34 @@ public sealed record PartyOrderResponse(
     Guid Id,
     Guid GuestId,
     string GuestName,
+    Guid? ClaimedByGuestId,
+    string? ClaimedByGuestName,
     Guid? OrderItemId,
     string? ItemName,
     string? Icon,
     string? CustomText,
     PartyOrderStatus Status,
     DateTimeOffset CreatedAt,
+    DateTimeOffset? ClaimedAt,
     DateTimeOffset? CompletedAt);
+
+public sealed record ClaimPartyOrdersRequest(IReadOnlyList<Guid>? OrderIds);
+
+public sealed record PartyPulseResponse(
+    int GuestCount,
+    int OpenOrderCount,
+    int UnclaimedOrderCount,
+    int MediaCount,
+    int OpenMusicRequestCount,
+    int GuestbookEntryCount,
+    string? TopDrinkName,
+    int TopDrinkCount);
+
+public sealed record PartyFeedItemResponse(
+    string Type,
+    string Emoji,
+    string Text,
+    DateTimeOffset CreatedAt);
 
 public sealed record PartyMediaResponse(
     Guid Id,
