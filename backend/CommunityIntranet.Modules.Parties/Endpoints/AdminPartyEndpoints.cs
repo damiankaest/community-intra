@@ -427,8 +427,13 @@ internal static class AdminPartyEndpoints
             from request in dbContext.PartyMusicRequests.AsNoTracking()
             join guest in dbContext.PartyGuests.AsNoTracking() on request.GuestId equals guest.Id
             where request.PartyId == partyId
-            orderby request.Status, request.CreatedAt
-            select new PartyMusicResponse(request.Id, request.GuestId, guest.Name, request.Song, request.Artist, request.Comment, request.Status, request.CreatedAt))
+            let voteCount = dbContext.PartyMusicVotes.Count(vote => vote.PartyMusicRequestId == request.Id)
+            orderby request.Status, voteCount descending, request.CreatedAt
+            select new PartyMusicResponse(
+                request.Id, request.GuestId, guest.Name, request.Song, request.Artist,
+                request.Comment, request.Status, request.CreatedAt, request.SpotifyTrackId,
+                request.SpotifyUri, request.SpotifyAlbumImageUrl, request.DurationMs,
+                request.SpotifyQueuedAt, voteCount, false))
             .ToArrayAsync(cancellationToken);
         return Results.Ok(requests);
     }
