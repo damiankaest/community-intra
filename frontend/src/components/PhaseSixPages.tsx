@@ -1292,6 +1292,8 @@ function renderActivity(activity: Activity) {
       return `Schicht nach ${activity.data.elapsedMinutes ?? 'einigen'} Minuten beendet.`
     case 'time_clock.work_logged':
       return `${workLogKindLabel(activity.data.kind)}: ${activity.data.note ?? 'Fortschritt wurde festgehalten.'}`
+    case 'counter-strike.match-imported':
+      return `CS2-Match auf ${activity.data.map ?? 'unbekannter Map'} (${activity.data.score ?? '–'}) importiert – ${activity.data.highlightCount ?? '0'} Highlights erkannt.`
     default:
       return `Aktivität ${activity.activityType}`
   }

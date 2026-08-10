@@ -13,6 +13,7 @@ import {
   Check,
   Clipboard,
   Copy,
+  Crosshair,
   FolderTree,
   LogIn,
   LogOut,
@@ -26,6 +27,7 @@ import {
   Users,
 } from 'lucide-react'
 import {
+  Link,
   Navigate,
   Outlet,
   Route,
@@ -84,6 +86,16 @@ import { TimeClockPage } from './components/TimeClockPage'
 import { ThemeIcon } from './components/ThemeIcon'
 import { PartyGuestPage } from './components/PartyGuestPage'
 import { PartyAdminPage, PartyListPage } from './components/PartyAdminPage'
+import {
+  CounterStrikeApp,
+  CounterStrikeEntry,
+} from './components/CounterStrikeApp'
+import {
+  AccountPage,
+  ExternalLoginButtons,
+  ForgotPasswordPage,
+  ResetPasswordPage,
+} from './components/AuthAccountPages'
 import { applyTheme, getThemeCssVariables, resetTheme } from './theme'
 
 const currentUserKey = ['current-user'] as const
@@ -118,6 +130,32 @@ function App() {
           ) : (
             <AuthPage mode="register" />
           )
+        }
+      />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route
+        path="/account"
+        element={
+          <ProtectedRoute query={currentUser}>
+            <AccountPage user={currentUser.data!} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cs2"
+        element={
+          <ProtectedRoute query={currentUser}>
+            <CounterStrikeEntry />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cs2/:organizationId/*"
+        element={
+          <ProtectedRoute query={currentUser}>
+            <CounterStrikeApp user={currentUser.data!} />
+          </ProtectedRoute>
         }
       />
       <Route
@@ -352,6 +390,15 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const isRegister = mode === 'register'
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const location = useLocation()
+  const requestedPath = (
+    location.state as { from?: { pathname?: string; search?: string } } | null
+  )?.from
+  const returnUrl = requestedPath?.pathname
+    ? `${requestedPath.pathname}${requestedPath.search ?? ''}`
+    : '/organizations'
+  const authStatus = new URLSearchParams(location.search).get('auth')
+  const resetCompleted = new URLSearchParams(location.search).get('reset') === 'success'
   const form = useForm<RegisterInput>({
     defaultValues: {
       displayName: '',
@@ -367,7 +414,7 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       navigate(
         sessionStorage.getItem(pendingInvitationKey)
           ? '/invite'
-          : '/organizations',
+          : returnUrl,
         { replace: true },
       )
     },
@@ -398,6 +445,11 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           : 'Melde dich mit deiner E-Mail-Adresse und deinem Passwort an.'}
       </p>
 
+      {resetCompleted && <div className="auth-success"><Check /> Passwort geändert. Du kannst dich jetzt anmelden.</div>}
+      {authStatus && <div className="auth-inline-error">{externalAuthMessage(authStatus)}</div>}
+
+      {!isRegister && <ExternalLoginButtons returnUrl={returnUrl} />}
+
       <form className="mt-8 space-y-5" onSubmit={submit}>
         {isRegister && (
           <TextField
@@ -419,6 +471,17 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             required: 'Bitte gib deine E-Mail-Adresse ein.',
           })}
         />
+
+        {!isRegister && (
+          <div className="-mt-2 text-right">
+            <Link
+              className="text-sm font-semibold text-[var(--theme-primary)] hover:underline"
+              to="/forgot-password"
+            >
+              Passwort vergessen?
+            </Link>
+          </div>
+        )}
         <TextField
           label="Passwort"
           type="password"
@@ -464,6 +527,16 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       </p>
     </CenteredPanel>
   )
+}
+
+function externalAuthMessage(status: string) {
+  switch (status) {
+    case 'verified_email_required': return 'Der Anbieter hat keine bestätigte E-Mail-Adresse geliefert.'
+    case 'account_disabled': return 'Dieses Konto ist deaktiviert.'
+    case 'external_conflict':
+    case 'external_create_failed': return 'Das externe Konto konnte nicht sicher zugeordnet werden.'
+    default: return 'Die externe Anmeldung konnte nicht abgeschlossen werden.'
+  }
 }
 
 function InvitationPage({
@@ -1481,18 +1554,25 @@ function AppShell({
           </a>
           <div className="flex items-center gap-3">
             <a
+              href="/cs2"
+              className="flex h-10 items-center gap-2 rounded-xl border border-lime-300/20 bg-lime-300/10 px-3 text-xs font-bold text-lime-200 hover:bg-lime-300/15 hover:text-white"
+            >
+              <Crosshair size={16} />
+              <span className="hidden sm:inline">CouchClash CS2</span>
+            </a>
+            <a
               href="/parties"
               className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-bold text-[var(--theme-muted)] hover:text-white"
             >
               <PartyPopper size={16} />
               <span className="hidden sm:inline">Partys</span>
             </a>
-            <div className="hidden text-right sm:block">
+            <a href="/account" className="hidden text-right sm:block hover:opacity-80">
               <p className="text-sm font-semibold text-white">
                 {user.displayName}
               </p>
               <p className="text-xs text-[var(--theme-muted)]">{user.email}</p>
-            </div>
+            </a>
             <button
               type="button"
               onClick={() => logoutMutation.mutate()}
