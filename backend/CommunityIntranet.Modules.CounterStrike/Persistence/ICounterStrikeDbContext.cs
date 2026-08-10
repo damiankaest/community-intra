@@ -13,6 +13,8 @@ public interface ICounterStrikeDbContext
     DbSet<SteamIdentity> SteamIdentities { get; }
     DbSet<OrganizationMember> OrganizationMembers { get; }
     DbSet<CounterStrikeCommunitySettings> CounterStrikeCommunitySettings { get; }
+    DbSet<CounterStrikeRosterMember> CounterStrikeRosterMembers { get; }
+    DbSet<CounterStrikeClip> CounterStrikeClips { get; }
     DbSet<CounterStrikeSeason> CounterStrikeSeasons { get; }
     DbSet<CounterStrikeMatch> CounterStrikeMatches { get; }
     DbSet<CounterStrikeMatchPlayer> CounterStrikeMatchPlayers { get; }

@@ -2497,6 +2497,35 @@ button.subtask-check {
 .cs2-squad-records .losses { color: var(--cs-orange); }
 .cs2-squad-records p { margin: 8px 0 4px; color: #c2c9c7; font-size: 10px; font-weight: 800; }
 .cs2-squad-records small { color: var(--cs-muted); font-size: 9px; }
+.cs2-readiness { display: grid; grid-template-columns: minmax(220px, .7fr) 1fr; gap: 24px; margin-bottom: 18px; border: 1px solid rgb(217 255 67 / 22%); background: #111619; padding: 22px; }
+.cs2-readiness > div > span, .cs2-squad-settings span { color: var(--cs-lime); font-size: 8px; font-weight: 900; letter-spacing: .16em; }
+.cs2-readiness h2, .cs2-squad-settings h2 { margin: 5px 0 14px; font-size: 19px; }
+.cs2-readiness ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.cs2-readiness li { display: flex; align-items: center; gap: 7px; color: #65706e; font-size: 10px; font-weight: 800; }
+.cs2-readiness li svg { width: 15px; }
+.cs2-readiness li.done { color: var(--cs-lime); }
+.cs2-squad-settings { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(150px, 1fr) 110px auto; align-items: center; gap: 12px; margin-bottom: 18px; border: 1px solid var(--cs-line); background: #111619; padding: 18px; }
+.cs2-squad-settings input, .cs2-clip-upload input, .cs2-clip-upload textarea { width: 100%; border: 1px solid var(--cs-line); background: #090d0f; padding: 11px 12px; color: white; font: inherit; }
+.cs2-clip-upload { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 12px; align-items: center; border: 1px solid rgb(217 255 67 / 22%); background: #111619; padding: 20px; }
+.cs2-clip-upload > div:first-child { display: flex; grid-column: 1 / -1; align-items: center; gap: 10px; color: var(--cs-lime); }
+.cs2-clip-upload > div:first-child span { display: grid; }
+.cs2-clip-upload small { color: var(--cs-muted); }
+.cs2-clip-upload textarea { min-height: 42px; resize: vertical; }
+.cs2-clip-upload > label { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; border: 1px dashed rgb(217 255 67 / 35%); padding: 9px 12px; color: var(--cs-lime); cursor: pointer; font-size: 9px; font-weight: 900; }
+.cs2-clip-upload > label svg { width: 15px; }
+.cs2-clip-upload > .cs2-error, .cs2-clip-upload > .cs2-form-error { grid-column: 1 / -1; }
+.cs2-clip-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+.cs2-clip-grid article { overflow: hidden; border: 1px solid var(--cs-line); background: #111619; }
+.cs2-clip-grid video, .cs2-clip-loading { display: block; width: 100%; aspect-ratio: 16 / 9; background: #050708; object-fit: contain; }
+.cs2-clip-loading { display: grid; place-items: center; color: var(--cs-lime); }
+.cs2-clip-loading svg { animation: cs2-spin 1s linear infinite; }
+.cs2-clip-grid article > div:last-child { padding: 16px; }
+.cs2-clip-grid span { color: var(--cs-lime); font-size: 8px; font-weight: 900; letter-spacing: .1em; }
+.cs2-clip-grid h2 { margin: 5px 0; font-size: 18px; }
+.cs2-clip-grid p { min-height: 28px; margin: 0 0 8px; color: #b6bfbd; font-size: 10px; }
+.cs2-clip-grid small { color: var(--cs-muted); font-size: 9px; }
+.cs2-clip-grid button { float: right; display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--cs-orange); font-size: 8px; font-weight: 900; }
+.cs2-clip-grid button svg { width: 13px; }
 .cs2-utility-grid, .cs2-squad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .cs2-utility-grid > div, .cs2-squad-grid > article { border: 1px solid var(--cs-line); background: #111619; padding: 18px; }
 .cs2-map-placeholder { display: flex; height: 130px; align-items: center; justify-content: space-between; margin-bottom: 15px; background: linear-gradient(145deg, #222a2f, #0a0e10); padding: 20px; color: #576166; font-size: 25px; font-weight: 950; text-transform: uppercase; }
@@ -2793,6 +2822,10 @@ button.subtask-check {
   .cs2-squad-invite__result { grid-template-columns: 1fr; }
   .cs2-squad-invite__result code { white-space: normal; overflow-wrap: anywhere; }
   .cs2-squad-invite__result > button { width: 100%; justify-content: center; }
+  .cs2-readiness, .cs2-squad-settings, .cs2-clip-upload, .cs2-clip-grid { grid-template-columns: 1fr; }
+  .cs2-readiness ul { grid-template-columns: 1fr; }
+  .cs2-clip-upload > * { grid-column: 1 !important; }
+  .cs2-clip-upload > label, .cs2-clip-upload > button { min-height: 46px; }
   .cs2-recap-maps, .cs2-awards-grid, .cs2-profile-columns { grid-template-columns: 1fr; }
   .cs2-season-admin { align-items: stretch; flex-direction: column; }
   .cs2-season-admin input { min-width: 0; }
