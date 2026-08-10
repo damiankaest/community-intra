@@ -39,8 +39,14 @@ public static class CounterStrikeEndpoints
         group.MapGet("/recap", GetRecapAsync);
         group.MapGet("/highlights", ListHighlightsAsync);
         group.MapPost("/highlights/{highlightId:guid}/reactions", ToggleReactionAsync);
+        group.MapGet("/clips", ListClipsAsync);
+        group.MapPost("/clips", UploadClipAsync).DisableAntiforgery().RequireRateLimiting("counter-strike-upload");
+        group.MapGet("/clips/{clipId:guid}/content", GetClipContentAsync);
+        group.MapDelete("/clips/{clipId:guid}", DeleteClipAsync);
         group.MapGet("/squad", GetSquadListAsync);
         group.MapGet("/squad/overview", GetSquadOverviewAsync);
+        group.MapPut("/squad/settings", UpdateSquadSettingsAsync);
+        group.MapPut("/squad/{userId:guid}/status", UpdateRosterStatusAsync);
         group.MapGet("/squad/{userId:guid}", GetPlayerProfileAsync);
         group.MapPut("/squad/me/role", UpdateRoleAsync);
         group.MapGet("/training", GetTrainingAsync);
@@ -769,6 +775,9 @@ public static class CounterStrikeEndpoints
         var playerStats = await dbContext.CounterStrikePlayerStats.AsNoTracking()
             .Where(item => item.OrganizationId == organizationId && item.SeasonId == season.Id)
             .ToDictionaryAsync(item => item.UserId, cancellationToken);
+        var rosterStatuses = await dbContext.CounterStrikeRosterMembers.AsNoTracking()
+            .Where(item => item.OrganizationId == organizationId)
+            .ToDictionaryAsync(item => item.UserId, item => item.Status, cancellationToken);
         var players = memberRows
             .Select(member =>
             {
@@ -781,6 +790,7 @@ public static class CounterStrikeEndpoints
                     member.steamId64,
                     member.steamName,
                     member.steamAvatarUrl,
+                    rosterStatus = rosterStatuses.GetValueOrDefault(member.Id, CounterStrikeRosterStatus.Active),
                     role = stats?.Role ?? CounterStrikePlayerRole.Unset,
                     stats = stats is null ? null : new
                     {
@@ -810,9 +820,36 @@ public static class CounterStrikeEndpoints
                 && matchIds.Contains(player.MatchId))
             .ToArrayAsync(cancellationToken);
         var memberUserIds = memberRows.Select(member => member.Id).ToHashSet();
+        var settings = await dbContext.CounterStrikeCommunitySettings.AsNoTracking()
+            .SingleAsync(item => item.OrganizationId == organizationId, cancellationToken);
+        var activePlayers = players.Where(player => player.rosterStatus == CounterStrikeRosterStatus.Active).ToArray();
+        var steamConnected = activePlayers.Count(player => player.steamId64 is not null);
+        var rolesAssigned = activePlayers.Count(player => player.role != CounterStrikePlayerRole.Unset);
+        var completedDemos = matches.Length;
+        var steps = new[]
+        {
+            !string.IsNullOrWhiteSpace(settings.SquadName) && !string.IsNullOrWhiteSpace(settings.SquadTag),
+            activePlayers.Length >= 5,
+            activePlayers.Length >= 5 && steamConnected >= 5,
+            activePlayers.Length >= 5 && rolesAssigned >= 5,
+            completedDemos > 0
+        };
 
         return Results.Ok(new
         {
+            settings = new { settings.SquadName, settings.SquadTag },
+            readiness = new
+            {
+                totalMembers = players.Length,
+                activePlayers = activePlayers.Length,
+                substitutes = players.Count(player => player.rosterStatus == CounterStrikeRosterStatus.Substitute),
+                inactivePlayers = players.Count(player => player.rosterStatus == CounterStrikeRosterStatus.Inactive),
+                steamConnected,
+                rolesAssigned,
+                completedDemos,
+                completedSteps = steps.Count(done => done),
+                totalSteps = steps.Length
+            },
             players,
             summary = new
             {
@@ -824,6 +861,53 @@ public static class CounterStrikeEndpoints
                     memberUserIds)
             }
         });
+    }
+
+    private static async Task<IResult> UpdateSquadSettingsAsync(
+        Guid organizationId, UpdateSquadSettingsRequest request, ClaimsPrincipal principal,
+        ICounterStrikeDbContext dbContext, IOrganizationAccessService accessService,
+        CounterStrikeCommunityService communityService, TimeProvider timeProvider, CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(organizationId, principal, accessService, cancellationToken);
+        if (access.Result is not null) return access.Result;
+        if (!access.Membership!.PermissionRole.CanManageOrganization()) return Results.Forbid();
+        var name = request.SquadName?.Trim();
+        var tag = request.SquadTag?.Trim().ToUpperInvariant();
+        if (name is null || name.Length is < 2 or > 120) return Validation("squadName", "Der Squadname braucht 2 bis 120 Zeichen.");
+        if (tag is null || tag.Length is < 2 or > 12 || tag.Any(character => !char.IsLetterOrDigit(character) && character != '-'))
+            return Validation("squadTag", "Das Kürzel braucht 2 bis 12 Buchstaben, Zahlen oder Bindestriche.");
+        await communityService.EnsureInitializedAsync(organizationId, access.UserId, access.Membership.MemberId, cancellationToken);
+        var settings = await dbContext.CounterStrikeCommunitySettings.SingleAsync(item => item.OrganizationId == organizationId, cancellationToken);
+        settings.SquadName = name;
+        settings.SquadTag = tag;
+        settings.UpdatedAt = timeProvider.GetUtcNow();
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new { settings.SquadName, settings.SquadTag });
+    }
+
+    private static async Task<IResult> UpdateRosterStatusAsync(
+        Guid organizationId, Guid userId, UpdateRosterStatusRequest request, ClaimsPrincipal principal,
+        ICounterStrikeDbContext dbContext, IOrganizationAccessService accessService,
+        TimeProvider timeProvider, CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(organizationId, principal, accessService, cancellationToken);
+        if (access.Result is not null) return access.Result;
+        if (!access.Membership!.PermissionRole.CanManageOrganization()) return Results.Forbid();
+        if (!Enum.IsDefined(request.Status)) return Validation("status", "Dieser Kaderstatus ist ungültig.");
+        var isMember = await dbContext.OrganizationMembers.AsNoTracking()
+            .AnyAsync(item => item.OrganizationId == organizationId && item.UserId == userId && item.IsActive, cancellationToken);
+        if (!isMember) return Results.NotFound();
+        var roster = await dbContext.CounterStrikeRosterMembers.SingleOrDefaultAsync(
+            item => item.OrganizationId == organizationId && item.UserId == userId, cancellationToken);
+        if (roster is null)
+        {
+            roster = new CounterStrikeRosterMember { OrganizationId = organizationId, UserId = userId };
+            dbContext.CounterStrikeRosterMembers.Add(roster);
+        }
+        roster.Status = request.Status;
+        roster.UpdatedAt = timeProvider.GetUtcNow();
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new { roster.Status });
     }
 
     private static async Task<IResult> UpdateRoleAsync(
@@ -1287,6 +1371,96 @@ public static class CounterStrikeEndpoints
         Name = name, Description = "Konzentriert, sauber und ohne unnötige Wiederholungen.", DurationMinutes = minutes, SortOrder = order
     };
 
+    private static async Task<IResult> ListClipsAsync(
+        Guid organizationId, ClaimsPrincipal principal, ICounterStrikeDbContext dbContext,
+        IOrganizationAccessService accessService, CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(organizationId, principal, accessService, cancellationToken);
+        if (access.Result is not null) return access.Result;
+        var canManage = access.Membership!.PermissionRole.CanManageOrganization();
+        var rows = await (
+            from clip in dbContext.CounterStrikeClips.AsNoTracking()
+            join user in dbContext.Users.AsNoTracking() on clip.UploadedByUserId equals user.Id
+            where clip.OrganizationId == organizationId
+            orderby clip.CreatedAt descending
+            select new
+            {
+                clip.Id, clip.Title, clip.Description, clip.OriginalFileName, clip.MimeType,
+                clip.SizeBytes, clip.CreatedAt, uploader = user.DisplayName, user.AvatarUrl,
+                clip.UploadedByUserId
+            }).Take(100).ToArrayAsync(cancellationToken);
+        var clips = rows.Select(clip => new
+        {
+            clip.Id, clip.Title, clip.Description, clip.OriginalFileName, clip.MimeType,
+            clip.SizeBytes, clip.CreatedAt, clip.uploader, clip.AvatarUrl,
+            contentUrl = $"/api/organizations/{organizationId}/counter-strike/clips/{clip.Id}/content",
+            canDelete = canManage || clip.UploadedByUserId == access.UserId
+        });
+        return Results.Ok(clips);
+    }
+
+    private static async Task<IResult> UploadClipAsync(
+        Guid organizationId, HttpRequest request, ClaimsPrincipal principal, ICounterStrikeDbContext dbContext,
+        IOrganizationAccessService accessService, ICounterStrikeClipStorage storage,
+        TimeProvider timeProvider, CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(organizationId, principal, accessService, cancellationToken);
+        if (access.Result is not null) return access.Result;
+        if (!request.HasFormContentType) return Validation("file", "Bitte lade einen Clip als Formulardatei hoch.");
+        var form = await request.ReadFormAsync(cancellationToken);
+        var title = form["title"].ToString().Trim();
+        var description = form["description"].ToString().Trim();
+        var file = form.Files.GetFile("file");
+        if (title.Length is < 2 or > 120) return Validation("title", "Der Titel braucht 2 bis 120 Zeichen.");
+        if (description.Length > 500) return Validation("description", "Die Beschreibung darf höchstens 500 Zeichen lang sein.");
+        if (file is null) return Validation("file", "Bitte wähle einen Videoclip aus.");
+        StoredCounterStrikeClip stored;
+        try { stored = await storage.SaveAsync(organizationId, file, cancellationToken); }
+        catch (CounterStrikeUploadException exception) { return Validation(exception.Key, exception.Message); }
+        var clip = new CounterStrikeClip
+        {
+            Id = Guid.NewGuid(), OrganizationId = organizationId, UploadedByUserId = access.UserId,
+            UploadedByMemberId = access.Membership!.MemberId, Title = title,
+            Description = description.Length == 0 ? null : description, OriginalFileName = stored.OriginalFileName,
+            StoragePath = stored.Path, MimeType = stored.MimeType, SizeBytes = stored.Size,
+            CreatedAt = timeProvider.GetUtcNow()
+        };
+        dbContext.CounterStrikeClips.Add(clip);
+        try { await dbContext.SaveChangesAsync(cancellationToken); }
+        catch { storage.Delete(stored.Path); throw; }
+        return Results.Created($"/api/organizations/{organizationId}/counter-strike/clips/{clip.Id}", new { clip.Id });
+    }
+
+    private static async Task<IResult> GetClipContentAsync(
+        Guid organizationId, Guid clipId, ClaimsPrincipal principal, ICounterStrikeDbContext dbContext,
+        IOrganizationAccessService accessService, ICounterStrikeClipStorage storage, CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(organizationId, principal, accessService, cancellationToken);
+        if (access.Result is not null) return access.Result;
+        var clip = await dbContext.CounterStrikeClips.AsNoTracking().SingleOrDefaultAsync(
+            item => item.OrganizationId == organizationId && item.Id == clipId, cancellationToken);
+        if (clip is null) return Results.NotFound();
+        try { return Results.File(storage.OpenRead(clip.StoragePath), clip.MimeType, enableRangeProcessing: true); }
+        catch (FileNotFoundException) { return Results.NotFound(); }
+    }
+
+    private static async Task<IResult> DeleteClipAsync(
+        Guid organizationId, Guid clipId, ClaimsPrincipal principal, ICounterStrikeDbContext dbContext,
+        IOrganizationAccessService accessService, ICounterStrikeClipStorage storage, CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(organizationId, principal, accessService, cancellationToken);
+        if (access.Result is not null) return access.Result;
+        var clip = await dbContext.CounterStrikeClips.SingleOrDefaultAsync(
+            item => item.OrganizationId == organizationId && item.Id == clipId, cancellationToken);
+        if (clip is null) return Results.NotFound();
+        if (clip.UploadedByUserId != access.UserId && !access.Membership!.PermissionRole.CanManageOrganization())
+            return Results.Forbid();
+        dbContext.CounterStrikeClips.Remove(clip);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        storage.Delete(clip.StoragePath);
+        return Results.NoContent();
+    }
+
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [key] = [message] });
 
@@ -1321,6 +1495,8 @@ public sealed record UpdatePlayRequest(
 
 public sealed record ToggleReactionRequest(string Reaction);
 public sealed record UpdateRoleRequest(CounterStrikePlayerRole Role);
+public sealed record UpdateSquadSettingsRequest(string? SquadName, string? SquadTag);
+public sealed record UpdateRosterStatusRequest(CounterStrikeRosterStatus Status);
 public sealed record CreateSeasonRequest(string Name, DateTimeOffset? StartsAt);
 public sealed record SaveTrainingResultRequest(
     CounterStrikeTrainingKind Kind,

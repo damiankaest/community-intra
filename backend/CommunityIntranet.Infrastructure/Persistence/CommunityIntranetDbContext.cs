@@ -113,6 +113,8 @@ public sealed class CommunityIntranetDbContext(
     public DbSet<PartyMusicVote> PartyMusicVotes => Set<PartyMusicVote>();
     public DbSet<PartyGuestbookEntry> PartyGuestbookEntries => Set<PartyGuestbookEntry>();
     public DbSet<CounterStrikeCommunitySettings> CounterStrikeCommunitySettings => Set<CounterStrikeCommunitySettings>();
+    public DbSet<CounterStrikeRosterMember> CounterStrikeRosterMembers => Set<CounterStrikeRosterMember>();
+    public DbSet<CounterStrikeClip> CounterStrikeClips => Set<CounterStrikeClip>();
     public DbSet<CounterStrikeSeason> CounterStrikeSeasons => Set<CounterStrikeSeason>();
     public DbSet<CounterStrikeMatch> CounterStrikeMatches => Set<CounterStrikeMatch>();
     public DbSet<CounterStrikeMatchPlayer> CounterStrikeMatchPlayers => Set<CounterStrikeMatchPlayer>();

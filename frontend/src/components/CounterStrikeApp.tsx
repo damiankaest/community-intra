@@ -26,6 +26,7 @@ import {
   Swords,
   Target,
   Trophy,
+  Trash2,
   Upload,
   UserPlus,
   Users,
@@ -56,6 +57,9 @@ import {
   getCs2Squad,
   getCs2Training,
   getCs2Utility,
+  deleteCs2Clip,
+  fetchCs2ClipContent,
+  listCs2Clips,
   listCs2Highlights,
   listCs2Matches,
   retryCs2Match,
@@ -63,6 +67,9 @@ import {
   toggleCs2Reaction,
   updateCs2Play,
   updateCs2Role,
+  updateCs2RosterStatus,
+  updateCs2SquadSettings,
+  uploadCs2Clip,
   uploadCs2Match,
   type Cs2Availability,
   type Cs2Highlight,
@@ -80,7 +87,7 @@ const navItems = [
   { to: 'play', label: 'Play', icon: Gamepad2 },
   { to: 'matches', label: 'Matches', icon: Swords },
   { to: 'season', label: 'Season', icon: Trophy },
-  { to: 'highlights', label: 'Highlights', icon: Flame },
+  { to: 'highlights', label: 'Clips', icon: Flame },
   { to: 'training', label: 'Training', icon: Crosshair },
   { to: 'squad', label: 'Squad', icon: Users },
   { to: 'stats', label: 'Stats', icon: BarChart3 },
@@ -606,14 +613,49 @@ function LeaderboardSections({ data }: { data: Cs2Leaderboards }) {
 function Cs2Highlights() {
   const organizationId = useOrganizationId()
   const queryClient = useQueryClient()
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [file, setFile] = useState<File>()
+  const clips = useQuery({ queryKey: ['cs2-clips', organizationId], queryFn: () => listCs2Clips(organizationId) })
   const highlights = useQuery({ queryKey: ['cs2-highlights', organizationId], queryFn: () => listCs2Highlights(organizationId) })
   const reaction = useMutation({
     mutationFn: ({ id, value }: { id: string; value: string }) => toggleCs2Reaction(organizationId, id, value),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['cs2-highlights', organizationId] }),
   })
+  const upload = useMutation({
+    mutationFn: () => uploadCs2Clip(organizationId, title, description, file!),
+    onSuccess: () => {
+      setTitle(''); setDescription(''); setFile(undefined)
+      void queryClient.invalidateQueries({ queryKey: ['cs2-clips', organizationId] })
+    },
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) => deleteCs2Clip(organizationId, id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['cs2-clips', organizationId] }),
+  })
   return (
     <>
-      <PageHeader eyebrow="COMMUNITY MOMENTS" title="Highlights" text="Aces, Clutches und der Quatsch, über den ihr noch Wochen redet." />
+      <PageHeader eyebrow="COMMUNITY MOMENTS" title="Clips & Highlights" text="Jedes Mitglied kann seine besten, lustigsten oder schlimmsten CS2-Momente mit dem Squad teilen." />
+      <section className="cs2-clip-upload">
+        <div><Upload /><span><b>CLIP HOCHLADEN</b><small>MP4, WebM oder MOV · maximal 100 MB</small></span></div>
+        <input value={title} maxLength={120} placeholder="Titel des Clips" onChange={(event) => setTitle(event.target.value)} />
+        <textarea value={description} maxLength={500} placeholder="Was passiert hier? (optional)" onChange={(event) => setDescription(event.target.value)} />
+        <label><Upload /> {file?.name ?? 'VIDEO AUSWÄHLEN'}<input type="file" hidden accept="video/mp4,video/webm,video/quicktime" onChange={(event) => setFile(event.target.files?.[0])} /></label>
+        <button className="cs2-button cs2-button--primary" disabled={!file || title.trim().length < 2 || upload.isPending || (file?.size ?? 0) > 100 * 1024 * 1024} onClick={() => upload.mutate()}>
+          {upload.isPending ? 'WIRD HOCHGELADEN …' : 'MIT SQUAD TEILEN'}
+        </button>
+        {file && file.size > 100 * 1024 * 1024 && <small className="cs2-form-error">Der Clip ist größer als 100 MB.</small>}
+        {upload.error && <Cs2Error error={upload.error} />}
+      </section>
+      {clips.isPending && <Cs2Loading label="LOADING CLIP GALLERY" />}
+      <div className="cs2-clip-grid">{clips.data?.map((clip) => <article key={clip.id}>
+        <ClipVideo contentUrl={clip.contentUrl} title={clip.title} />
+        <div><span>{formatDate(clip.createdAt)} · {(clip.sizeBytes / 1024 / 1024).toFixed(1)} MB</span><h2>{clip.title}</h2><p>{clip.description || 'Ohne Kommentar. Der Clip spricht für sich.'}</p><small>von {clip.uploader}</small>
+          {clip.canDelete && <button aria-label={`${clip.title} löschen`} onClick={() => remove.mutate(clip.id)} disabled={remove.isPending}><Trash2 /> LÖSCHEN</button>}
+        </div>
+      </article>)}</div>
+      {!clips.isPending && !clips.data?.length && <div className="cs2-empty"><Upload /><b>Noch keine Clips</b><span>Lade den ersten Moment für euren Squad hoch.</span></div>}
+      <div className="cs2-section-title"><div><span>AUS DEMO-DATEN</span><h2>Erkannte Highlights</h2></div></div>
       {highlights.isPending && <Cs2Loading label="FINDING THE GOOD STUFF" />}
       {highlights.error && <Cs2Error error={highlights.error} />}
       <div className="cs2-card-grid">{highlights.data?.map((highlight) => (
@@ -621,6 +663,21 @@ function Cs2Highlights() {
       ))}</div>
     </>
   )
+}
+
+function ClipVideo({ contentUrl, title }: { contentUrl: string; title: string }) {
+  const [source, setSource] = useState('')
+  useEffect(() => {
+    let active = true
+    let objectUrl = ''
+    void fetchCs2ClipContent(contentUrl).then((blob) => {
+      if (!active) return
+      objectUrl = URL.createObjectURL(blob)
+      setSource(objectUrl)
+    })
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl) }
+  }, [contentUrl])
+  return source ? <video controls preload="metadata" src={source} aria-label={title} /> : <div className="cs2-clip-loading"><RefreshCw /></div>
 }
 
 function Cs2Training() {
@@ -697,6 +754,14 @@ function Cs2Squad({ user, canManage }: { user: CurrentUser; canManage: boolean }
     mutationFn: (value: string) => updateCs2Role(organizationId, value),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['cs2-squad', organizationId] }),
   })
+  const saveSettings = useMutation({
+    mutationFn: ({ name, tag }: { name: string; tag: string }) => updateCs2SquadSettings(organizationId, name, tag),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['cs2-squad', organizationId] }),
+  })
+  const roster = useMutation({
+    mutationFn: ({ userId, status }: { userId: string; status: string }) => updateCs2RosterStatus(organizationId, userId, status),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['cs2-squad', organizationId] }),
+  })
   const invitation = useMutation({
     mutationFn: () => createInvitation(organizationId, {
       defaultPermissionRole: 'Member',
@@ -710,9 +775,20 @@ function Cs2Squad({ user, canManage }: { user: CurrentUser; canManage: boolean }
   })
   return (
     <>
-      <PageHeader eyebrow="YOUR ROSTER" title="Squad" text="Alle Gruppenmitglieder, persönliche Bilanzen und euer gemeinsamer 5-Stack-Record." />
+      <PageHeader eyebrow={squad.data?.settings.squadTag || 'YOUR ROSTER'} title={squad.data?.settings.squadName || 'Squad'} text="Kader, Einsatzbereitschaft und euer gemeinsamer 5-Stack-Record." />
       {squad.isPending && <Cs2Loading label="ASSEMBLING SQUAD" />}
       {squad.error && <Cs2Error error={squad.error} />}
+      {squad.data && <section className="cs2-readiness">
+        <div><span>SQUAD READINESS</span><h2>{squad.data.readiness.completedSteps}/{squad.data.readiness.totalSteps} Schritte bereit</h2><div className="cs2-progress"><span style={{ width: `${squad.data.readiness.completedSteps / squad.data.readiness.totalSteps * 100}%` }} /></div></div>
+        <ul>
+          <li className={squad.data.settings.squadName && squad.data.settings.squadTag ? 'done' : ''}><Check /> Name & Kürzel</li>
+          <li className={squad.data.readiness.activePlayers >= 5 ? 'done' : ''}><Check /> 5 aktive Spieler</li>
+          <li className={squad.data.readiness.steamConnected >= 5 ? 'done' : ''}><Check /> 5× Steam verbunden</li>
+          <li className={squad.data.readiness.rolesAssigned >= 5 ? 'done' : ''}><Check /> 5 Rollen vergeben</li>
+          <li className={squad.data.readiness.completedDemos > 0 ? 'done' : ''}><Check /> Erste Demo importiert</li>
+        </ul>
+      </section>}
+      {canManage && squad.data && <form key={`${squad.data.settings.squadName}-${squad.data.settings.squadTag}`} className="cs2-squad-settings" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); saveSettings.mutate({ name: String(form.get('squadName') ?? ''), tag: String(form.get('squadTag') ?? '') }) }}><div><span>SQUAD IDENTITÄT</span><h2>Name und Kürzel</h2></div><input name="squadName" defaultValue={squad.data.settings.squadName} minLength={2} maxLength={120} required placeholder="Squadname" /><input name="squadTag" defaultValue={squad.data.settings.squadTag} minLength={2} maxLength={12} required placeholder="TAG" /><button type="submit" className="cs2-button cs2-button--primary" disabled={saveSettings.isPending}>SPEICHERN</button>{saveSettings.error && <Cs2Error error={saveSettings.error} />}</form>}
       {canManage && <section className="cs2-squad-invite">
         <div className="cs2-squad-invite__icon"><UserPlus /></div>
         <div className="cs2-squad-invite__copy">
@@ -774,6 +850,7 @@ function Cs2Squad({ user, canManage }: { user: CurrentUser; canManage: boolean }
           <span>{player.role === 'Unset' ? 'NO ROLE' : player.role.toUpperCase()}</span><h2><Link to={cs2Path(organizationId, `squad/${player.id}`)}>{player.steamName ?? player.displayName}</Link></h2><p>{player.steamId64 ? `Steam ${player.steamId64.slice(-6)}` : 'Steam noch nicht verbunden'}</p>
           {player.stats ? <div className="cs2-player-numbers"><div className="wins"><b>{player.stats.wins}W</b><small>WINS</small></div><div className="losses"><b>{player.stats.losses}L</b><small>LOSSES</small></div><div><b>{player.stats.hltvRating.toFixed(2)}</b><small>RATING</small></div><div><b>{player.stats.kd.toFixed(2)}</b><small>K/D</small></div><div><b>{player.stats.adr.toFixed(0)}</b><small>ADR</small></div></div> : <div className="cs2-no-stats">Noch kein Match zugeordnet</div>}
           {player.id === user.id && <select value={player.role} onChange={(event) => role.mutate(event.target.value)}>{['Unset', 'Igl', 'Entry', 'Rifler', 'Awper', 'Support', 'Lurker'].map((value) => <option key={value} value={value}>{value}</option>)}</select>}
+          {canManage && <select aria-label={`Kaderstatus für ${player.displayName}`} value={player.rosterStatus} onChange={(event) => roster.mutate({ userId: player.id, status: event.target.value })}>{['Active', 'Substitute', 'Inactive'].map((value) => <option key={value} value={value}>{value === 'Active' ? 'Aktiv' : value === 'Substitute' ? 'Ersatzspieler' : 'Inaktiv'}</option>)}</select>}
         </article>
       ))}</div>
     </>

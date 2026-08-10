@@ -16,6 +16,33 @@ public sealed class CounterStrikeCommunitySettingsConfiguration
     {
         builder.ToTable("community_settings", CounterStrikeConfiguration.Schema);
         builder.HasKey(settings => settings.OrganizationId);
+        builder.Property(settings => settings.SquadName).HasMaxLength(120);
+        builder.Property(settings => settings.SquadTag).HasMaxLength(12);
+    }
+}
+
+public sealed class CounterStrikeRosterMemberConfiguration : IEntityTypeConfiguration<CounterStrikeRosterMember>
+{
+    public void Configure(EntityTypeBuilder<CounterStrikeRosterMember> builder)
+    {
+        builder.ToTable("roster_members", CounterStrikeConfiguration.Schema);
+        builder.HasKey(member => new { member.OrganizationId, member.UserId });
+    }
+}
+
+public sealed class CounterStrikeClipConfiguration : IEntityTypeConfiguration<CounterStrikeClip>
+{
+    public void Configure(EntityTypeBuilder<CounterStrikeClip> builder)
+    {
+        builder.ToTable("clips", CounterStrikeConfiguration.Schema);
+        builder.HasKey(clip => clip.Id);
+        builder.HasIndex(clip => new { clip.OrganizationId, clip.CreatedAt })
+            .HasDatabaseName("IX_cs_clips_org_created");
+        builder.Property(clip => clip.Title).HasMaxLength(120).IsRequired();
+        builder.Property(clip => clip.Description).HasMaxLength(500);
+        builder.Property(clip => clip.OriginalFileName).HasMaxLength(255).IsRequired();
+        builder.Property(clip => clip.StoragePath).HasMaxLength(1000).IsRequired();
+        builder.Property(clip => clip.MimeType).HasMaxLength(80).IsRequired();
     }
 }
 

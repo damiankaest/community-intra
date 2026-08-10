@@ -26,6 +26,13 @@ public enum CounterStrikePlayerRole
     Lurker
 }
 
+public enum CounterStrikeRosterStatus
+{
+    Active,
+    Substitute,
+    Inactive
+}
+
 public enum CounterStrikeTrainingKind
 {
     Flick,
@@ -42,8 +49,33 @@ public sealed class CounterStrikeCommunitySettings
     public Guid? ActiveSeasonId { get; set; }
     public int DemoMaximumMegabytes { get; set; } = 512;
     public bool IsEnabled { get; set; } = true;
+    public string? SquadName { get; set; }
+    public string? SquadTag { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class CounterStrikeRosterMember
+{
+    public Guid OrganizationId { get; set; }
+    public Guid UserId { get; set; }
+    public CounterStrikeRosterStatus Status { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class CounterStrikeClip
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid UploadedByUserId { get; set; }
+    public Guid UploadedByMemberId { get; set; }
+    public required string Title { get; set; }
+    public string? Description { get; set; }
+    public required string OriginalFileName { get; set; }
+    public required string StoragePath { get; set; }
+    public required string MimeType { get; set; }
+    public long SizeBytes { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 }
 
 public sealed class CounterStrikeSeason

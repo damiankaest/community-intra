@@ -1,4 +1,4 @@
-import { apiRequest } from './client'
+import { apiFetch, apiRequest } from './client'
 
 export type Cs2DemoStatus = 'Uploaded' | 'Processing' | 'Completed' | 'Failed'
 export type Cs2Availability = 'Yes' | 'Maybe' | 'No'
@@ -94,6 +94,12 @@ export interface Cs2Record {
 }
 
 export interface Cs2Squad {
+  settings: { squadName?: string; squadTag?: string }
+  readiness: {
+    totalMembers: number; activePlayers: number; substitutes: number; inactivePlayers: number
+    steamConnected: number; rolesAssigned: number; completedDemos: number
+    completedSteps: number; totalSteps: number
+  }
   players: Array<{
     id: string
     displayName: string
@@ -102,6 +108,7 @@ export interface Cs2Squad {
     steamName?: string
     steamAvatarUrl?: string
     role: string
+    rosterStatus: 'Active' | 'Substitute' | 'Inactive'
     stats?: {
       matches: number
       wins: number
@@ -119,6 +126,20 @@ export interface Cs2Squad {
     playerRecord: Cs2Record
     fullSquadRecord: Cs2Record
   }
+}
+
+export interface Cs2Clip {
+  id: string
+  title: string
+  description?: string
+  originalFileName: string
+  mimeType: string
+  sizeBytes: number
+  createdAt: string
+  uploader: string
+  avatarUrl?: string
+  contentUrl: string
+  canDelete: boolean
 }
 
 export interface Cs2Leaderboards {
@@ -364,6 +385,36 @@ export const updateCs2Role = (organizationId: string, role: string) =>
     method: 'PUT',
     body: JSON.stringify({ role }),
   })
+
+export const updateCs2SquadSettings = (organizationId: string, squadName: string, squadTag: string) =>
+  apiRequest(`${base(organizationId)}/squad/settings`, {
+    method: 'PUT', body: JSON.stringify({ squadName, squadTag }),
+  })
+
+export const updateCs2RosterStatus = (organizationId: string, userId: string, status: string) =>
+  apiRequest(`${base(organizationId)}/squad/${userId}/status`, {
+    method: 'PUT', body: JSON.stringify({ status }),
+  })
+
+export const listCs2Clips = (organizationId: string) =>
+  apiRequest<Cs2Clip[]>(`${base(organizationId)}/clips`)
+
+export async function uploadCs2Clip(organizationId: string, title: string, description: string, file: File) {
+  const form = new FormData()
+  form.append('title', title)
+  form.append('description', description)
+  form.append('file', file)
+  return apiRequest<{ id: string }>(`${base(organizationId)}/clips`, { method: 'POST', body: form })
+}
+
+export const deleteCs2Clip = (organizationId: string, clipId: string) =>
+  apiRequest<void>(`${base(organizationId)}/clips/${clipId}`, { method: 'DELETE' })
+
+export async function fetchCs2ClipContent(path: string) {
+  const response = await apiFetch(path)
+  if (!response.ok) throw new Error('Clip konnte nicht geladen werden.')
+  return response.blob()
+}
 
 export const getCs2PlayerProfile = (
   organizationId: string,

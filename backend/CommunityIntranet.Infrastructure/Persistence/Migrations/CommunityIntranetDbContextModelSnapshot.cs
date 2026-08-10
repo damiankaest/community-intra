@@ -2096,6 +2096,23 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
             var settings = modelBuilder.Entity<CounterStrikeCommunitySettings>();
             settings.ToTable("community_settings", "counter_strike");
             settings.HasKey(item => item.OrganizationId);
+            settings.Property(item => item.SquadName).HasMaxLength(120);
+            settings.Property(item => item.SquadTag).HasMaxLength(12);
+
+            var rosterMembers = modelBuilder.Entity<CounterStrikeRosterMember>();
+            rosterMembers.ToTable("roster_members", "counter_strike");
+            rosterMembers.HasKey(item => new { item.OrganizationId, item.UserId });
+
+            var clips = modelBuilder.Entity<CounterStrikeClip>();
+            clips.ToTable("clips", "counter_strike");
+            clips.HasKey(item => item.Id);
+            clips.HasIndex(item => new { item.OrganizationId, item.CreatedAt })
+                .HasDatabaseName("IX_cs_clips_org_created");
+            clips.Property(item => item.Title).HasMaxLength(120).IsRequired();
+            clips.Property(item => item.Description).HasMaxLength(500);
+            clips.Property(item => item.OriginalFileName).HasMaxLength(255).IsRequired();
+            clips.Property(item => item.StoragePath).HasMaxLength(1000).IsRequired();
+            clips.Property(item => item.MimeType).HasMaxLength(80).IsRequired();
 
             var seasons = modelBuilder.Entity<CounterStrikeSeason>();
             seasons.ToTable("seasons", "counter_strike");
