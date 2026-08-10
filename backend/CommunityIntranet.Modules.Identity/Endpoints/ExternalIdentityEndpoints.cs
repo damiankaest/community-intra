@@ -5,6 +5,7 @@ using CommunityIntranet.Modules.Identity.Persistence;
 using CommunityIntranet.Modules.Identity.Security;
 using CommunityIntranet.Modules.Identity.Services;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -96,7 +97,7 @@ internal static class ExternalIdentityEndpoints
             return RedirectResult("/login", "external_error");
         }
 
-        var provider = authentication.Properties?.Items.GetValueOrDefault("provider");
+        var provider = GetProperty(authentication.Properties, "provider");
         var subject = authentication.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
         if (provider is null || !OAuthProviders.Contains(provider) || string.IsNullOrWhiteSpace(subject))
         {
@@ -104,9 +105,9 @@ internal static class ExternalIdentityEndpoints
             return RedirectResult("/login", "external_invalid");
         }
 
-        var returnUrl = SafeReturnUrl(authentication.Properties?.Items.GetValueOrDefault("return_url"));
+        var returnUrl = SafeReturnUrl(GetProperty(authentication.Properties, "return_url"));
         ApplicationUser? user;
-        if (Guid.TryParseExact(authentication.Properties?.Items.GetValueOrDefault("link_user_id"), "N", out var linkUserId))
+        if (Guid.TryParseExact(GetProperty(authentication.Properties, "link_user_id"), "N", out var linkUserId))
         {
             user = await userManager.FindByIdAsync(linkUserId.ToString());
             if (user is null)
@@ -444,6 +445,9 @@ internal static class ExternalIdentityEndpoints
         var login = logins.SingleOrDefault(item => item.LoginProvider == provider);
         return new { connected = login is not null, displayName = login?.ProviderDisplayName };
     }
+
+    private static string? GetProperty(AuthenticationProperties? properties, string key) =>
+        properties?.Items.TryGetValue(key, out var value) == true ? value : null;
 
     private static string? NormalizeProvider(string value) => value.ToLowerInvariant() switch
     {

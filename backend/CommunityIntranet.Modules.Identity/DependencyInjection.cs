@@ -7,6 +7,7 @@ using CommunityIntranet.Modules.Identity.Security;
 using CommunityIntranet.Modules.Identity.Services;
 using CommunityIntranet.Modules.Identity.Validation;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OAuth;
