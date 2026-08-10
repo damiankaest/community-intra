@@ -86,6 +86,10 @@ const navItems = [
   { to: 'stats', label: 'Stats', icon: BarChart3 },
 ] as const
 
+const mobileNavItems = navItems.filter((item) =>
+  ['', 'play', 'matches', 'training', 'squad'].includes(item.to),
+)
+
 export function CounterStrikeEntry() {
   const organizations = useQuery({
     queryKey: ['organizations'],
@@ -128,6 +132,17 @@ export function CounterStrikeApp({ user }: { user: CurrentUser }) {
     }
   }, [organizationId])
 
+  useEffect(() => {
+    if (!mobileOpen) return
+
+    const closeNavigation = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false)
+    }
+
+    window.addEventListener('keydown', closeNavigation)
+    return () => window.removeEventListener('keydown', closeNavigation)
+  }, [mobileOpen])
+
   return (
     <div className="cs2-root">
       <div className="cs2-atmosphere" />
@@ -157,16 +172,22 @@ export function CounterStrikeApp({ user }: { user: CurrentUser }) {
             <span>{user.displayName}</span>
           </Link>
           <button
+            type="button"
             className="cs2-mobile-menu"
             onClick={() => setMobileOpen((value) => !value)}
-            aria-label="Navigation öffnen"
+            aria-controls="cs2-navigation"
+            aria-expanded={mobileOpen}
+            aria-label={mobileOpen ? 'Navigation schließen' : 'Navigation öffnen'}
           >
             {mobileOpen ? <X /> : <Menu />}
           </button>
         </div>
       </header>
       <div className="cs2-layout">
-        <aside className={`cs2-sidebar ${mobileOpen ? 'is-open' : ''}`}>
+        <aside
+          id="cs2-navigation"
+          className={`cs2-sidebar ${mobileOpen ? 'is-open' : ''}`}
+        >
           <div className="cs2-community-label">
             <span>ACTIVE SQUAD</span>
             <strong>{current?.name ?? 'CouchClash'}</strong>
@@ -192,6 +213,14 @@ export function CounterStrikeApp({ user }: { user: CurrentUser }) {
             <Link to={`/organizations/${organizationId}`}>Zum Intranet</Link>
           </div>
         </aside>
+        {mobileOpen && (
+          <button
+            type="button"
+            className="cs2-sidebar-backdrop"
+            aria-label="Navigation schließen"
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
         <main className="cs2-main">
           <Routes>
             <Route index element={<Cs2Home />} />
@@ -211,6 +240,22 @@ export function CounterStrikeApp({ user }: { user: CurrentUser }) {
           </Routes>
         </main>
       </div>
+      <nav className="cs2-bottom-nav" aria-label="CS2 Hauptnavigation">
+        {mobileNavItems.map((item) => {
+          const Icon = item.icon
+          return (
+            <NavLink
+              key={item.to}
+              to={cs2Path(organizationId, item.to)}
+              end={'end' in item ? item.end : false}
+              onClick={() => setMobileOpen(false)}
+            >
+              <Icon aria-hidden="true" />
+              <span>{item.label}</span>
+            </NavLink>
+          )
+        })}
+      </nav>
     </div>
   )
 }
