@@ -1455,12 +1455,26 @@ public static class CounterStrikeEndpoints
         var form = await request.ReadFormAsync(cancellationToken);
         var title = form["title"].ToString().Trim();
         var description = form["description"].ToString().Trim();
+        var startRaw = form["startSeconds"].ToString();
+        var endRaw = form["endSeconds"].ToString();
+        var quality = form["quality"].ToString();
         var file = form.Files.GetFile("file");
         if (title.Length is < 2 or > 120) return Validation("title", "Der Titel braucht 2 bis 120 Zeichen.");
         if (description.Length > 500) return Validation("description", "Die Beschreibung darf höchstens 500 Zeichen lang sein.");
         if (file is null) return Validation("file", "Bitte wähle einen Videoclip aus.");
+        if (!double.TryParse(startRaw, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var startSeconds))
+            return Validation("trim", "Der Startpunkt ist ungültig.");
+        double? endSeconds = null;
+        if (!string.IsNullOrWhiteSpace(endRaw))
+        {
+            if (!double.TryParse(endRaw, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var parsedEnd))
+                return Validation("trim", "Der Endpunkt ist ungültig.");
+            endSeconds = parsedEnd;
+        }
         StoredCounterStrikeClip stored;
-        try { stored = await storage.SaveAsync(organizationId, file, cancellationToken); }
+        try { stored = await storage.SaveAsync(organizationId, file, startSeconds, endSeconds, quality, cancellationToken); }
         catch (CounterStrikeUploadException exception) { return Validation(exception.Key, exception.Message); }
         var clip = new CounterStrikeClip
         {

@@ -23,7 +23,7 @@ RUN dotnet publish backend/CommunityIntranet.Api/CommunityIntranet.Api.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends curl \
+    && apt-get install --yes --no-install-recommends curl ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /app/logs /app/data-protection-keys /app/party-media /app/counter-strike /app/licenses \
     && chown -R app:app /app

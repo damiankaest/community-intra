@@ -808,6 +808,13 @@ function Cs2Highlights() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [file, setFile] = useState<File>()
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [duration, setDuration] = useState(0)
+  const [startSeconds, setStartSeconds] = useState(0)
+  const [endSeconds, setEndSeconds] = useState(0)
+  const [quality, setQuality] = useState<'high' | 'balanced' | 'compact'>('balanced')
+  const previewUrlRef = useRef('')
+  const previewVideoRef = useRef<HTMLVideoElement>(null)
   const clips = useQuery({ queryKey: ['cs2-clips', organizationId], queryFn: () => listCs2Clips(organizationId) })
   const highlights = useQuery({ queryKey: ['cs2-highlights', organizationId], queryFn: () => listCs2Highlights(organizationId) })
   const reaction = useMutation({
@@ -815,12 +822,15 @@ function Cs2Highlights() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['cs2-highlights', organizationId] }),
   })
   const upload = useMutation({
-    mutationFn: () => uploadCs2Clip(organizationId, title, description, file!),
+    mutationFn: () => uploadCs2Clip(organizationId, title, description, file!, startSeconds, endSeconds, quality),
     onSuccess: () => {
-      setTitle(''); setDescription(''); setFile(undefined)
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+      previewUrlRef.current = ''
+      setTitle(''); setDescription(''); setFile(undefined); setPreviewUrl(''); setDuration(0); setStartSeconds(0); setEndSeconds(0)
       void queryClient.invalidateQueries({ queryKey: ['cs2-clips', organizationId] })
     },
   })
+  useEffect(() => () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current) }, [])
   const remove = useMutation({
     mutationFn: (id: string) => deleteCs2Clip(organizationId, id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['cs2-clips', organizationId] }),
@@ -829,14 +839,31 @@ function Cs2Highlights() {
     <>
       <PageHeader eyebrow="COMMUNITY MOMENTS" title="Clips & Highlights" text="Jedes Mitglied kann seine besten, lustigsten oder schlimmsten CS2-Momente mit dem Squad teilen." />
       <section className="cs2-clip-upload">
-        <div><Upload /><span><b>CLIP HOCHLADEN</b><small>MP4, WebM oder MOV · maximal 100 MB</small></span></div>
+        <div><Upload /><span><b>CLIP HOCHLADEN</b><small>Vorschau, Schnitt und Komprimierung · Quelle maximal 500 MB</small></span></div>
         <input value={title} maxLength={120} placeholder="Titel des Clips" onChange={(event) => setTitle(event.target.value)} />
         <textarea value={description} maxLength={500} placeholder="Was passiert hier? (optional)" onChange={(event) => setDescription(event.target.value)} />
-        <label><Upload /> {file?.name ?? 'VIDEO AUSWÄHLEN'}<input type="file" hidden accept="video/mp4,video/webm,video/quicktime" onChange={(event) => setFile(event.target.files?.[0])} /></label>
-        <button className="cs2-button cs2-button--primary" disabled={!file || title.trim().length < 2 || upload.isPending || (file?.size ?? 0) > 100 * 1024 * 1024} onClick={() => upload.mutate()}>
-          {upload.isPending ? 'WIRD HOCHGELADEN …' : 'MIT SQUAD TEILEN'}
+        <label><Upload /> {file?.name ?? 'VIDEO AUSWÄHLEN'}<input type="file" hidden accept="video/mp4,video/webm,video/quicktime" onChange={(event) => {
+          const selected = event.target.files?.[0]
+          if (!selected) return
+          if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+          const url = URL.createObjectURL(selected)
+          previewUrlRef.current = url
+          setFile(selected); setPreviewUrl(url); setDuration(0); setStartSeconds(0); setEndSeconds(0)
+        }} /></label>
+        <button className="cs2-button cs2-button--primary" disabled={!file || title.trim().length < 2 || upload.isPending || (file?.size ?? 0) > 500 * 1024 * 1024 || endSeconds <= startSeconds || endSeconds - startSeconds > 600} onClick={() => upload.mutate()}>
+          {upload.isPending ? 'WIRD GESCHNITTEN …' : 'MIT SQUAD TEILEN'}
         </button>
-        {file && file.size > 100 * 1024 * 1024 && <small className="cs2-form-error">Der Clip ist größer als 100 MB.</small>}
+        {previewUrl && <div className="cs2-clip-editor">
+          <video ref={previewVideoRef} controls src={previewUrl} onLoadedMetadata={(event) => { const value = event.currentTarget.duration; setDuration(value); setEndSeconds(value) }} />
+          <div className="cs2-clip-editor__timeline">
+            <label><span>START <b>{formatClipTime(startSeconds)}</b></span><input type="range" min={0} max={Math.max(0, endSeconds - .1)} step="0.1" value={startSeconds} onChange={(event) => { const value = Number(event.target.value); setStartSeconds(value); if (previewVideoRef.current) previewVideoRef.current.currentTime = value }} /></label>
+            <label><span>ENDE <b>{formatClipTime(endSeconds)}</b></span><input type="range" min={Math.min(duration, startSeconds + .1)} max={duration} step="0.1" value={endSeconds} onChange={(event) => { const value = Number(event.target.value); setEndSeconds(value); if (previewVideoRef.current) previewVideoRef.current.currentTime = Math.max(startSeconds, value - .3) }} /></label>
+          </div>
+          <div className="cs2-clip-editor__quality"><span>QUALITÄT</span>{([['high', '1080p', 'Beste'], ['balanced', '720p', 'Empfohlen'], ['compact', '480p', 'Klein']] as const).map(([value, resolution, label]) => <button type="button" className={quality === value ? 'active' : ''} key={value} onClick={() => setQuality(value)}><b>{resolution}</b><small>{label}</small></button>)}</div>
+          <p>Ausschnitt: <b>{formatClipTime(Math.max(0, endSeconds - startSeconds))}</b> · Ausgabe als MP4, maximal 100 MB</p>
+        </div>}
+        {file && file.size > 500 * 1024 * 1024 && <small className="cs2-form-error">Die Quelldatei ist größer als 500 MB.</small>}
+        {endSeconds - startSeconds > 600 && <small className="cs2-form-error">Bitte auf maximal zehn Minuten kürzen.</small>}
         {upload.error && <Cs2Error error={upload.error} />}
       </section>
       {clips.isPending && <Cs2Loading label="LOADING CLIP GALLERY" />}
@@ -855,6 +882,11 @@ function Cs2Highlights() {
       ))}</div>
     </>
   )
+}
+
+function formatClipTime(seconds: number) {
+  const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0
+  return `${Math.floor(safe / 60)}:${Math.floor(safe % 60).toString().padStart(2, '0')}`
 }
 
 function ClipVideo({ contentUrl, title }: { contentUrl: string; title: string }) {

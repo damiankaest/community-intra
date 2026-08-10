@@ -424,11 +424,22 @@ export const updateCs2RosterStatus = (organizationId: string, userId: string, st
 export const listCs2Clips = (organizationId: string) =>
   apiRequest<Cs2Clip[]>(`${base(organizationId)}/clips`)
 
-export async function uploadCs2Clip(organizationId: string, title: string, description: string, file: File) {
+export async function uploadCs2Clip(
+  organizationId: string,
+  title: string,
+  description: string,
+  file: File,
+  startSeconds: number,
+  endSeconds: number,
+  quality: 'high' | 'balanced' | 'compact',
+) {
   const form = new FormData()
   form.append('title', title)
   form.append('description', description)
   form.append('file', file)
+  form.append('startSeconds', startSeconds.toFixed(3))
+  form.append('endSeconds', endSeconds.toFixed(3))
+  form.append('quality', quality)
   return apiRequest<{ id: string }>(`${base(organizationId)}/clips`, { method: 'POST', body: form })
 }
 
