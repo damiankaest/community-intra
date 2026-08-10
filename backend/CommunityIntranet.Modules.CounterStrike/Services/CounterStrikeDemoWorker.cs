@@ -105,7 +105,7 @@ public sealed partial class CounterStrikeDemoWorker(
                 ? analyzerException.Code
                 : "import_failed";
             await MarkFailedAsync(matchId, failureCode, SafeMessage(exception));
-            LogImportFailed(matchId, failureCode, exception);
+            LogImportFailed(logger, matchId, failureCode, exception);
         }
     }
 
@@ -137,5 +137,9 @@ public sealed partial class CounterStrikeDemoWorker(
 
     [LoggerMessage(EventId = 4120, Level = LogLevel.Error,
         Message = "CS2 demo import {MatchId} failed with {FailureCode}")]
-    private partial void LogImportFailed(Guid matchId, string failureCode, Exception exception);
+    private static partial void LogImportFailed(
+        ILogger logger,
+        Guid matchId,
+        string failureCode,
+        Exception exception);
 }

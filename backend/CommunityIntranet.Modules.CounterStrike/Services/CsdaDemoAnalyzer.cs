@@ -69,7 +69,7 @@ public sealed partial class CsdaDemoAnalyzer(
         _ = await stdoutTask;
         if (process.ExitCode != 0)
         {
-            LogParserFailure(process.ExitCode, stopwatch.Elapsed.TotalSeconds, stderr);
+            LogParserFailure(logger, process.ExitCode, stopwatch.Elapsed.TotalSeconds, stderr);
             throw new CounterStrikeAnalyzerException(
                 "parser_failed",
                 $"CSDA konnte diese Demo nicht lesen (Exit-Code {process.ExitCode.ToString(CultureInfo.InvariantCulture)})." +
@@ -84,7 +84,7 @@ public sealed partial class CsdaDemoAnalyzer(
                 "invalid_parser_output",
                 "CSDA hat kein lesbares Match erzeugt.");
         stopwatch.Stop();
-        LogParserCompleted(stopwatch.Elapsed.TotalSeconds, match.Players.Count, match.Rounds.Count);
+        LogParserCompleted(logger, stopwatch.Elapsed.TotalSeconds, match.Players.Count, match.Rounds.Count);
         return new CounterStrikeAnalyzerResult(match, artifactPath, stopwatch.Elapsed);
     }
 
@@ -119,11 +119,19 @@ public sealed partial class CsdaDemoAnalyzer(
 
     [LoggerMessage(EventId = 4100, Level = LogLevel.Information,
         Message = "CSDA completed in {DurationSeconds:F2}s with {PlayerCount} players and {RoundCount} rounds")]
-    private partial void LogParserCompleted(double durationSeconds, int playerCount, int roundCount);
+    private static partial void LogParserCompleted(
+        ILogger logger,
+        double durationSeconds,
+        int playerCount,
+        int roundCount);
 
     [LoggerMessage(EventId = 4101, Level = LogLevel.Warning,
         Message = "CSDA failed with exit code {ExitCode} after {DurationSeconds:F2}s: {ParserDiagnostics}")]
-    private partial void LogParserFailure(int exitCode, double durationSeconds, string parserDiagnostics);
+    private static partial void LogParserFailure(
+        ILogger logger,
+        int exitCode,
+        double durationSeconds,
+        string parserDiagnostics);
 }
 
 public sealed class CounterStrikeAnalyzerException(string code, string message)

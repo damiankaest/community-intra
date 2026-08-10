@@ -148,7 +148,13 @@ public sealed partial class CounterStrikeMatchImporter(
             }));
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        LogImported(match.Id, source.Players.Count, source.Rounds.Count, candidates.Length, linkedUsers.Count);
+        LogImported(
+            logger,
+            match.Id,
+            source.Players.Count,
+            source.Rounds.Count,
+            candidates.Length,
+            linkedUsers.Count);
     }
 
     private async Task RebuildSeasonStatsAsync(
@@ -216,7 +222,13 @@ public sealed partial class CounterStrikeMatchImporter(
 
     [LoggerMessage(EventId = 4110, Level = LogLevel.Information,
         Message = "Imported CS2 match {MatchId}: {PlayerCount} players, {RoundCount} rounds, {HighlightCount} highlights, {MappedPlayerCount} linked users")]
-    private partial void LogImported(Guid matchId, int playerCount, int roundCount, int highlightCount, int mappedPlayerCount);
+    private static partial void LogImported(
+        ILogger logger,
+        Guid matchId,
+        int playerCount,
+        int roundCount,
+        int highlightCount,
+        int mappedPlayerCount);
 }
 
 public sealed class CounterStrikeAwardService(

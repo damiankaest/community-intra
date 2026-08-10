@@ -18,7 +18,7 @@ namespace CommunityIntranet.Modules.Identity.Endpoints;
 internal static class ExternalIdentityEndpoints
 {
     private const string RefreshCookieName = "community_refresh";
-    private const string ExternalCookieScheme = IdentityConstants.ExternalScheme;
+    private static readonly string ExternalCookieScheme = IdentityConstants.ExternalScheme;
     private static readonly HashSet<string> OAuthProviders = ["Google", "Discord"];
 
     internal static IEndpointRouteBuilder Map(IEndpointRouteBuilder endpoints)

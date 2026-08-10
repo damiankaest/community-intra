@@ -27,7 +27,7 @@ public sealed partial class IdentityEmailSender(
         var settings = options.Value;
         if (!settings.IsConfigured)
         {
-            LogEmailNotConfigured();
+            LogEmailNotConfigured(logger);
             return;
         }
 
@@ -49,14 +49,14 @@ public sealed partial class IdentityEmailSender(
         }
 
         await client.SendMailAsync(message, cancellationToken);
-        LogResetEmailSent();
+        LogResetEmailSent(logger);
     }
 
     [LoggerMessage(EventId = 2400, Level = LogLevel.Warning,
         Message = "Password reset requested but SMTP email is not configured")]
-    private partial void LogEmailNotConfigured();
+    private static partial void LogEmailNotConfigured(ILogger logger);
 
     [LoggerMessage(EventId = 2401, Level = LogLevel.Information,
         Message = "Password reset email sent")]
-    private partial void LogResetEmailSent();
+    private static partial void LogResetEmailSent(ILogger logger);
 }
