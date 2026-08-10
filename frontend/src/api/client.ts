@@ -1,6 +1,7 @@
 export interface ProblemDetails {
   title?: string
   detail?: string
+  message?: string
   errors?: Record<string, string[]>
 }
 
@@ -10,7 +11,10 @@ export class ApiError extends Error {
 
   constructor(status: number, problem?: ProblemDetails) {
     super(
-      problem?.detail ?? problem?.title ?? 'Die Anfrage ist fehlgeschlagen.',
+      problem?.detail ??
+        problem?.message ??
+        problem?.title ??
+        'Die Anfrage ist fehlgeschlagen.',
     )
     this.name = 'ApiError'
     this.status = status
