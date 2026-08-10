@@ -2214,6 +2214,8 @@ button.subtask-check {
   --cs-line: rgb(255 255 255 / 9%);
   --cs-muted: #899399;
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: clip;
   background: #080b0e;
   color: #f2f5ee;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
@@ -2233,6 +2235,7 @@ button.subtask-check {
 .cs2-avatar { display: grid; width: 36px; height: 36px; flex: 0 0 36px; place-items: center; border: 1px solid rgb(255 255 255 / 14%); border-radius: 50%; object-fit: cover; }
 .cs2-avatar--fallback { background: linear-gradient(145deg, #293136, #151b1e); color: var(--cs-lime); font-size: 10px; font-weight: 900; letter-spacing: .08em; }
 .cs2-mobile-menu { display: none; border: 0; background: transparent; color: white; }
+.cs2-bottom-nav, .cs2-sidebar-backdrop { display: none; }
 .cs2-layout { position: relative; display: grid; min-height: calc(100vh - 70px); grid-template-columns: 222px minmax(0, 1fr); }
 .cs2-sidebar { position: sticky; z-index: 30; top: 70px; display: flex; height: calc(100vh - 70px); flex-direction: column; border-right: 1px solid var(--cs-line); background: rgb(10 14 17 / 76%); padding: 28px 16px 20px; backdrop-filter: blur(14px); }
 .cs2-community-label { margin: 0 8px 22px; }
@@ -2603,16 +2606,108 @@ button.subtask-check {
 }
 
 @media (max-width: 720px) {
-  .cs2-topbar { height: 62px; padding: 0 15px; }
+  .cs2-root {
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
+  }
+  .cs2-root button, .cs2-root a, .cs2-root select, .cs2-root input { touch-action: manipulation; }
+  .cs2-topbar {
+    z-index: 100;
+    height: calc(58px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 12px 0;
+    background: rgb(8 11 14 / 94%);
+  }
+  .cs2-brand { gap: 9px; font-size: 14px; }
+  .cs2-brand__mark { width: 34px; height: 34px; }
+  .cs2-brand__mark svg { width: 19px; }
+  .cs2-topbar__right { gap: 4px; }
   .cs2-topbar select, .cs2-user-chip span { display: none; }
-  .cs2-mobile-menu { display: block; }
+  .cs2-user-chip, .cs2-mobile-menu { display: grid; width: 44px; height: 44px; place-items: center; }
+  .cs2-user-chip .cs2-avatar { width: 34px; height: 34px; flex-basis: 34px; }
+  .cs2-mobile-menu { padding: 0; cursor: pointer; }
+  .cs2-mobile-menu svg { width: 22px; }
   .cs2-layout { display: block; }
-  .cs2-sidebar { position: fixed; top: 62px; left: 0; width: min(82vw, 300px); height: calc(100vh - 62px); padding: 22px 15px; transform: translateX(-105%); transition: transform .2s ease; }
-  .cs2-sidebar.is-open { transform: translateX(0); }
+  .cs2-sidebar {
+    position: fixed;
+    z-index: 90;
+    top: calc(58px + env(safe-area-inset-top));
+    left: 0;
+    width: min(86vw, 320px);
+    height: calc(100dvh - 58px - env(safe-area-inset-top));
+    padding: 24px 15px calc(24px + env(safe-area-inset-bottom));
+    box-shadow: 22px 0 60px rgb(0 0 0 / 48%);
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition: transform .22s cubic-bezier(.2, .8, .2, 1), visibility .22s;
+  }
+  .cs2-sidebar.is-open { transform: translateX(0); visibility: visible; }
+  .cs2-sidebar-backdrop {
+    position: fixed;
+    z-index: 80;
+    inset: 0;
+    display: block;
+    width: 100%;
+    border: 0;
+    background: rgb(0 0 0 / 58%);
+    padding: 0;
+    backdrop-filter: blur(2px);
+  }
   .cs2-community-label, .cs2-sidebar nav a span, .cs2-sidebar__footer { display: grid; }
-  .cs2-sidebar nav a { justify-content: flex-start; }
-  .cs2-main { padding: 30px 15px 70px; }
-  .cs2-page-header h1 { font-size: 38px; }
+  .cs2-sidebar nav { gap: 6px; }
+  .cs2-sidebar nav a { min-height: 48px; justify-content: flex-start; border-radius: 10px; }
+  .cs2-bottom-nav {
+    position: fixed;
+    z-index: 70;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    height: calc(64px + env(safe-area-inset-bottom));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    border-top: 1px solid rgb(255 255 255 / 10%);
+    background: rgb(10 14 17 / 96%);
+    padding: 5px 5px env(safe-area-inset-bottom);
+    box-shadow: 0 -14px 35px rgb(0 0 0 / 30%);
+    backdrop-filter: blur(20px);
+  }
+  .cs2-bottom-nav a {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    min-height: 54px;
+    place-content: center;
+    justify-items: center;
+    gap: 4px;
+    border-radius: 11px;
+    color: #737e83;
+    font-size: 8px;
+    font-weight: 850;
+    letter-spacing: .02em;
+  }
+  .cs2-bottom-nav a::before {
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    width: 24px;
+    height: 2px;
+    border-radius: 0 0 3px 3px;
+    background: transparent;
+    content: '';
+    transform: translateX(-50%);
+  }
+  .cs2-bottom-nav a.active { background: rgb(217 255 67 / 6%); color: var(--cs-lime); }
+  .cs2-bottom-nav a.active::before { background: var(--cs-lime); box-shadow: 0 0 12px rgb(217 255 67 / 70%); }
+  .cs2-bottom-nav svg { width: 21px; height: 21px; stroke-width: 2.2; }
+  .cs2-main { padding: 25px 12px calc(88px + env(safe-area-inset-bottom)); }
+  .cs2-page-header { margin-bottom: 24px; }
+  .cs2-page-header h1 { margin-top: 8px; font-size: clamp(32px, 10vw, 40px); line-height: 1; }
+  .cs2-page-header p { margin-top: 9px; font-size: 12px; line-height: 1.5; }
+  .cs2-section-title { margin: 30px 0 13px; }
+  .cs2-section-title h2 { font-size: 19px; }
+  .cs2-scoreboard-card, .cs2-stack-card, .cs2-panel, .cs2-plan-card, .cs2-leaderboard, .cs2-match-card, .cs2-upload-card, .cs2-challenge-card, .cs2-highlight-card, .cs2-training-callout, .cs2-ready-stage, .cs2-squad-invite, .cs2-squad-records > article, .cs2-squad-grid > article, .cs2-utility-grid > div, .cs2-stat-tile, .cs2-training-modes a, .cs2-history-row > div, .cs2-match-hero, .cs2-recap-hero, .cs2-recap-maps > div, .cs2-awards-grid article, .cs2-table-wrap {
+    border-radius: 14px;
+  }
+  .cs2-scoreboard-card, .cs2-panel { padding: 19px; }
   .cs2-record { font-size: 57px; }
   .cs2-scoreboard-meta { gap: 8px; font-size: 9px; }
   .cs2-match-card { gap: 11px; padding: 12px; }
@@ -2620,17 +2715,21 @@ button.subtask-check {
   .cs2-match-card__info h3 { font-size: 16px; }
   .cs2-match-card__info p, .cs2-result-pill, .cs2-match-card > svg { display: none; }
   .cs2-match-score { min-width: 76px; font-size: 24px; }
-  .cs2-availability-buttons { grid-template-columns: 1fr; }
+  .cs2-availability-buttons { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .cs2-availability-buttons button { min-width: 0; min-height: 88px; grid-template-columns: 1fr; justify-items: center; padding: 11px 5px; text-align: center; }
+  .cs2-availability-buttons button > span { grid-row: auto; font-size: 25px; }
+  .cs2-availability-buttons button small { display: none; }
   .cs2-ready-stage { align-items: flex-start; gap: 18px; padding: 22px; }
   .cs2-ready-ring { width: 86px; height: 86px; flex-basis: 86px; border-width: 3px; padding-top: 20px; }
   .cs2-ready-ring span { font-size: 31px; }
   .cs2-ready-stage h2 { font-size: 22px; }
   .cs2-upload-card { grid-template-columns: 1fr; }
   .cs2-upload-icon { display: none; }
+  .cs2-upload-card .cs2-button, .cs2-button { min-height: 44px; }
   .cs2-card-grid, .cs2-utility-grid, .cs2-squad-grid, .cs2-squad-records, .cs2-leaderboard-grid { grid-template-columns: 1fr; }
   .cs2-squad-invite { grid-template-columns: auto 1fr; }
-  .cs2-squad-invite > label { grid-column: 1; }
-  .cs2-squad-invite > .cs2-button { grid-column: 2; }
+  .cs2-squad-invite > label, .cs2-squad-invite > .cs2-button { grid-column: 1 / -1; }
+  .cs2-squad-invite > label input { width: 100%; height: 44px; border-radius: 9px; font-size: 16px; }
   .cs2-squad-invite__result { grid-template-columns: 1fr; }
   .cs2-squad-invite__result code { white-space: normal; overflow-wrap: anywhere; }
   .cs2-squad-invite__result > button { width: 100%; justify-content: center; }
@@ -2638,16 +2737,42 @@ button.subtask-check {
   .cs2-season-admin { align-items: stretch; flex-direction: column; }
   .cs2-season-admin input { min-width: 0; }
   .cs2-match-hero { grid-template-columns: 1fr; padding: 22px; }
+  .cs2-match-hero h1 { font-size: 36px; }
   .cs2-match-hero__score { margin-top: 18px; font-size: 54px; }
+  .cs2-match-hero__teams { gap: 12px; overflow-wrap: anywhere; }
   .cs2-stat-row { grid-template-columns: repeat(2, 1fr); }
+  .cs2-stat-tile { padding: 16px; }
+  .cs2-stat-tile b { font-size: 31px; }
   .cs2-plan-steps { grid-template-columns: 1fr; }
   .cs2-plan-steps a { border-right: 0; border-top: 1px solid var(--cs-line); }
   .cs2-training-modes { grid-template-columns: repeat(2, 1fr); }
+  .cs2-training-modes a { min-height: 122px; padding: 15px; }
   .cs2-history-row { grid-template-columns: repeat(3, 1fr); }
-  .cs2-aim-tabs { overflow-x: auto; }
-  .cs2-aim-shell canvas { height: 55vh; }
+  .cs2-player-numbers { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .cs2-player-numbers > div { grid-column: span 2; }
+  .cs2-player-numbers > .wins, .cs2-player-numbers > .losses { grid-column: span 3; border-bottom: 1px solid var(--cs-line); }
+  .cs2-player-numbers b { font-size: 17px; }
+  .cs2-player-numbers small { font-size: 8px; }
+  .cs2-table-wrap { -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+  .cs2-table th, .cs2-table td { padding-block: 13px; }
+  .cs2-aim-tabs { overflow-x: auto; padding-bottom: 3px; scrollbar-width: none; }
+  .cs2-aim-tabs::-webkit-scrollbar { display: none; }
+  .cs2-aim-tabs button { min-height: 42px; flex: 0 0 auto; border-radius: 9px; }
+  .cs2-aim-shell canvas { height: 55dvh; min-height: 360px; touch-action: none; }
+  .cs2-aim-hud { gap: 8px; overflow-x: auto; }
+  .cs2-aim-hud span { white-space: nowrap; }
   .account-page { padding: 28px 15px; }
   .account-page > .account-cs2-callout { display: grid; gap: 12px; }
   .connected-account-list button { padding: 8px; }
   .connected-account-list button svg { display: none; }
+}
+
+@media (max-width: 390px) {
+  .cs2-brand em { display: none; }
+  .cs2-ready-stage { display: grid; justify-items: center; text-align: center; }
+  .cs2-ready-stage p { margin-bottom: 0; }
+  .cs2-match-card__map { display: none; }
+  .cs2-match-card__info { min-width: 0; }
+  .cs2-history-row { grid-template-columns: repeat(2, 1fr); }
+  .cs2-bottom-nav a { font-size: 7px; }
 }
