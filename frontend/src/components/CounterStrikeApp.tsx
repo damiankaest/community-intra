@@ -11,6 +11,7 @@ import {
   Activity,
   Award,
   BarChart3,
+  Building2,
   Check,
   ChevronRight,
   Clock3,
@@ -152,6 +153,13 @@ export function CounterStrikeApp({ user }: { user: CurrentUser }) {
           <span><b>COUCH</b>CLASH <em>CS2</em></span>
         </Link>
         <div className="cs2-topbar__right">
+          <Link
+            to={`/organizations/${organizationId}`}
+            className="cs2-view-switch"
+          >
+            <Building2 size={15} />
+            <span>Intranet</span>
+          </Link>
           {organizations.data && organizations.data.length > 1 && (
             <select
               aria-label="Community wechseln"
@@ -209,8 +217,14 @@ export function CounterStrikeApp({ user }: { user: CurrentUser }) {
             })}
           </nav>
           <div className="cs2-sidebar__footer">
-            <Shield size={16} /> Community-gebunden
-            <Link to={`/organizations/${organizationId}`}>Zum Intranet</Link>
+            <span><Shield size={16} /> Community-gebunden</span>
+            <Link
+              to={`/organizations/${organizationId}`}
+              className="cs2-intranet-link"
+              onClick={() => setMobileOpen(false)}
+            >
+              <Building2 size={15} /> Intranet öffnen
+            </Link>
           </div>
         </aside>
         {mobileOpen && (
