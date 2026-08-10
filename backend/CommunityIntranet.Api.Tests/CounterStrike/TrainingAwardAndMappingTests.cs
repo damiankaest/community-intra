@@ -129,6 +129,56 @@ public sealed class TrainingAwardAndMappingTests
     }
 
     [Fact]
+    public void SquadReadinessKeepsAcceptancesAboveFive()
+    {
+        var readiness = CounterStrikeSquadStatistics.BuildReadiness(accepted: 7);
+
+        Assert.True(readiness.FullStack);
+        Assert.Equal(0, readiness.Missing);
+        Assert.Equal(2, readiness.Substitutes);
+    }
+
+    [Fact]
+    public void PlayerRecordCombinesEveryMembersPersonalResults()
+    {
+        var first = Stats(matches: 3);
+        first.Wins = 2;
+        var second = Stats(matches: 2);
+
+        var record = CounterStrikeSquadStatistics.BuildPlayerRecord([first, second]);
+
+        Assert.Equal(5, record.Matches);
+        Assert.Equal(2, record.Wins);
+        Assert.Equal(3, record.Losses);
+        Assert.Equal(40, record.WinRate);
+    }
+
+    [Fact]
+    public void TeamRecordOnlyCountsMatchesWithFiveOrganizationMembers()
+    {
+        var memberIds = Enumerable.Range(0, 5).Select(_ => Guid.NewGuid()).ToArray();
+        var fullStackWin = Match(Guid.NewGuid(), 13, 8);
+        var fullStackLoss = Match(Guid.NewGuid(), 9, 13);
+        var partialStackWin = Match(Guid.NewGuid(), 13, 4);
+        var matches = new[] { fullStackWin, fullStackLoss, partialStackWin };
+        var players = memberIds
+            .Select(userId => MatchPlayer(fullStackWin.Id, userId))
+            .Concat(memberIds.Select(userId => MatchPlayer(fullStackLoss.Id, userId)))
+            .Concat(memberIds.Take(4).Select(userId => MatchPlayer(partialStackWin.Id, userId)))
+            .ToArray();
+
+        var record = CounterStrikeSquadStatistics.BuildFullSquadRecord(
+            matches,
+            players,
+            memberIds.ToHashSet());
+
+        Assert.Equal(2, record.Matches);
+        Assert.Equal(1, record.Wins);
+        Assert.Equal(1, record.Losses);
+        Assert.Equal(50, record.WinRate);
+    }
+
+    [Fact]
     public void DemoChecksumHasUniqueIndexPerOrganization()
     {
         using var dbContext = new CounterStrikeModelTestContext(
@@ -171,8 +221,13 @@ public sealed class TrainingAwardAndMappingTests
         TeamBName = "Opponent",
         TeamAScore = teamAScore,
         TeamBScore = teamBScore,
+        CommunityTeam = "A",
+        Status = CounterStrikeDemoStatus.Completed,
         UploadedAt = DateTimeOffset.UtcNow
     };
+
+    private static CounterStrikeMatchPlayer MatchPlayer(Guid matchId, Guid userId) =>
+        MatchPlayer(matchId, userId, kills: 0, deaths: 0, adr: 0);
 
     private static CounterStrikeMatchPlayer MatchPlayer(
         Guid matchId,

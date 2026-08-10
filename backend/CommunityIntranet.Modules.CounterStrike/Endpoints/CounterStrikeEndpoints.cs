@@ -39,7 +39,8 @@ public static class CounterStrikeEndpoints
         group.MapGet("/recap", GetRecapAsync);
         group.MapGet("/highlights", ListHighlightsAsync);
         group.MapPost("/highlights/{highlightId:guid}/reactions", ToggleReactionAsync);
-        group.MapGet("/squad", GetSquadAsync);
+        group.MapGet("/squad", GetSquadListAsync);
+        group.MapGet("/squad/overview", GetSquadOverviewAsync);
         group.MapGet("/squad/{userId:guid}", GetPlayerProfileAsync);
         group.MapPut("/squad/me/role", UpdateRoleAsync);
         group.MapGet("/training", GetTrainingAsync);
@@ -681,7 +682,7 @@ public static class CounterStrikeEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> GetSquadAsync(
+    private static async Task<IResult> GetSquadListAsync(
         Guid organizationId,
         ClaimsPrincipal principal,
         ICounterStrikeDbContext dbContext,
@@ -718,6 +719,8 @@ public static class CounterStrikeEndpoints
                 stats = stats == null ? null : new
                 {
                     stats.Matches,
+                    stats.Wins,
+                    losses = stats.Matches - stats.Wins,
                     kd = stats.Deaths == 0 ? stats.Kills : (double)stats.Kills / stats.Deaths,
                     stats.Adr,
                     stats.Kast,
@@ -728,6 +731,99 @@ public static class CounterStrikeEndpoints
                 }
             }).ToArrayAsync(cancellationToken);
         return Results.Ok(members);
+    }
+
+    private static async Task<IResult> GetSquadOverviewAsync(
+        Guid organizationId,
+        ClaimsPrincipal principal,
+        ICounterStrikeDbContext dbContext,
+        IOrganizationAccessService accessService,
+        CounterStrikeCommunityService communityService,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(organizationId, principal, accessService, cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+        var season = await communityService.EnsureInitializedAsync(
+            organizationId,
+            access.UserId,
+            access.Membership!.MemberId,
+            cancellationToken);
+        var memberRows = await (
+            from member in dbContext.OrganizationMembers.AsNoTracking()
+            join user in dbContext.Users.AsNoTracking() on member.UserId equals user.Id
+            join steam in dbContext.SteamIdentities.AsNoTracking() on user.Id equals steam.UserId into steamLinks
+            from steam in steamLinks.DefaultIfEmpty()
+            where member.OrganizationId == organizationId && member.IsActive
+            select new
+            {
+                user.Id,
+                user.DisplayName,
+                user.AvatarUrl,
+                steamId64 = steam == null ? null : steam.SteamId64,
+                steamName = steam == null ? null : steam.DisplayName,
+                steamAvatarUrl = steam == null ? null : steam.AvatarUrl
+            }).ToArrayAsync(cancellationToken);
+        var playerStats = await dbContext.CounterStrikePlayerStats.AsNoTracking()
+            .Where(item => item.OrganizationId == organizationId && item.SeasonId == season.Id)
+            .ToDictionaryAsync(item => item.UserId, cancellationToken);
+        var players = memberRows
+            .Select(member =>
+            {
+                playerStats.TryGetValue(member.Id, out var stats);
+                return new
+                {
+                    member.Id,
+                    member.DisplayName,
+                    member.AvatarUrl,
+                    member.steamId64,
+                    member.steamName,
+                    member.steamAvatarUrl,
+                    role = stats?.Role ?? CounterStrikePlayerRole.Unset,
+                    stats = stats is null ? null : new
+                    {
+                        stats.Matches,
+                        stats.Wins,
+                        losses = stats.Matches - stats.Wins,
+                        kd = stats.Deaths == 0 ? stats.Kills : (double)stats.Kills / stats.Deaths,
+                        stats.Adr,
+                        stats.Kast,
+                        stats.HeadshotPercent,
+                        stats.HltvRating,
+                        stats.Aces,
+                        stats.ClutchesWon
+                    }
+                };
+            })
+            .OrderByDescending(player => player.stats?.HltvRating ?? 0)
+            .ToArray();
+        var matches = await dbContext.CounterStrikeMatches.AsNoTracking()
+            .Where(match => match.OrganizationId == organizationId
+                && match.SeasonId == season.Id
+                && match.Status == CounterStrikeDemoStatus.Completed)
+            .ToArrayAsync(cancellationToken);
+        var matchIds = matches.Select(match => match.Id).ToArray();
+        var matchPlayers = await dbContext.CounterStrikeMatchPlayers.AsNoTracking()
+            .Where(player => player.OrganizationId == organizationId
+                && matchIds.Contains(player.MatchId))
+            .ToArrayAsync(cancellationToken);
+        var memberUserIds = memberRows.Select(member => member.Id).ToHashSet();
+
+        return Results.Ok(new
+        {
+            players,
+            summary = new
+            {
+                playerRecord = CounterStrikeSquadStatistics.BuildPlayerRecord(
+                    playerStats.Values.Where(stats => memberUserIds.Contains(stats.UserId))),
+                fullSquadRecord = CounterStrikeSquadStatistics.BuildFullSquadRecord(
+                    matches,
+                    matchPlayers,
+                    memberUserIds)
+            }
+        });
     }
 
     private static async Task<IResult> UpdateRoleAsync(
@@ -1050,7 +1146,18 @@ public static class CounterStrikeEndpoints
             .OrderByDescending(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
         if (session is null)
         {
-            return new { sessionId = (Guid?)null, plannedStart = (TimeOnly?)null, yes = 0, maybe = 0, missing = 5, fullStack = false, mine = (CounterStrikeAvailability?)null, participants = Array.Empty<object>() };
+            return new
+            {
+                sessionId = (Guid?)null,
+                plannedStart = (TimeOnly?)null,
+                yes = 0,
+                maybe = 0,
+                missing = 5,
+                substitutes = 0,
+                fullStack = false,
+                mine = (CounterStrikeAvailability?)null,
+                participants = Array.Empty<object>()
+            };
         }
         var participants = await (
             from participant in dbContext.CounterStrikeGameSessionParticipants.AsNoTracking()
@@ -1060,11 +1167,12 @@ public static class CounterStrikeEndpoints
             select new { participant.UserId, user.DisplayName, user.AvatarUrl, participant.Availability, participant.AvailableFrom })
             .ToArrayAsync(cancellationToken);
         var yes = participants.Count(item => item.Availability == CounterStrikeAvailability.Yes);
+        var readiness = CounterStrikeSquadStatistics.BuildReadiness(yes);
         return new
         {
             sessionId = (Guid?)session.Id, session.PlannedStart, yes,
             maybe = participants.Count(item => item.Availability == CounterStrikeAvailability.Maybe),
-            missing = Math.Max(0, 5 - yes), fullStack = yes >= 5,
+            readiness.Missing, readiness.Substitutes, readiness.FullStack,
             mine = participants.FirstOrDefault(item => item.UserId == userId)?.Availability,
             participants
         };
