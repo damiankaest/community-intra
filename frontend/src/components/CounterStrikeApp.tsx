@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type DragEvent,
   type ReactNode,
 } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -11,14 +12,18 @@ import {
   Activity,
   Award,
   BarChart3,
+  Building2,
   Check,
   ChevronRight,
   Clock3,
+  CloudUpload,
   Copy,
   Crosshair,
+  FileCheck2,
   Flame,
   Gamepad2,
   Home,
+  Link2,
   Menu,
   RefreshCw,
   Shield,
@@ -42,7 +47,7 @@ import {
   useParams,
   useSearchParams,
 } from 'react-router-dom'
-import type { CurrentUser } from '../api/auth'
+import { createConnectedAccountLink, type CurrentUser } from '../api/auth'
 import {
   closeCs2Season,
   createCs2Season,
@@ -55,6 +60,7 @@ import {
   getCs2Recap,
   getCs2Season,
   getCs2Squad,
+  getCs2SyncStatus,
   getCs2Training,
   getCs2Utility,
   deleteCs2Clip,
@@ -81,6 +87,11 @@ import { listOrganizations } from '../api/organizations'
 import { createInvitation } from '../api/members'
 import { ApiError } from '../api/client'
 import { cs2InvitationLink, cs2Path } from './counterStrikeRoutes'
+import {
+  demoFileKey,
+  formatDemoSize,
+  mergeDemoFiles,
+} from './counterStrikeImports'
 
 const navItems = [
   { to: '', label: 'Home', icon: Home, end: true },
@@ -159,6 +170,13 @@ export function CounterStrikeApp({ user }: { user: CurrentUser }) {
           <span><b>COUCH</b>CLASH <em>CS2</em></span>
         </Link>
         <div className="cs2-topbar__right">
+          <Link
+            to={`/organizations/${organizationId}`}
+            className="cs2-view-switch"
+          >
+            <Building2 size={15} />
+            <span>Intranet</span>
+          </Link>
           {organizations.data && organizations.data.length > 1 && (
             <select
               aria-label="Community wechseln"
@@ -216,8 +234,14 @@ export function CounterStrikeApp({ user }: { user: CurrentUser }) {
             })}
           </nav>
           <div className="cs2-sidebar__footer">
-            <Shield size={16} /> Community-gebunden
-            <Link to={`/organizations/${organizationId}`}>Zum Intranet</Link>
+            <span><Shield size={16} /> Community-gebunden</span>
+            <Link
+              to={`/organizations/${organizationId}`}
+              className="cs2-intranet-link"
+              onClick={() => setMobileOpen(false)}
+            >
+              <Building2 size={15} /> Intranet öffnen
+            </Link>
           </div>
         </aside>
         {mobileOpen && (
@@ -434,7 +458,19 @@ function Cs2Play() {
 function Cs2Matches() {
   const organizationId = useOrganizationId()
   const queryClient = useQueryClient()
-  const [file, setFile] = useState<File>()
+  const [files, setFiles] = useState<File[]>([])
+  const [fileErrors, setFileErrors] = useState<Record<string, string>>({})
+  const [selectionNotice, setSelectionNotice] = useState<string>()
+  const [uploadingKey, setUploadingKey] = useState<string>()
+  const [isDragging, setIsDragging] = useState(false)
+  const sync = useQuery({
+    queryKey: ['cs2-sync', organizationId],
+    queryFn: () => getCs2SyncStatus(organizationId),
+    refetchInterval: (query) => {
+      const imports = query.state.data?.imports
+      return imports && imports.queued + imports.processing > 0 ? 3_000 : false
+    },
+  })
   const matches = useQuery({
     queryKey: ['cs2-matches', organizationId],
     queryFn: () => listCs2Matches(organizationId),
@@ -442,31 +478,186 @@ function Cs2Matches() {
       query.state.data?.some((item) => item.status === 'Uploaded' || item.status === 'Processing') ? 3_000 : false,
   })
   const upload = useMutation({
-    mutationFn: (demo: File) => uploadCs2Match(organizationId, demo),
-    onSuccess: () => {
-      setFile(undefined)
+    mutationFn: async (demos: File[]) => {
+      const imported: string[] = []
+
+      for (const demo of demos) {
+        const key = demoFileKey(demo)
+        setUploadingKey(key)
+        setFileErrors((current) => {
+          const next = { ...current }
+          delete next[key]
+          return next
+        })
+
+        try {
+          await uploadCs2Match(organizationId, demo)
+          imported.push(key)
+        } catch (error) {
+          setFileErrors((current) => ({
+            ...current,
+            [key]: errorMessage(error),
+          }))
+        }
+      }
+
+      return imported
+    },
+    onSuccess: (imported) => {
+      setFiles((current) =>
+        current.filter((demo) => !imported.includes(demoFileKey(demo))),
+      )
       void queryClient.invalidateQueries({ queryKey: ['cs2-matches', organizationId] })
+      void queryClient.invalidateQueries({ queryKey: ['cs2-sync', organizationId] })
+    },
+    onSettled: () => {
+      setUploadingKey(undefined)
+    },
+  })
+  const connectSteam = useMutation({
+    mutationFn: () =>
+      createConnectedAccountLink(
+        'steam',
+        cs2Path(organizationId, 'matches'),
+      ),
+    onSuccess: ({ url }) => {
+      window.location.href = url
     },
   })
   const retry = useMutation({
     mutationFn: (matchId: string) => retryCs2Match(organizationId, matchId),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['cs2-matches', organizationId] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['cs2-matches', organizationId] })
+      void queryClient.invalidateQueries({ queryKey: ['cs2-sync', organizationId] })
+    },
   })
-  const chooseFile = (event: ChangeEvent<HTMLInputElement>) => setFile(event.target.files?.[0])
+
+  const addFiles = (candidates: Iterable<File>) => {
+    const selection = mergeDemoFiles(files, candidates)
+    setFiles(selection.files)
+
+    if (selection.rejectedCount > 0) {
+      setSelectionNotice('Es werden ausschließlich gültige .dem-Dateien angenommen.')
+    } else if (selection.duplicateCount > 0) {
+      setSelectionNotice('Diese Demo befindet sich bereits in der Warteschlange.')
+    } else {
+      setSelectionNotice(undefined)
+    }
+  }
+  const chooseFile = (event: ChangeEvent<HTMLInputElement>) => {
+    addFiles(event.target.files ?? [])
+    event.target.value = ''
+  }
+  const dropFiles = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault()
+    setIsDragging(false)
+    if (!upload.isPending) addFiles(event.dataTransfer.files)
+  }
+  const removeFile = (file: File) => {
+    const key = demoFileKey(file)
+    setFiles((current) => current.filter((item) => demoFileKey(item) !== key))
+    setFileErrors((current) => {
+      const next = { ...current }
+      delete next[key]
+      return next
+    })
+  }
+  const imports = sync.data?.imports
+  const steam = sync.data?.steam
+  const lastSync = imports?.lastCompletedAt ?? imports?.lastImportedAt
+
   return (
     <>
-      <PageHeader eyebrow="MATCH ARCHIVE" title="Matches" text="Demo rein. Story, Stats und Highlights raus." />
-      <section className="cs2-upload-card">
-        <div className="cs2-upload-icon"><Upload /></div>
-        <div><span>CS2 DEMO IMPORT</span><h2>{file?.name ?? '.dem hier auswählen'}</h2><p>Asynchron, per SHA-256 dedupliziert und außerhalb des Webroots verarbeitet.</p></div>
-        <label className="cs2-button cs2-button--ghost">
-          Datei wählen<input type="file" accept=".dem,application/octet-stream" onChange={chooseFile} hidden />
-        </label>
-        <button className="cs2-button cs2-button--primary" disabled={!file || upload.isPending} onClick={() => file && upload.mutate(file)}>
-          {upload.isPending ? 'UPLOAD …' : 'ANALYSE STARTEN'}
-        </button>
+      <PageHeader eyebrow="MATCH SYNC" title="Match Inbox" text="Neue Demos einsammeln, automatisch zuordnen und direkt auswerten." />
+      <section className="cs2-sync-assistant">
+        <div className="cs2-sync-assistant__head">
+          <div><span>SYNC ASSISTANT</span><h2>Deine Match-Pipeline</h2><p>Heute per Demo-Import. Bereit für spätere Match-Sharing- und Desktop-Connectoren.</p></div>
+          <span className={`cs2-sync-state ${imports && imports.queued + imports.processing > 0 ? 'is-running' : ''}`}>
+            {imports && imports.queued + imports.processing > 0 ? 'SYNC LÄUFT' : 'BEREIT'}
+          </span>
+        </div>
+        <div className="cs2-sync-cards">
+          <article className={steam?.connected ? 'is-connected' : 'needs-action'}>
+            <div className="cs2-sync-card__icon">
+              {steam?.avatarUrl ? <img src={steam.avatarUrl} alt="" /> : <Link2 />}
+            </div>
+            <div><span>STEAM IDENTITY</span><h3>{sync.isPending ? 'Wird geprüft …' : steam?.connected ? steam.displayName ?? 'Steam verbunden' : 'Noch nicht verbunden'}</h3><p>{steam?.connected ? 'Deine Stats werden dir in importierten Demos zugeordnet.' : 'Verbinde Steam, damit CouchClash dich in Demos erkennt.'}</p></div>
+            {!sync.isPending && !steam?.connected && (
+              <button type="button" onClick={() => connectSteam.mutate()} disabled={connectSteam.isPending}>
+                {connectSteam.isPending ? 'ÖFFNET …' : 'STEAM VERBINDEN'}
+              </button>
+            )}
+          </article>
+          <article>
+            <div className="cs2-sync-card__icon"><FileCheck2 /></div>
+            <div><span>IMPORT ENGINE</span><h3>{imports?.completed ?? 0} ausgewertet</h3><p>SHA-256-Duplikatschutz · sichere Hintergrundanalyse</p></div>
+          </article>
+          <article>
+            <div className="cs2-sync-card__icon"><RefreshCw /></div>
+            <div><span>LETZTER SYNC</span><h3>{lastSync ? formatDateTime(lastSync) : 'Noch keiner'}</h3><p>{imports?.processing ?? 0} in Analyse · {imports?.failed ?? 0} fehlgeschlagen</p></div>
+          </article>
+        </div>
       </section>
-      {upload.error && <Cs2Error error={upload.error} />}
+
+      {sync.error && <Cs2Error error={sync.error} />}
+      {connectSteam.error && <Cs2Error error={connectSteam.error} />}
+
+      <section
+        className={`cs2-demo-dropzone ${isDragging ? 'is-dragging' : ''}`}
+        onDragEnter={(event) => { event.preventDefault(); if (!upload.isPending) setIsDragging(true) }}
+        onDragOver={(event) => event.preventDefault()}
+        onDragLeave={(event) => { if (event.currentTarget === event.target) setIsDragging(false) }}
+        onDrop={dropFiles}
+      >
+        <CloudUpload />
+        <div><span>DEMOS HINZUFÜGEN</span><h2>Dateien hier ablegen</h2><p>Eine oder mehrere CS2-Demos bis jeweils {sync.data?.maximumDemoMegabytes ?? 512} MB.</p></div>
+        <label className="cs2-button cs2-button--ghost">
+          DATEIEN WÄHLEN
+          <input type="file" accept=".dem,application/octet-stream" multiple onChange={chooseFile} disabled={upload.isPending} hidden />
+        </label>
+      </section>
+      {selectionNotice && <p className="cs2-selection-notice">{selectionNotice}</p>}
+
+      {files.length > 0 && (
+        <section className="cs2-import-queue">
+          <div className="cs2-import-queue__head">
+            <div><span>UPLOAD QUEUE</span><h2>{files.length} {files.length === 1 ? 'Demo' : 'Demos'} bereit</h2></div>
+            <button
+              type="button"
+              className="cs2-button cs2-button--primary"
+              disabled={upload.isPending}
+              onClick={() => upload.mutate(files)}
+            >
+              {upload.isPending ? 'IMPORT LÄUFT …' : 'ALLE IMPORTIEREN'}
+            </button>
+          </div>
+          <div className="cs2-import-queue__files">
+            {files.map((demo) => {
+              const key = demoFileKey(demo)
+              const error = fileErrors[key]
+              const isUploading = uploadingKey === key
+              return (
+                <div key={key} className={error ? 'has-error' : isUploading ? 'is-uploading' : ''}>
+                  <FileCheck2 />
+                  <div><b>{demo.name}</b><small>{error ?? `${formatDemoSize(demo.size)} · bereit für sicheren Upload`}</small></div>
+                  {isUploading ? <span>UPLOAD …</span> : (
+                    <button type="button" aria-label={`${demo.name} entfernen`} onClick={() => removeFile(demo)} disabled={upload.isPending}>
+                      <Trash2 />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      <div className="cs2-section-title cs2-inbox-title">
+        <div><span>IMPORT INBOX</span><h2>{matches.data?.length ?? 0} Matches</h2></div>
+        <button type="button" onClick={() => { void matches.refetch(); void sync.refetch() }} disabled={matches.isFetching}>
+          <RefreshCw /> AKTUALISIEREN
+        </button>
+      </div>
       <div className="cs2-match-grid">
         {matches.data?.map((match) => (
           <div key={match.id}>
@@ -476,6 +667,7 @@ function Cs2Matches() {
             )}
           </div>
         ))}
+        {matches.data?.length === 0 && <EmptyCard text="Noch keine Matches importiert." />}
       </div>
       {matches.isPending && <Cs2Loading label="LOADING MATCHES" />}
       {matches.error && <Cs2Error error={matches.error} />}
@@ -1083,6 +1275,8 @@ function Cs2BootScreen() { return <div className="cs2-root"><Cs2Loading label="B
 function Cs2Error({ error }: { error: unknown }) { const message = error instanceof ApiError ? error.message : error instanceof Error ? error.message : 'Unbekannter Fehler'; return <div className="cs2-error"><X /><div><b>Das ging daneben.</b><span>{message}</span></div></div> }
 function useOrganizationId() { return useParams().organizationId ?? '' }
 function formatDate(value?: string) { return value ? new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value)) : '–' }
+function formatDateTime(value: string) { return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value)) }
+function errorMessage(error: unknown) { return error instanceof ApiError ? error.message : error instanceof Error ? error.message : 'Der Import ist fehlgeschlagen.' }
 function aimModeFor(kind: Cs2TrainingKind) { return kind === 'Reaction' ? 'reaction' : kind === 'TargetSwitching' ? 'switching' : kind === 'Tracking' ? 'tracking' : 'flick' }
 function aimKind(mode: AimMode): Cs2TrainingKind { return mode === 'reaction' ? 'Reaction' : mode === 'switching' ? 'TargetSwitching' : mode === 'tracking' ? 'Tracking' : 'Flick' }
 function distance(a: { x: number; y: number }, b: { x: number; y: number }) { return Math.hypot(a.x - b.x, a.y - b.y) }

@@ -30,6 +30,28 @@ export interface Cs2MatchSummary {
   attemptCount: number
 }
 
+export interface Cs2SyncStatus {
+  source: 'demo-upload'
+  automaticSyncAvailable: boolean
+  maximumDemoMegabytes: number
+  steam: {
+    connected: boolean
+    steamId64?: string
+    displayName?: string
+    avatarUrl?: string
+    linkedAt?: string
+  }
+  imports: {
+    total: number
+    queued: number
+    processing: number
+    completed: number
+    failed: number
+    lastImportedAt?: string
+    lastCompletedAt?: string
+  }
+}
+
 export interface Cs2PlayState {
   sessionId?: string
   plannedStart?: string
@@ -293,6 +315,9 @@ export const updateCs2Play = (
 
 export const listCs2Matches = (organizationId: string) =>
   apiRequest<Cs2MatchSummary[]>(`${base(organizationId)}/matches`)
+
+export const getCs2SyncStatus = (organizationId: string) =>
+  apiRequest<Cs2SyncStatus>(`${base(organizationId)}/sync`)
 
 export async function uploadCs2Match(organizationId: string, demo: File) {
   const form = new FormData()
