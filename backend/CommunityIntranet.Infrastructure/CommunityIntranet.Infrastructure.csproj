@@ -24,5 +24,6 @@
     <ProjectReference Include="../CommunityIntranet.Modules.LiveOperations/CommunityIntranet.Modules.LiveOperations.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.TimeTracking/CommunityIntranet.Modules.TimeTracking.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.Parties/CommunityIntranet.Modules.Parties.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.CounterStrike/CommunityIntranet.Modules.CounterStrike.csproj" />
   </ItemGroup>
 </Project>

@@ -34,6 +34,8 @@ using CommunityIntranet.Modules.TimeTracking;
 using CommunityIntranet.Modules.TimeTracking.Endpoints;
 using CommunityIntranet.Modules.Parties;
 using CommunityIntranet.Modules.Parties.Endpoints;
+using CommunityIntranet.Modules.CounterStrike;
+using CommunityIntranet.Modules.CounterStrike.Endpoints;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
@@ -125,6 +127,7 @@ try
     builder.Services.AddLiveOperationsModule(builder.Configuration);
     builder.Services.AddTimeTrackingModule();
     builder.Services.AddPartiesModule(builder.Configuration);
+    builder.Services.AddCounterStrikeModule(builder.Configuration);
     builder.Services.AddScoped<DatabaseInitializer>();
     builder.Services.AddRateLimiter(options =>
     {
@@ -173,6 +176,20 @@ try
                 {
                     PermitLimit = 120,
                     Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                }));
+        options.AddPolicy(
+            "counter-strike-upload",
+            httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                    ?? httpContext.User.FindFirstValue("sub")
+                    ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                    ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 5,
+                    Window = TimeSpan.FromMinutes(10),
                     QueueLimit = 0,
                     AutoReplenishment = true
                 }));
@@ -244,6 +261,7 @@ try
     app.MapLiveOperationsEndpoints();
     app.MapTimeTrackingEndpoints();
     app.MapPartyEndpoints();
+    app.MapCounterStrikeEndpoints();
 
     await app.RunAsync();
 }

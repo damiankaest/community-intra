@@ -3,6 +3,7 @@ using CommunityIntranet.Modules.Identity.Contracts;
 using CommunityIntranet.Modules.Identity.Domain;
 using CommunityIntranet.Modules.Identity.Persistence;
 using CommunityIntranet.Modules.Identity.Security;
+using CommunityIntranet.Modules.Identity.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -12,10 +13,12 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace CommunityIntranet.Modules.Identity.Endpoints;
 
-public static class IdentityEndpoints
+public static partial class IdentityEndpoints
 {
     private const string RefreshCookieName = "community_refresh";
 
@@ -31,8 +34,14 @@ public static class IdentityEndpoints
         group.MapPost("/refresh", RefreshAsync)
             .RequireRateLimiting("authentication");
         group.MapPost("/logout", LogoutAsync);
+        group.MapPost("/forgot-password", ForgotPasswordAsync)
+            .RequireRateLimiting("authentication");
+        group.MapPost("/reset-password", ResetPasswordAsync)
+            .RequireRateLimiting("authentication");
         group.MapGet("/me", GetCurrentUserAsync)
             .RequireAuthorization();
+
+        ExternalIdentityEndpoints.Map(endpoints);
 
         return endpoints;
     }
@@ -268,6 +277,105 @@ public static class IdentityEndpoints
             : Results.Ok(ToCurrentUser(user));
     }
 
+    private static async Task<IResult> ForgotPasswordAsync(
+        ForgotPasswordRequest request,
+        UserManager<ApplicationUser> userManager,
+        IIdentityEmailSender emailSender,
+        IOptions<IdentityPublicOptions> publicOptions,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        var response = new
+        {
+            message = "Wenn ein Konto zu dieser E-Mail-Adresse existiert, wurde ein Reset-Link versendet."
+        };
+        if (string.IsNullOrWhiteSpace(request.Email) || request.Email.Length > 320)
+        {
+            return Results.Accepted(value: response);
+        }
+
+        var user = await userManager.FindByEmailAsync(request.Email.Trim());
+        if (user is null || !user.IsActive || string.IsNullOrWhiteSpace(user.Email))
+        {
+            return Results.Accepted(value: response);
+        }
+
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var encodedToken = PasswordResetTokenCodec.Encode(token);
+        var baseUrl = publicOptions.Value.PublicAppUrl.TrimEnd('/');
+        var resetUrl = $"{baseUrl}/reset-password?email={Uri.EscapeDataString(user.Email)}&token={Uri.EscapeDataString(encodedToken)}";
+        try
+        {
+            await emailSender.SendPasswordResetAsync(
+                user.Email,
+                user.DisplayName,
+                resetUrl,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            LogResetEmailFailure(loggerFactory.CreateLogger("PasswordReset"), exception);
+        }
+
+        return Results.Accepted(value: response);
+    }
+
+    private static async Task<IResult> ResetPasswordAsync(
+        ResetPasswordRequest request,
+        UserManager<ApplicationUser> userManager,
+        IIdentityDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email)
+            || string.IsNullOrWhiteSpace(request.Token)
+            || string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["reset"] = ["Der Reset-Link oder das neue Passwort ist ungültig."]
+            });
+        }
+
+        if (!PasswordResetTokenCodec.TryDecode(request.Token, out var token))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["token"] = ["Der Reset-Link ist ungültig oder abgelaufen."]
+            });
+        }
+
+        var user = await userManager.FindByEmailAsync(request.Email.Trim());
+        if (user is null || !user.IsActive)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["token"] = ["Der Reset-Link ist ungültig oder abgelaufen."]
+            });
+        }
+
+        var result = await userManager.ResetPasswordAsync(user, token, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            return Results.ValidationProblem(result.Errors
+                .GroupBy(error => error.Code)
+                .ToDictionary(group => group.Key, group => group.Select(error => error.Description).ToArray()));
+        }
+
+        await userManager.UpdateSecurityStampAsync(user);
+        var now = timeProvider.GetUtcNow();
+        await dbContext.RefreshTokens
+            .Where(refreshToken => refreshToken.UserId == user.Id && refreshToken.RevokedAt == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(refreshToken => refreshToken.RevokedAt, now)
+                .SetProperty(refreshToken => refreshToken.RevocationReason, "Password reset"), cancellationToken);
+        return Results.NoContent();
+    }
+
     private static async Task<IResult> CreateSessionAsync(
         ApplicationUser user,
         Guid tokenFamilyId,
@@ -369,4 +477,8 @@ public static class IdentityEndpoints
             .ToDictionary(
                 group => group.Key,
                 group => group.Select(failure => failure.ErrorMessage).ToArray());
+
+    [LoggerMessage(EventId = 2410, Level = LogLevel.Error,
+        Message = "Password reset email delivery failed")]
+    private static partial void LogResetEmailFailure(ILogger logger, Exception exception);
 }
