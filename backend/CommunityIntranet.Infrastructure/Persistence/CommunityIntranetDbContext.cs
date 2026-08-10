@@ -26,6 +26,8 @@ using CommunityIntranet.Modules.TimeTracking.Domain;
 using CommunityIntranet.Modules.TimeTracking.Persistence;
 using CommunityIntranet.Modules.Parties.Domain;
 using CommunityIntranet.Modules.Parties.Persistence;
+using CommunityIntranet.Modules.CounterStrike.Domain;
+using CommunityIntranet.Modules.CounterStrike.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -48,9 +50,11 @@ public sealed class CommunityIntranetDbContext(
         INotificationDbContext,
         ILiveOperationsDbContext,
         ITimeTrackingDbContext,
-        IPartyDbContext
+        IPartyDbContext,
+        ICounterStrikeDbContext
 {
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<SteamIdentity> SteamIdentities => Set<SteamIdentity>();
 
     public DbSet<Organization> Organizations => Set<Organization>();
 
@@ -108,6 +112,24 @@ public sealed class CommunityIntranetDbContext(
     public DbSet<PartyMusicRequest> PartyMusicRequests => Set<PartyMusicRequest>();
     public DbSet<PartyMusicVote> PartyMusicVotes => Set<PartyMusicVote>();
     public DbSet<PartyGuestbookEntry> PartyGuestbookEntries => Set<PartyGuestbookEntry>();
+    public DbSet<CounterStrikeCommunitySettings> CounterStrikeCommunitySettings => Set<CounterStrikeCommunitySettings>();
+    public DbSet<CounterStrikeSeason> CounterStrikeSeasons => Set<CounterStrikeSeason>();
+    public DbSet<CounterStrikeMatch> CounterStrikeMatches => Set<CounterStrikeMatch>();
+    public DbSet<CounterStrikeMatchPlayer> CounterStrikeMatchPlayers => Set<CounterStrikeMatchPlayer>();
+    public DbSet<CounterStrikeRound> CounterStrikeRounds => Set<CounterStrikeRound>();
+    public DbSet<CounterStrikePlayerStats> CounterStrikePlayerStats => Set<CounterStrikePlayerStats>();
+    public DbSet<CounterStrikeHighlight> CounterStrikeHighlights => Set<CounterStrikeHighlight>();
+    public DbSet<CounterStrikeHighlightReaction> CounterStrikeHighlightReactions => Set<CounterStrikeHighlightReaction>();
+    public DbSet<CounterStrikeAward> CounterStrikeAwards => Set<CounterStrikeAward>();
+    public DbSet<CounterStrikeAwardAssignment> CounterStrikeAwardAssignments => Set<CounterStrikeAwardAssignment>();
+    public DbSet<CounterStrikeGameSession> CounterStrikeGameSessions => Set<CounterStrikeGameSession>();
+    public DbSet<CounterStrikeGameSessionParticipant> CounterStrikeGameSessionParticipants => Set<CounterStrikeGameSessionParticipant>();
+    public DbSet<CounterStrikeTrainingPlan> CounterStrikeTrainingPlans => Set<CounterStrikeTrainingPlan>();
+    public DbSet<CounterStrikeTrainingExercise> CounterStrikeTrainingExercises => Set<CounterStrikeTrainingExercise>();
+    public DbSet<CounterStrikeTrainingSession> CounterStrikeTrainingSessions => Set<CounterStrikeTrainingSession>();
+    public DbSet<CounterStrikeTrainingResult> CounterStrikeTrainingResults => Set<CounterStrikeTrainingResult>();
+    public DbSet<CounterStrikeWeeklyChallenge> CounterStrikeWeeklyChallenges => Set<CounterStrikeWeeklyChallenge>();
+    public DbSet<CounterStrikeWeeklyChallengeProgress> CounterStrikeWeeklyChallengeProgress => Set<CounterStrikeWeeklyChallengeProgress>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -127,6 +149,7 @@ public sealed class CommunityIntranetDbContext(
         builder.ApplyConfigurationsFromAssembly(typeof(GameServerConnection).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(WorkShift).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(Party).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(CounterStrikeMatch).Assembly);
 
         builder.Entity<IdentityRole<Guid>>().ToTable("roles", "identity");
         builder.Entity<IdentityUserClaim<Guid>>()

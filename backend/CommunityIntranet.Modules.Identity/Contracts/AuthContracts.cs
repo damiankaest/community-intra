@@ -7,6 +7,13 @@ public sealed record RegisterRequest(
 
 public sealed record LoginRequest(string Email, string Password);
 
+public sealed record ForgotPasswordRequest(string Email);
+
+public sealed record ResetPasswordRequest(
+    string Email,
+    string Token,
+    string NewPassword);
+
 public sealed record CurrentUserResponse(
     Guid Id,
     string Email,

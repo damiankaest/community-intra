@@ -7,11 +7,13 @@ bleibt aber vollständig spielunabhängig.
 
 ## Aktueller Stand
 
-Phase 1 bis 13 liefern die dokumentierte Zielarchitektur, ein startbares
+Phase 1 bis 13 sowie CouchClash CS2 liefern die dokumentierte Zielarchitektur, ein startbares
 Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 
 - modularer ASP.NET-Core-8-Monolith mit Minimal APIs
 - ASP.NET Core Identity mit Registrierung, Login und Lockout
+- sichere Passwort-Reset-Strecke per SMTP sowie optionale Google-/Discord-Logins
+- zentral verwaltete Connected Accounts inklusive Steam OpenID
 - kurzlebige JWT Access Tokens und gehashte Refresh-Token-Rotation
 - Organisationen mit Owner-Mitgliedschaft und serverseitiger Tenant-Prüfung
 - fest typisierte, serverseitig validierte und versionierte Theme Packs
@@ -57,6 +59,11 @@ Full-Stack-System sowie echte Benutzer-, Mandanten- und Fachdaten:
 - Quick Actions für `Gebaut`, `Gefixt`, `Optimiert` und `Zerstört`
 - persönlicher Schichtverlauf, Wochenrangliste und gemeinsames Arbeitslogbuch
 - bestätigungspflichtige Stechuhr-Aktionen über WebMCP
+- eigener Gaming-Bereich unter `/cs2` mit Play-Status, Squad und Profilen
+- asynchroner, deduplizierter `.dem`-Import über `akiver/cs-demo-analyzer`
+- Match-Story, Scoreboard, regelbasierte Highlights, Seasons und Leaderboards
+- automatische Awards, Season Recap und relevante Activity-Feed-Ereignisse
+- persönliche Trainingspläne, Weekly Challenges und Browser-Aim-Trainer
 - PostgreSQL über Docker Compose und eine initiale EF-Core-Migration
 - Serilog, ProblemDetails, Swagger und Health Checks
 - React-PWA mit Authentifizierung, Organisationsanlage und -auswahl
@@ -111,6 +118,11 @@ Für die KI-Arbeitsplanung muss zusätzlich `AiAssistant__ApiKey` in der lokalen
 `.env` gesetzt werden. Der Schlüssel bleibt ausschließlich im Backend. Ohne
 Schlüssel bleibt das übrige Intranet vollständig nutzbar und der Chat zeigt
 seinen nicht konfigurierten Status an.
+
+Für den CS2-Demoimport muss `csda` lokal im Pfad liegen; das Produktionsimage
+installiert eine verifizierte Version automatisch. OAuth, Steam-Profilabgleich
+und Passwort-E-Mails bleiben ohne die in `.env.example` dokumentierten Secrets
+deaktiviert. Details stehen in [`docs/counter-strike.md`](docs/counter-strike.md).
 
 ## Deployment auf einer Hetzner-VM
 
@@ -196,7 +208,7 @@ versioniert angelegt. Offizielle Spiel-Assets werden nicht verwendet.
 ## Bekannte Einschränkungen
 
 - noch keine Seed-Benutzer oder Demo-Organisation
-- noch keine Passwort-Zurücksetzen- und E-Mail-Bestätigungsstrecke
+- noch keine E-Mail-Bestätigungsstrecke für lokale Neuregistrierungen
 - noch kein Versand von Einladungen per E-Mail; Links werden bewusst kopiert
 - WebMCP benötigt einen Browser beziehungsweise Agenten mit experimenteller
   WebMCP-Unterstützung

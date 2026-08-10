@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using CommunityIntranet.Infrastructure.Persistence;
+using CommunityIntranet.Modules.CounterStrike.Domain;
+using CommunityIntranet.Modules.Identity.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -2067,7 +2069,200 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
+
+            BuildCounterStrikeSnapshot(modelBuilder);
 #pragma warning restore 612, 618
+        }
+
+        private static void BuildCounterStrikeSnapshot(ModelBuilder modelBuilder)
+        {
+            var steam = modelBuilder.Entity<SteamIdentity>();
+            steam.ToTable("steam_identities", "identity");
+            steam.HasKey(item => item.Id);
+            steam.HasIndex(item => item.UserId).IsUnique();
+            steam.HasIndex(item => item.SteamId64).IsUnique();
+            steam.Property(item => item.SteamId64).HasMaxLength(20).IsRequired();
+            steam.Property(item => item.DisplayName).HasMaxLength(100).IsRequired();
+            steam.Property(item => item.AvatarUrl).HasMaxLength(500);
+            modelBuilder.Entity("CommunityIntranet.Modules.Identity.Domain.SteamIdentity", builder =>
+            {
+                builder.HasOne("CommunityIntranet.Modules.Identity.Domain.ApplicationUser", null)
+                    .WithOne()
+                    .HasForeignKey("CommunityIntranet.Modules.Identity.Domain.SteamIdentity", "UserId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+            });
+
+            var settings = modelBuilder.Entity<CounterStrikeCommunitySettings>();
+            settings.ToTable("community_settings", "counter_strike");
+            settings.HasKey(item => item.OrganizationId);
+
+            var seasons = modelBuilder.Entity<CounterStrikeSeason>();
+            seasons.ToTable("seasons", "counter_strike");
+            seasons.HasKey(item => item.Id);
+            seasons.HasIndex(item => item.OrganizationId)
+                .IsUnique()
+                .HasFilter("\"IsActive\"")
+                .HasDatabaseName("IX_cs_seasons_org_active");
+            seasons.Property(item => item.Name).HasMaxLength(120).IsRequired();
+
+            var matches = modelBuilder.Entity<CounterStrikeMatch>();
+            matches.ToTable("matches", "counter_strike");
+            matches.HasKey(item => item.Id);
+            matches.HasIndex(item => new { item.OrganizationId, item.DemoChecksum })
+                .IsUnique().HasDatabaseName("IX_cs_matches_org_checksum");
+            matches.HasIndex(item => new { item.OrganizationId, item.SeasonId, item.PlayedAt })
+                .HasDatabaseName("IX_cs_matches_org_season_played");
+            matches.Property(item => item.DemoChecksum).HasMaxLength(64).IsRequired();
+            matches.Property(item => item.OriginalFileName).HasMaxLength(255).IsRequired();
+            matches.Property(item => item.DemoStoragePath).HasMaxLength(1000).IsRequired();
+            matches.Property(item => item.AnalyzerArtifactPath).HasMaxLength(1000);
+            matches.Property(item => item.FailureCode).HasMaxLength(80);
+            matches.Property(item => item.FailureMessage).HasMaxLength(500);
+            matches.Property(item => item.MapName).HasMaxLength(80);
+            matches.Property(item => item.TeamAName).HasMaxLength(120);
+            matches.Property(item => item.TeamBName).HasMaxLength(120);
+            matches.Property(item => item.CommunityTeam).HasMaxLength(1);
+            matches.HasOne<CounterStrikeSeason>().WithMany()
+                .HasForeignKey(item => item.SeasonId).OnDelete(DeleteBehavior.Cascade);
+
+            var matchPlayers = modelBuilder.Entity<CounterStrikeMatchPlayer>();
+            matchPlayers.ToTable("match_players", "counter_strike");
+            matchPlayers.HasKey(item => item.Id);
+            matchPlayers.HasIndex(item => new { item.OrganizationId, item.MatchId, item.SteamId64 })
+                .IsUnique().HasDatabaseName("IX_cs_match_players_match_steam");
+            matchPlayers.HasIndex(item => new { item.OrganizationId, item.UserId })
+                .HasDatabaseName("IX_cs_match_players_org_user");
+            matchPlayers.Property(item => item.SteamId64).HasMaxLength(20).IsRequired();
+            matchPlayers.Property(item => item.DisplayName).HasMaxLength(100).IsRequired();
+            matchPlayers.Property(item => item.TeamName).HasMaxLength(120).IsRequired();
+            matchPlayers.HasOne<CounterStrikeMatch>().WithMany()
+                .HasForeignKey(item => item.MatchId).OnDelete(DeleteBehavior.Cascade);
+
+            var rounds = modelBuilder.Entity<CounterStrikeRound>();
+            rounds.ToTable("rounds", "counter_strike");
+            rounds.HasKey(item => item.Id);
+            rounds.HasIndex(item => new { item.MatchId, item.Number })
+                .IsUnique().HasDatabaseName("IX_cs_rounds_match_number");
+            rounds.Property(item => item.WinnerTeam).HasMaxLength(120).IsRequired();
+            rounds.HasOne<CounterStrikeMatch>().WithMany()
+                .HasForeignKey(item => item.MatchId).OnDelete(DeleteBehavior.Cascade);
+
+            var playerStats = modelBuilder.Entity<CounterStrikePlayerStats>();
+            playerStats.ToTable("player_stats", "counter_strike");
+            playerStats.HasKey(item => item.Id);
+            playerStats.HasIndex(item => new { item.OrganizationId, item.SeasonId, item.UserId })
+                .IsUnique().HasDatabaseName("IX_cs_player_stats_season_user");
+            playerStats.HasOne<CounterStrikeSeason>().WithMany()
+                .HasForeignKey(item => item.SeasonId).OnDelete(DeleteBehavior.Cascade);
+
+            var highlights = modelBuilder.Entity<CounterStrikeHighlight>();
+            highlights.ToTable("highlights", "counter_strike");
+            highlights.HasKey(item => item.Id);
+            highlights.HasIndex(item => new { item.OrganizationId, item.SeasonId, item.Score })
+                .HasDatabaseName("IX_cs_highlights_season_score");
+            highlights.HasIndex(item => new { item.MatchId, item.RoundNumber, item.Type, item.SteamId64 })
+                .IsUnique().HasDatabaseName("IX_cs_highlights_rule");
+            highlights.Property(item => item.SteamId64).HasMaxLength(20).IsRequired();
+            highlights.Property(item => item.PlayerName).HasMaxLength(100).IsRequired();
+            highlights.Property(item => item.Type).HasMaxLength(60).IsRequired();
+            highlights.Property(item => item.Title).HasMaxLength(180).IsRequired();
+            highlights.Property(item => item.VideoStoragePath).HasMaxLength(1000);
+            highlights.HasOne<CounterStrikeMatch>().WithMany()
+                .HasForeignKey(item => item.MatchId).OnDelete(DeleteBehavior.Cascade);
+
+            var reactions = modelBuilder.Entity<CounterStrikeHighlightReaction>();
+            reactions.ToTable("highlight_reactions", "counter_strike");
+            reactions.HasKey(item => item.Id);
+            reactions.HasIndex(item => new { item.HighlightId, item.UserId, item.Reaction })
+                .IsUnique().HasDatabaseName("IX_cs_reactions_user");
+            reactions.Property(item => item.Reaction).HasMaxLength(8).IsRequired();
+            reactions.HasOne<CounterStrikeHighlight>().WithMany()
+                .HasForeignKey(item => item.HighlightId).OnDelete(DeleteBehavior.Cascade);
+
+            var awards = modelBuilder.Entity<CounterStrikeAward>();
+            awards.ToTable("awards", "counter_strike");
+            awards.HasKey(item => item.Id);
+            awards.HasIndex(item => new { item.OrganizationId, item.SeasonId, item.Key })
+                .IsUnique().HasDatabaseName("IX_cs_awards_season_key");
+            awards.Property(item => item.Key).HasMaxLength(80).IsRequired();
+            awards.Property(item => item.Name).HasMaxLength(120).IsRequired();
+            awards.Property(item => item.Description).HasMaxLength(500).IsRequired();
+            awards.Property(item => item.Icon).HasMaxLength(32).IsRequired();
+
+            var assignments = modelBuilder.Entity<CounterStrikeAwardAssignment>();
+            assignments.ToTable("award_assignments", "counter_strike");
+            assignments.HasKey(item => item.Id);
+            assignments.HasIndex(item => new { item.AwardId, item.UserId })
+                .IsUnique().HasDatabaseName("IX_cs_award_assignments_user");
+            assignments.HasOne<CounterStrikeAward>().WithMany()
+                .HasForeignKey(item => item.AwardId).OnDelete(DeleteBehavior.Cascade);
+
+            var gameSessions = modelBuilder.Entity<CounterStrikeGameSession>();
+            gameSessions.ToTable("game_sessions", "counter_strike");
+            gameSessions.HasKey(item => item.Id);
+            gameSessions.HasIndex(item => new { item.OrganizationId, item.SessionDate })
+                .HasDatabaseName("IX_cs_game_sessions_date");
+
+            var participants = modelBuilder.Entity<CounterStrikeGameSessionParticipant>();
+            participants.ToTable("game_session_participants", "counter_strike");
+            participants.HasKey(item => item.Id);
+            participants.HasIndex(item => new { item.GameSessionId, item.UserId })
+                .IsUnique().HasDatabaseName("IX_cs_game_participants_user");
+            participants.HasOne<CounterStrikeGameSession>().WithMany()
+                .HasForeignKey(item => item.GameSessionId).OnDelete(DeleteBehavior.Cascade);
+
+            var plans = modelBuilder.Entity<CounterStrikeTrainingPlan>();
+            plans.ToTable("training_plans", "counter_strike");
+            plans.HasKey(item => item.Id);
+            plans.HasIndex(item => new { item.OrganizationId, item.UserId, item.PlanDate })
+                .HasDatabaseName("IX_cs_training_plans_user_date");
+            plans.Property(item => item.RecommendationReason).HasMaxLength(500);
+
+            var exercises = modelBuilder.Entity<CounterStrikeTrainingExercise>();
+            exercises.ToTable("training_exercises", "counter_strike");
+            exercises.HasKey(item => item.Id);
+            exercises.HasIndex(item => new { item.OrganizationId, item.TrainingPlanId, item.SortOrder })
+                .HasDatabaseName("IX_cs_training_exercises_plan");
+            exercises.Property(item => item.Name).HasMaxLength(160).IsRequired();
+            exercises.Property(item => item.Description).HasMaxLength(1000).IsRequired();
+            exercises.Property(item => item.MapName).HasMaxLength(80);
+            exercises.Property(item => item.Position).HasMaxLength(300);
+            exercises.Property(item => item.Target).HasMaxLength(300);
+            exercises.Property(item => item.MediaUrl).HasMaxLength(1000);
+            exercises.HasOne<CounterStrikeTrainingPlan>().WithMany()
+                .HasForeignKey(item => item.TrainingPlanId).OnDelete(DeleteBehavior.Cascade);
+
+            var trainingSessions = modelBuilder.Entity<CounterStrikeTrainingSession>();
+            trainingSessions.ToTable("training_sessions", "counter_strike");
+            trainingSessions.HasKey(item => item.Id);
+            trainingSessions.HasIndex(item => new { item.OrganizationId, item.UserId, item.StartedAt })
+                .HasDatabaseName("IX_cs_training_sessions_user");
+
+            var trainingResults = modelBuilder.Entity<CounterStrikeTrainingResult>();
+            trainingResults.ToTable("training_results", "counter_strike");
+            trainingResults.HasKey(item => item.Id);
+            trainingResults.HasIndex(item => new { item.OrganizationId, item.UserId, item.CompletedAt })
+                .HasDatabaseName("IX_cs_training_results_user");
+            trainingResults.HasOne<CounterStrikeTrainingSession>().WithMany()
+                .HasForeignKey(item => item.TrainingSessionId).OnDelete(DeleteBehavior.Cascade);
+
+            var challenges = modelBuilder.Entity<CounterStrikeWeeklyChallenge>();
+            challenges.ToTable("weekly_challenges", "counter_strike");
+            challenges.HasKey(item => item.Id);
+            challenges.HasIndex(item => new { item.OrganizationId, item.StartsAt, item.EndsAt })
+                .HasDatabaseName("IX_cs_weekly_challenges_date");
+            challenges.Property(item => item.Name).HasMaxLength(160).IsRequired();
+            challenges.Property(item => item.Description).HasMaxLength(600).IsRequired();
+            challenges.Property(item => item.MetricKey).HasMaxLength(80).IsRequired();
+
+            var challengeProgress = modelBuilder.Entity<CounterStrikeWeeklyChallengeProgress>();
+            challengeProgress.ToTable("weekly_challenge_progress", "counter_strike");
+            challengeProgress.HasKey(item => item.Id);
+            challengeProgress.HasIndex(item => new { item.ChallengeId, item.UserId })
+                .IsUnique().HasDatabaseName("IX_cs_challenge_progress_user");
+            challengeProgress.HasOne<CounterStrikeWeeklyChallenge>().WithMany()
+                .HasForeignKey(item => item.ChallengeId).OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
