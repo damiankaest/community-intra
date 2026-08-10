@@ -25,6 +25,7 @@ public static class CounterStrikeEndpoints
         group.MapGet("/dashboard", GetDashboardAsync);
         group.MapGet("/play", GetPlayAsync);
         group.MapPut("/play", UpdatePlayAsync);
+        group.MapGet("/sync", GetSyncStatusAsync);
         group.MapGet("/matches", ListMatchesAsync);
         group.MapPost("/matches", UploadMatchAsync)
             .DisableAntiforgery()
@@ -300,6 +301,50 @@ public static class CounterStrikeEndpoints
         {
             return Validation(exception.Key, exception.Message);
         }
+    }
+
+    private static async Task<IResult> GetSyncStatusAsync(
+        Guid organizationId,
+        ClaimsPrincipal principal,
+        ICounterStrikeDbContext dbContext,
+        IOrganizationAccessService accessService,
+        ICounterStrikeDemoStorage storage,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetAccessAsync(organizationId, principal, accessService, cancellationToken);
+        if (access.Result is not null)
+        {
+            return access.Result;
+        }
+
+        var steam = await dbContext.SteamIdentities.AsNoTracking()
+            .SingleOrDefaultAsync(identity => identity.UserId == access.UserId, cancellationToken);
+        var imports = await dbContext.CounterStrikeMatches.AsNoTracking()
+            .Where(match => match.OrganizationId == organizationId)
+            .GroupBy(_ => 1)
+            .Select(group => new CounterStrikeImportCountsResponse(
+                group.Count(),
+                group.Count(match => match.Status == CounterStrikeDemoStatus.Uploaded),
+                group.Count(match => match.Status == CounterStrikeDemoStatus.Processing),
+                group.Count(match => match.Status == CounterStrikeDemoStatus.Completed),
+                group.Count(match => match.Status == CounterStrikeDemoStatus.Failed),
+                group.Max(match => (DateTimeOffset?)match.UploadedAt),
+                group.Max(match => match.CompletedAt)))
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return Results.Ok(new CounterStrikeSyncStatusResponse(
+            "demo-upload",
+            false,
+            storage.MaximumDemoMegabytes,
+            steam is null
+                ? new CounterStrikeSteamConnectionResponse(false, null, null, null, null)
+                : new CounterStrikeSteamConnectionResponse(
+                    true,
+                    steam.SteamId64,
+                    steam.DisplayName,
+                    steam.AvatarUrl,
+                    steam.LinkedAt),
+            imports ?? new CounterStrikeImportCountsResponse(0, 0, 0, 0, 0, null, null)));
     }
 
     private static async Task<IResult> RetryMatchAsync(
@@ -1322,6 +1367,26 @@ public sealed record UpdatePlayRequest(
 public sealed record ToggleReactionRequest(string Reaction);
 public sealed record UpdateRoleRequest(CounterStrikePlayerRole Role);
 public sealed record CreateSeasonRequest(string Name, DateTimeOffset? StartsAt);
+public sealed record CounterStrikeSyncStatusResponse(
+    string Source,
+    bool AutomaticSyncAvailable,
+    int MaximumDemoMegabytes,
+    CounterStrikeSteamConnectionResponse Steam,
+    CounterStrikeImportCountsResponse Imports);
+public sealed record CounterStrikeSteamConnectionResponse(
+    bool Connected,
+    string? SteamId64,
+    string? DisplayName,
+    string? AvatarUrl,
+    DateTimeOffset? LinkedAt);
+public sealed record CounterStrikeImportCountsResponse(
+    int Total,
+    int Queued,
+    int Processing,
+    int Completed,
+    int Failed,
+    DateTimeOffset? LastImportedAt,
+    DateTimeOffset? LastCompletedAt);
 public sealed record SaveTrainingResultRequest(
     CounterStrikeTrainingKind Kind,
     int DurationSeconds,

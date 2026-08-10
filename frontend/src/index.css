@@ -2344,6 +2344,46 @@ button.subtask-check {
 .cs2-upload-icon { display: grid; width: 58px; height: 58px; place-items: center; background: rgb(217 255 67 / 8%); color: var(--cs-lime); }
 .cs2-upload-card h2 { margin: 4px 0; font-size: 17px; }
 .cs2-upload-card p { margin: 0; color: var(--cs-muted); font-size: 10px; }
+.cs2-sync-assistant { overflow: hidden; border: 1px solid rgb(217 255 67 / 18%); background: radial-gradient(circle at 90% 0, rgb(217 255 67 / 9%), transparent 22rem), #0f1417; }
+.cs2-sync-assistant__head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px; }
+.cs2-sync-assistant__head > div > span, .cs2-sync-cards article span, .cs2-demo-dropzone > div > span, .cs2-import-queue__head span { color: var(--cs-lime); font-size: 8px; font-weight: 900; letter-spacing: .18em; }
+.cs2-sync-assistant__head h2, .cs2-demo-dropzone h2, .cs2-import-queue__head h2 { margin: 5px 0; font-size: 21px; }
+.cs2-sync-assistant__head p, .cs2-demo-dropzone p { margin: 0; color: var(--cs-muted); font-size: 10px; }
+.cs2-sync-state { flex: 0 0 auto; border: 1px solid rgb(217 255 67 / 24%); background: rgb(217 255 67 / 8%); padding: 7px 10px; color: var(--cs-lime); font-size: 8px; font-weight: 950; letter-spacing: .14em; }
+.cs2-sync-state.is-running { animation: cs-sync-pulse 1.7s ease-in-out infinite; }
+@keyframes cs-sync-pulse { 50% { border-color: var(--cs-lime); box-shadow: 0 0 20px rgb(217 255 67 / 16%); } }
+.cs2-sync-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--cs-line); }
+.cs2-sync-cards article { display: grid; min-width: 0; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; border-right: 1px solid var(--cs-line); padding: 18px 20px; }
+.cs2-sync-cards article:last-child { border-right: 0; }
+.cs2-sync-cards article.needs-action { background: rgb(255 186 67 / 4%); }
+.cs2-sync-cards article.is-connected { background: rgb(217 255 67 / 3%); }
+.cs2-sync-card__icon { display: grid; width: 40px; height: 40px; place-items: center; overflow: hidden; border: 1px solid var(--cs-line); background: rgb(255 255 255 / 4%); color: var(--cs-lime); }
+.cs2-sync-card__icon img { width: 100%; height: 100%; object-fit: cover; }
+.cs2-sync-card__icon svg { width: 18px; }
+.cs2-sync-cards h3 { overflow: hidden; margin: 4px 0 2px; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.cs2-sync-cards p { overflow: hidden; margin: 0; color: var(--cs-muted); font-size: 9px; line-height: 1.45; }
+.cs2-sync-cards article > button { grid-column: 1 / -1; min-height: 36px; border: 1px solid rgb(255 186 67 / 28%); background: rgb(255 186 67 / 8%); color: #ffca68; font-size: 8px; font-weight: 900; letter-spacing: .08em; cursor: pointer; }
+.cs2-demo-dropzone { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 18px; margin-top: 14px; border: 1px dashed rgb(255 255 255 / 17%); background: rgb(17 22 26 / 78%); padding: 23px; transition: .18s ease; }
+.cs2-demo-dropzone.is-dragging { border-color: var(--cs-lime); background: rgb(217 255 67 / 8%); box-shadow: inset 0 0 35px rgb(217 255 67 / 5%); }
+.cs2-demo-dropzone > svg { width: 34px; height: 34px; color: var(--cs-lime); }
+.cs2-demo-dropzone .cs2-button { cursor: pointer; }
+.cs2-selection-notice { margin: 8px 4px 0; color: #ffca68; font-size: 9px; }
+.cs2-import-queue { margin-top: 12px; border: 1px solid var(--cs-line); background: #101518; padding: 20px; }
+.cs2-import-queue__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.cs2-import-queue__files { display: grid; gap: 6px; margin-top: 14px; }
+.cs2-import-queue__files > div { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 11px; border-top: 1px solid var(--cs-line); padding: 11px 4px; }
+.cs2-import-queue__files > div > svg { width: 18px; color: var(--cs-lime); }
+.cs2-import-queue__files > div > div { display: grid; min-width: 0; }
+.cs2-import-queue__files b { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.cs2-import-queue__files small { color: var(--cs-muted); font-size: 8px; }
+.cs2-import-queue__files > div > button { display: grid; width: 36px; height: 36px; place-items: center; border: 0; background: transparent; color: #697378; cursor: pointer; }
+.cs2-import-queue__files > div > button svg { width: 16px; }
+.cs2-import-queue__files > div > span { color: var(--cs-lime); font-size: 8px; font-weight: 900; }
+.cs2-import-queue__files > div.is-uploading > svg { animation: cs-spin 1.5s linear infinite; }
+.cs2-import-queue__files > div.has-error > svg, .cs2-import-queue__files > div.has-error small { color: var(--cs-orange); }
+.cs2-inbox-title > button { display: inline-flex; min-height: 36px; align-items: center; gap: 6px; border: 1px solid var(--cs-line); background: transparent; padding: 0 11px; color: #8d979a; font-size: 8px; font-weight: 900; cursor: pointer; }
+.cs2-inbox-title > button svg { width: 14px; }
+.cs2-inbox-title > button:disabled svg { animation: cs-spin 1.5s linear infinite; }
 .cs2-button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; border: 1px solid; padding: 0 16px; font-size: 10px; font-weight: 900; letter-spacing: .05em; cursor: pointer; }
 .cs2-button:disabled { cursor: wait; opacity: .45; }
 .cs2-button--primary { border-color: var(--cs-lime); background: var(--cs-lime); color: #0c100b !important; }
@@ -2709,7 +2749,7 @@ button.subtask-check {
   .cs2-page-header p { margin-top: 9px; font-size: 12px; line-height: 1.5; }
   .cs2-section-title { margin: 30px 0 13px; }
   .cs2-section-title h2 { font-size: 19px; }
-  .cs2-scoreboard-card, .cs2-stack-card, .cs2-panel, .cs2-plan-card, .cs2-leaderboard, .cs2-match-card, .cs2-upload-card, .cs2-challenge-card, .cs2-highlight-card, .cs2-training-callout, .cs2-ready-stage, .cs2-squad-invite, .cs2-squad-records > article, .cs2-squad-grid > article, .cs2-utility-grid > div, .cs2-stat-tile, .cs2-training-modes a, .cs2-history-row > div, .cs2-match-hero, .cs2-recap-hero, .cs2-recap-maps > div, .cs2-awards-grid article, .cs2-table-wrap {
+  .cs2-scoreboard-card, .cs2-stack-card, .cs2-panel, .cs2-plan-card, .cs2-leaderboard, .cs2-match-card, .cs2-upload-card, .cs2-challenge-card, .cs2-highlight-card, .cs2-training-callout, .cs2-ready-stage, .cs2-squad-invite, .cs2-squad-records > article, .cs2-squad-grid > article, .cs2-utility-grid > div, .cs2-stat-tile, .cs2-training-modes a, .cs2-history-row > div, .cs2-match-hero, .cs2-recap-hero, .cs2-recap-maps > div, .cs2-awards-grid article, .cs2-table-wrap, .cs2-sync-assistant, .cs2-demo-dropzone, .cs2-import-queue {
     border-radius: 14px;
   }
   .cs2-scoreboard-card, .cs2-panel { padding: 19px; }
@@ -2731,6 +2771,21 @@ button.subtask-check {
   .cs2-upload-card { grid-template-columns: 1fr; }
   .cs2-upload-icon { display: none; }
   .cs2-upload-card .cs2-button, .cs2-button { min-height: 44px; }
+  .cs2-sync-assistant__head { align-items: flex-start; padding: 19px; }
+  .cs2-sync-assistant__head p { max-width: 250px; }
+  .cs2-sync-cards { grid-template-columns: 1fr; }
+  .cs2-sync-cards article { min-height: 82px; border-right: 0; border-bottom: 1px solid var(--cs-line); padding: 15px 18px; }
+  .cs2-sync-cards article:last-child { border-bottom: 0; }
+  .cs2-sync-cards article > button { min-height: 42px; border-radius: 9px; }
+  .cs2-demo-dropzone { grid-template-columns: 1fr; justify-items: center; padding: 22px 17px; text-align: center; }
+  .cs2-demo-dropzone .cs2-button { width: 100%; }
+  .cs2-import-queue { padding: 17px; }
+  .cs2-import-queue__head { align-items: stretch; flex-direction: column; }
+  .cs2-import-queue__head .cs2-button { width: 100%; }
+  .cs2-import-queue__files > div { padding-block: 13px; }
+  .cs2-inbox-title > button { min-height: 42px; }
+  .cs2-inbox-title > button { font-size: 0; }
+  .cs2-inbox-title > button svg { width: 17px; }
   .cs2-card-grid, .cs2-utility-grid, .cs2-squad-grid, .cs2-squad-records, .cs2-leaderboard-grid { grid-template-columns: 1fr; }
   .cs2-squad-invite { grid-template-columns: auto 1fr; }
   .cs2-squad-invite > label, .cs2-squad-invite > .cs2-button { grid-column: 1 / -1; }
