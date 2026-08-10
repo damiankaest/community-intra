@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityIntranet.Modules.CounterStrike.Domain;
 using CommunityIntranet.Modules.CounterStrike.Persistence;
 using CommunityIntranet.Modules.CounterStrike.Services;
@@ -80,7 +81,7 @@ public sealed class TrainingAwardAndMappingTests
             TeamB = new AnalyzerTeamDto { Name = "Opponent", Score = 7 },
             Players = new Dictionary<string, AnalyzerPlayerDto>
             {
-                [steamId.ToString()] = new()
+                [steamId.ToString(CultureInfo.InvariantCulture)] = new()
                 {
                     SteamId = steamId,
                     Name = "Mapped",
@@ -92,7 +93,10 @@ public sealed class TrainingAwardAndMappingTests
         CounterStrikeImportProjection.Apply(
             match,
             source,
-            new Dictionary<string, Guid> { [steamId.ToString()] = Guid.NewGuid() });
+            new Dictionary<string, Guid>
+            {
+                [steamId.ToString(CultureInfo.InvariantCulture)] = Guid.NewGuid()
+            });
 
         Assert.Equal("ancient", match.MapName);
         Assert.Equal(13, match.TeamAScore);
@@ -132,10 +136,14 @@ public sealed class TrainingAwardAndMappingTests
                 .UseNpgsql("Host=localhost;Database=model_only")
                 .Options);
 
-        var index = Assert.Single(dbContext.Model.FindEntityType(typeof(CounterStrikeMatch))!
-            .GetIndexes()
-            .Where(item => item.Properties.Select(property => property.Name)
-                .SequenceEqual(new[] { nameof(CounterStrikeMatch.OrganizationId), nameof(CounterStrikeMatch.DemoChecksum) })));
+        var index = Assert.Single(
+            dbContext.Model.FindEntityType(typeof(CounterStrikeMatch))!.GetIndexes(),
+            item => item.Properties.Select(property => property.Name)
+                .SequenceEqual(new[]
+                {
+                    nameof(CounterStrikeMatch.OrganizationId),
+                    nameof(CounterStrikeMatch.DemoChecksum)
+                }));
 
         Assert.True(index.IsUnique);
     }
