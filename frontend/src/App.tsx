@@ -97,10 +97,12 @@ import {
   ResetPasswordPage,
 } from './components/AuthAccountPages'
 import { applyTheme, getThemeCssVariables, resetTheme } from './theme'
+import { invitationReturnPath } from './invitationRoutes'
 
 const currentUserKey = ['current-user'] as const
 const organizationsKey = ['organizations'] as const
 const pendingInvitationKey = 'community-pending-invitation'
+const pendingInvitationReturnToKey = 'community-pending-invitation-return-to'
 
 function App() {
   const currentUser = useQuery({
@@ -552,6 +554,11 @@ function InvitationPage({
     const hashToken = window.location.hash.replace(/^#/, '').trim()
     return hashToken || sessionStorage.getItem(pendingInvitationKey) || ''
   })
+  const [requestedReturnTo] = useState(() =>
+    new URLSearchParams(window.location.search).get('returnTo')
+      ?? sessionStorage.getItem(pendingInvitationReturnToKey)
+      ?? '',
+  )
   const invitation = useQuery({
     queryKey: ['invitation-preview', token],
     queryFn: () => resolveInvitation(token),
@@ -567,8 +574,12 @@ function InvitationPage({
     mutationFn: () => acceptInvitation(token),
     onSuccess: async (result) => {
       sessionStorage.removeItem(pendingInvitationKey)
+      sessionStorage.removeItem(pendingInvitationReturnToKey)
       await queryClient.invalidateQueries({ queryKey: organizationsKey })
-      navigate(`/organizations/${result.organizationId}`, { replace: true })
+      navigate(
+        invitationReturnPath(requestedReturnTo, result.organizationId),
+        { replace: true },
+      )
     },
   })
 
@@ -577,6 +588,15 @@ function InvitationPage({
       sessionStorage.setItem(pendingInvitationKey, token)
     }
   }, [token])
+
+  useEffect(() => {
+    if (requestedReturnTo) {
+      sessionStorage.setItem(
+        pendingInvitationReturnToKey,
+        requestedReturnTo,
+      )
+    }
+  }, [requestedReturnTo])
 
   useEffect(() => {
     applyTheme(themePack.data)

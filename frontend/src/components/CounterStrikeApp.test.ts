@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cs2Path } from './counterStrikeRoutes'
+import { cs2InvitationLink, cs2Path } from './counterStrikeRoutes'
 
 describe('cs2Path', () => {
   const organizationId = '4e07bbb0-2816-411f-b897-368ea453ee11'
@@ -17,6 +17,12 @@ describe('cs2Path', () => {
   it('keeps training query parameters on the absolute target', () => {
     expect(cs2Path(organizationId, 'training/aim?mode=flick')).toBe(
       `/cs2/${organizationId}/training/aim?mode=flick`,
+    )
+  })
+
+  it('builds a squad invitation that returns directly to CS2', () => {
+    expect(cs2InvitationLink('https://couchclash.de', organizationId, 'secret')).toBe(
+      `https://couchclash.de/invite?returnTo=${encodeURIComponent(`/cs2/${organizationId}/squad`)}#secret`,
     )
   })
 })

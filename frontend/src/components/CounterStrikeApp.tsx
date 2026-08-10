@@ -14,6 +14,7 @@ import {
   Check,
   ChevronRight,
   Clock3,
+  Copy,
   Crosshair,
   Flame,
   Gamepad2,
@@ -26,6 +27,7 @@ import {
   Target,
   Trophy,
   Upload,
+  UserPlus,
   Users,
   X,
   Zap,
@@ -69,8 +71,9 @@ import {
   type Cs2TrainingKind,
 } from '../api/counterStrike'
 import { listOrganizations } from '../api/organizations'
+import { createInvitation } from '../api/members'
 import { ApiError } from '../api/client'
-import { cs2Path } from './counterStrikeRoutes'
+import { cs2InvitationLink, cs2Path } from './counterStrikeRoutes'
 
 const navItems = [
   { to: '', label: 'Home', icon: Home, end: true },
@@ -116,6 +119,8 @@ export function CounterStrikeApp({ user }: { user: CurrentUser }) {
     queryFn: listOrganizations,
   })
   const current = organizations.data?.find((item) => item.id === organizationId)
+  const canManage = current?.permissionRole === 'Owner'
+    || current?.permissionRole === 'Administrator'
 
   useEffect(() => {
     if (organizationId) {
@@ -193,13 +198,13 @@ export function CounterStrikeApp({ user }: { user: CurrentUser }) {
             <Route path="play" element={<Cs2Play />} />
             <Route path="matches" element={<Cs2Matches />} />
             <Route path="matches/:matchId" element={<Cs2MatchDetail />} />
-            <Route path="season" element={<Cs2Season canManage={current?.permissionRole === 'Owner' || current?.permissionRole === 'Administrator'} />} />
+            <Route path="season" element={<Cs2Season canManage={canManage} />} />
             <Route path="season/recap" element={<Cs2Recap />} />
             <Route path="highlights" element={<Cs2Highlights />} />
             <Route path="training" element={<Cs2Training />} />
             <Route path="training/aim" element={<Cs2AimTrainer />} />
             <Route path="training/utility" element={<Cs2UtilityTraining />} />
-            <Route path="squad" element={<Cs2Squad user={user} />} />
+            <Route path="squad" element={<Cs2Squad user={user} canManage={canManage} />} />
             <Route path="squad/:userId" element={<Cs2PlayerProfile />} />
             <Route path="stats" element={<Cs2Stats />} />
             <Route path="*" element={<Navigate to={cs2Path(organizationId)} replace />} />
@@ -636,19 +641,73 @@ function Cs2UtilityTraining() {
   )
 }
 
-function Cs2Squad({ user }: { user: CurrentUser }) {
+function Cs2Squad({ user, canManage }: { user: CurrentUser; canManage: boolean }) {
   const organizationId = useOrganizationId()
   const queryClient = useQueryClient()
+  const [inviteUses, setInviteUses] = useState(10)
+  const [createdInviteLink, setCreatedInviteLink] = useState('')
+  const [inviteCopied, setInviteCopied] = useState(false)
   const squad = useQuery({ queryKey: ['cs2-squad', organizationId], queryFn: () => getCs2Squad(organizationId) })
   const role = useMutation({
     mutationFn: (value: string) => updateCs2Role(organizationId, value),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['cs2-squad', organizationId] }),
+  })
+  const invitation = useMutation({
+    mutationFn: () => createInvitation(organizationId, {
+      defaultPermissionRole: 'Member',
+      expiresInDays: 7,
+      maximumUses: inviteUses,
+    }),
+    onSuccess: (created) => {
+      setCreatedInviteLink(cs2InvitationLink(window.location.origin, organizationId, created.token))
+      setInviteCopied(false)
+    },
   })
   return (
     <>
       <PageHeader eyebrow="YOUR ROSTER" title="Squad" text="Alle Gruppenmitglieder, persönliche Bilanzen und euer gemeinsamer 5-Stack-Record." />
       {squad.isPending && <Cs2Loading label="ASSEMBLING SQUAD" />}
       {squad.error && <Cs2Error error={squad.error} />}
+      {canManage && <section className="cs2-squad-invite">
+        <div className="cs2-squad-invite__icon"><UserPlus /></div>
+        <div className="cs2-squad-invite__copy">
+          <span>SQUAD VERGRÖSSERN</span>
+          <h2>Spieler zu CS2 einladen</h2>
+          <p>Der Link ist sieben Tage gültig und führt nach dem Beitritt direkt zurück in diesen Squad.</p>
+        </div>
+        <label>
+          <span>PLÄTZE</span>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={inviteUses}
+            onChange={(event) => setInviteUses(Math.min(100, Math.max(1, Number(event.target.value) || 1)))}
+          />
+        </label>
+        <button
+          type="button"
+          className="cs2-button cs2-button--primary"
+          onClick={() => invitation.mutate()}
+          disabled={invitation.isPending}
+        >
+          <UserPlus /> {invitation.isPending ? 'ERSTELLEN …' : 'SQUAD-LINK ERSTELLEN'}
+        </button>
+        {invitation.error && <div className="cs2-squad-invite__result"><Cs2Error error={invitation.error} /></div>}
+        {createdInviteLink && <div className="cs2-squad-invite__result">
+          <div><Check /><span><b>Link bereit</b><small>Aus Sicherheitsgründen wird der vollständige Link nur jetzt angezeigt.</small></span></div>
+          <code>{createdInviteLink}</code>
+          <button
+            type="button"
+            onClick={async () => {
+              await navigator.clipboard.writeText(createdInviteLink)
+              setInviteCopied(true)
+            }}
+          >
+            {inviteCopied ? <Check /> : <Copy />} {inviteCopied ? 'KOPIERT' : 'LINK KOPIEREN'}
+          </button>
+        </div>}
+      </section>}
       {squad.data && <section className="cs2-squad-records">
         <SquadRecordCard
           eyebrow="ALLE SPIELERGEBNISSE"
