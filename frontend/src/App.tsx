@@ -98,6 +98,7 @@ import {
 } from './components/AuthAccountPages'
 import { applyTheme, getThemeCssVariables, resetTheme } from './theme'
 import { invitationReturnPath } from './invitationRoutes'
+import { cs2Path } from './components/counterStrikeRoutes'
 
 const currentUserKey = ['current-user'] as const
 const organizationsKey = ['organizations'] as const
@@ -1552,7 +1553,9 @@ function AppShell({
   children: ReactNode
 }) {
   const navigate = useNavigate()
+  const { organizationId } = useParams()
   const queryClient = useQueryClient()
+  const cs2Target = organizationId ? cs2Path(organizationId) : '/cs2'
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSettled: () => {
@@ -1565,34 +1568,48 @@ function AppShell({
     <div className="app-workspace min-h-screen bg-[var(--theme-background)] text-[var(--theme-text)]">
       <div className="industrial-grid pointer-events-none fixed inset-0 opacity-40" />
       <header className="relative border-b border-white/10 bg-black/25 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-          <a href="/organizations" className="flex items-center gap-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:gap-4 sm:px-8 sm:py-4">
+          <Link to="/organizations" className="flex shrink-0 items-center gap-3">
             <Logo icon={theme?.configuration.visuals.logoIcon} />
             <span className="hidden text-sm font-semibold text-white sm:inline">
               Community Intranet
             </span>
-          </a>
-          <div className="flex items-center gap-3">
-            <a
-              href="/cs2"
-              className="flex h-10 items-center gap-2 rounded-xl border border-lime-300/20 bg-lime-300/10 px-3 text-xs font-bold text-lime-200 hover:bg-lime-300/15 hover:text-white"
+          </Link>
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+            <nav
+              aria-label="Bereich wechseln"
+              className="flex h-10 shrink-0 items-center rounded-xl border border-white/10 bg-black/25 p-1"
             >
-              <Crosshair size={16} />
-              <span className="hidden sm:inline">CouchClash CS2</span>
-            </a>
-            <a
-              href="/parties"
+              <span
+                aria-current="page"
+                className="flex h-8 items-center gap-1 rounded-lg bg-white/10 px-2 text-[10px] font-black text-white sm:gap-1.5 sm:px-3 sm:text-xs"
+              >
+                <Building2 size={14} />
+                <span className="sm:hidden">Intra</span>
+                <span className="hidden sm:inline">Intranet</span>
+              </span>
+              <Link
+                to={cs2Target}
+                className="flex h-8 items-center gap-1 rounded-lg px-2 text-[10px] font-black text-lime-200 transition hover:bg-lime-300/10 hover:text-white sm:gap-1.5 sm:px-3 sm:text-xs"
+              >
+                <Crosshair size={14} />
+                CS2
+              </Link>
+            </nav>
+            <Link
+              to="/parties"
               className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-bold text-[var(--theme-muted)] hover:text-white"
+              aria-label="Partys öffnen"
             >
               <PartyPopper size={16} />
               <span className="hidden sm:inline">Partys</span>
-            </a>
-            <a href="/account" className="hidden text-right sm:block hover:opacity-80">
+            </Link>
+            <Link to="/account" className="hidden text-right sm:block hover:opacity-80">
               <p className="text-sm font-semibold text-white">
                 {user.displayName}
               </p>
               <p className="text-xs text-[var(--theme-muted)]">{user.email}</p>
-            </a>
+            </Link>
             <button
               type="button"
               onClick={() => logoutMutation.mutate()}

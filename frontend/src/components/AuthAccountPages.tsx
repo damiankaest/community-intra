@@ -123,7 +123,7 @@ export function AccountPage({ user }: { user: CurrentUser }) {
           ] as const).map(([key, label, icon, account]) => (
             <div key={key}>
               <span className={`provider-icon ${key}`}>{icon}</span>
-              <div><b>{label}</b><small>{account.connected ? account.displayName ?? (key === 'steam' ? account.steamId64 : 'Verbunden') : key === 'steam' ? 'Für automatische Demo-Zuordnung' : 'Alternative Anmeldung'}</small></div>
+              <div><b>{label}</b><small>{account.connected ? account.displayName ?? (key === 'steam' ? account.steamId64 : 'Verbunden') : key === 'steam' ? 'Ordnet dich hochgeladenen Demos zu – kein Match-Sync' : 'Alternative Anmeldung'}</small></div>
               {account.connected ? <button className="disconnect" onClick={() => disconnect.mutate(key)} disabled={disconnect.isPending}><Unlink /> Trennen</button> : <button onClick={() => connect.mutate(key)} disabled={connect.isPending}><Link2 /> Verbinden</button>}
             </div>
           ))}
@@ -131,7 +131,7 @@ export function AccountPage({ user }: { user: CurrentUser }) {
         {connect.error && <InlineAuthError error={connect.error} />}
         {disconnect.error && <InlineAuthError error={disconnect.error} />}
       </section>
-      <section className="account-cs2-callout"><div><span>COUCHCLASH CS2</span><h2>Steam verbunden? Dann kann die Demo dich erkennen.</h2><p>Steam bleibt ein verknüpfter Gaming-Account und ersetzt nicht automatisch deinen primären Login.</p></div><Link to="/cs2">CS2 öffnen →</Link></section>
+      <section className="account-cs2-callout"><div><span>COUCHCLASH CS2</span><h2>Steam erkennt dich in importierten Demos.</h2><p>Letzte Matches werden noch nicht automatisch geladen. Lade derzeit eine .dem-Datei hoch, damit CouchClash deine ausführlichen Stats auswertet.</p></div><Link to="/cs2">CS2 öffnen →</Link></section>
     </div>
   )
 }
@@ -139,7 +139,7 @@ export function AccountPage({ user }: { user: CurrentUser }) {
 function connectedAccountMessage(status: string) {
   switch (status) {
     case 'linked': return 'Der Login-Anbieter wurde verbunden.'
-    case 'steam_linked': return 'Steam wurde verbunden. Neue Demos können dich jetzt zuordnen.'
+    case 'steam_linked': return 'Steam wurde verbunden. Neu hochgeladene Demos können dich jetzt automatisch zuordnen.'
     case 'link_conflict':
     case 'steam_conflict': return 'Dieser externe Account gehört bereits zu einem anderen Konto.'
     case 'steam_link_expired':

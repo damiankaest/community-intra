@@ -2230,6 +2230,8 @@ button.subtask-check {
 .cs2-brand em { margin-left: 7px; color: var(--cs-lime); font-size: 10px; font-style: normal; vertical-align: top; }
 .cs2-brand__mark { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid rgb(217 255 67 / 35%); background: rgb(217 255 67 / 7%); color: var(--cs-lime); }
 .cs2-topbar__right { display: flex; align-items: center; gap: 12px; }
+.cs2-view-switch { display: inline-flex; min-height: 40px; align-items: center; gap: 7px; border: 1px solid rgb(255 255 255 / 12%); background: rgb(255 255 255 / 5%); padding: 0 12px; color: #cbd2d1 !important; font-size: 10px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; transition: .16s ease; }
+.cs2-view-switch:hover { border-color: rgb(217 255 67 / 28%); background: rgb(217 255 67 / 7%); color: var(--cs-lime) !important; }
 .cs2-topbar select, .cs2-squad-grid select { border: 1px solid var(--cs-line); background: #11161a; padding: 9px 12px; color: #d8dddd; }
 .cs2-user-chip { display: flex; align-items: center; gap: 9px; color: #c4cbcc; font-size: 13px; font-weight: 700; }
 .cs2-avatar { display: grid; width: 36px; height: 36px; flex: 0 0 36px; place-items: center; border: 1px solid rgb(255 255 255 / 14%); border-radius: 50%; object-fit: cover; }
@@ -2245,8 +2247,10 @@ button.subtask-check {
 .cs2-sidebar nav a { display: flex; align-items: center; gap: 12px; border-left: 2px solid transparent; padding: 11px 13px; color: #7f898e; font-size: 13px; font-weight: 750; transition: .16s ease; }
 .cs2-sidebar nav a:hover { background: rgb(255 255 255 / 3%); color: white; }
 .cs2-sidebar nav a.active { border-color: var(--cs-lime); background: linear-gradient(90deg, rgb(217 255 67 / 10%), transparent); color: var(--cs-lime); }
-.cs2-sidebar__footer { display: grid; margin-top: auto; gap: 8px; border-top: 1px solid var(--cs-line); padding: 18px 9px 0; color: #687278; font-size: 10px; }
-.cs2-sidebar__footer a { color: #aab1b3; font-weight: 800; }
+.cs2-sidebar__footer { display: grid; margin-top: auto; gap: 10px; border-top: 1px solid var(--cs-line); padding: 18px 9px 0; color: #687278; font-size: 10px; }
+.cs2-sidebar__footer > span { display: flex; align-items: center; gap: 6px; }
+.cs2-sidebar__footer .cs2-intranet-link { display: flex; min-height: 40px; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--cs-line); background: rgb(255 255 255 / 4%); color: #cbd1d1; font-weight: 850; }
+.cs2-sidebar__footer .cs2-intranet-link:hover { border-color: rgb(217 255 67 / 25%); color: var(--cs-lime); }
 .cs2-main { width: 100%; max-width: 1440px; margin: 0 auto; padding: 44px clamp(22px, 4vw, 64px) 80px; }
 .cs2-page-header { max-width: 760px; margin-bottom: 32px; }
 .cs2-page-header > span, .cs2-section-title span, .cs2-scoreboard-card__label, .cs2-upload-card > div > span, .cs2-plan-card__head span { color: var(--cs-lime); font-size: 9px; font-weight: 900; letter-spacing: .23em; text-transform: uppercase; }
@@ -2622,6 +2626,7 @@ button.subtask-check {
   .cs2-brand__mark svg { width: 19px; }
   .cs2-topbar__right { gap: 4px; }
   .cs2-topbar select, .cs2-user-chip span { display: none; }
+  .cs2-view-switch { min-height: 44px; padding-inline: 10px; border-radius: 10px; }
   .cs2-user-chip, .cs2-mobile-menu { display: grid; width: 44px; height: 44px; place-items: center; }
   .cs2-user-chip .cs2-avatar { width: 34px; height: 34px; flex-basis: 34px; }
   .cs2-mobile-menu { padding: 0; cursor: pointer; }
@@ -2768,7 +2773,7 @@ button.subtask-check {
 }
 
 @media (max-width: 390px) {
-  .cs2-brand em { display: none; }
+  .cs2-brand > span:last-child { display: none; }
   .cs2-ready-stage { display: grid; justify-items: center; text-align: center; }
   .cs2-ready-stage p { margin-bottom: 0; }
   .cs2-match-card__map { display: none; }
