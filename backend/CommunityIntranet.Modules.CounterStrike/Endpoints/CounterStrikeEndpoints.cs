@@ -212,7 +212,7 @@ public static class CounterStrikeEndpoints
         IOrganizationAccessService accessService,
         CounterStrikeCommunityService communityService,
         ICounterStrikeDemoStorage storage,
-        ICounterStrikeDemoQueue queue,
+        ICounterStrikeDemoPipeline pipeline,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -290,7 +290,7 @@ public static class CounterStrikeEndpoints
                     concurrentDuplicate.Status
                 });
             }
-            await queue.QueueAsync(match.Id, cancellationToken);
+            await pipeline.QueueAsync(match.Id, cancellationToken);
             return Results.Accepted(
                 $"/api/organizations/{organizationId}/counter-strike/matches/{match.Id}",
                 MatchSummary(match));
@@ -307,7 +307,7 @@ public static class CounterStrikeEndpoints
         ClaimsPrincipal principal,
         ICounterStrikeDbContext dbContext,
         IOrganizationAccessService accessService,
-        ICounterStrikeDemoQueue queue,
+        ICounterStrikeDemoPipeline pipeline,
         CancellationToken cancellationToken)
     {
         var access = await GetAccessAsync(organizationId, principal, accessService, cancellationToken);
@@ -332,7 +332,7 @@ public static class CounterStrikeEndpoints
         match.FailureCode = null;
         match.FailureMessage = null;
         await dbContext.SaveChangesAsync(cancellationToken);
-        await queue.QueueAsync(match.Id, cancellationToken);
+        await pipeline.QueueAsync(match.Id, cancellationToken);
         return Results.Accepted(value: MatchSummary(match));
     }
 

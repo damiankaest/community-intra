@@ -26,9 +26,9 @@ public static class DependencyInjection
                 settings.MaximumDemoMegabytes * 1024L * 1024L + 1024L * 1024L));
 
         services.AddSingleton<ICounterStrikeDemoStorage, CounterStrikeDemoStorage>();
-        services.AddSingleton<CounterStrikeDemoQueue>();
-        services.AddSingleton<ICounterStrikeDemoQueue>(provider =>
-            provider.GetRequiredService<CounterStrikeDemoQueue>());
+        services.AddSingleton<CounterStrikeDemoPipeline>();
+        services.AddSingleton<ICounterStrikeDemoPipeline>(provider =>
+            provider.GetRequiredService<CounterStrikeDemoPipeline>());
         services.AddHostedService<CounterStrikeDemoWorker>();
         services.AddScoped<ICounterStrikeDemoAnalyzer, CsdaDemoAnalyzer>();
         services.AddScoped<CounterStrikeMatchImporter>();

@@ -9,16 +9,16 @@ using Microsoft.Extensions.Options;
 
 namespace CommunityIntranet.Modules.CounterStrike.Services;
 
-public interface ICounterStrikeDemoQueue
+public interface ICounterStrikeDemoPipeline
 {
     ValueTask QueueAsync(Guid matchId, CancellationToken cancellationToken);
 }
 
-public sealed class CounterStrikeDemoQueue : ICounterStrikeDemoQueue
+public sealed class CounterStrikeDemoPipeline : ICounterStrikeDemoPipeline
 {
     private readonly Channel<Guid> _channel;
 
-    public CounterStrikeDemoQueue(IOptions<CounterStrikeOptions> options)
+    public CounterStrikeDemoPipeline(IOptions<CounterStrikeOptions> options)
     {
         _channel = Channel.CreateBounded<Guid>(new BoundedChannelOptions(
             Math.Clamp(options.Value.QueueCapacity, 4, 128))
@@ -37,7 +37,7 @@ public sealed class CounterStrikeDemoQueue : ICounterStrikeDemoQueue
 }
 
 public sealed partial class CounterStrikeDemoWorker(
-    CounterStrikeDemoQueue queue,
+    CounterStrikeDemoPipeline pipeline,
     IServiceScopeFactory scopeFactory,
     TimeProvider timeProvider,
     ILogger<CounterStrikeDemoWorker> logger) : BackgroundService
@@ -48,7 +48,7 @@ public sealed partial class CounterStrikeDemoWorker(
         {
             await ProcessAsync(matchId, stoppingToken);
         }
-        await foreach (var matchId in queue.ReadAllAsync(stoppingToken))
+        await foreach (var matchId in pipeline.ReadAllAsync(stoppingToken))
         {
             await ProcessAsync(matchId, stoppingToken);
         }
