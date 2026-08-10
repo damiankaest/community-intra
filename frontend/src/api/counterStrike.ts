@@ -36,6 +36,7 @@ export interface Cs2PlayState {
   yes: number
   maybe: number
   missing: number
+  substitutes: number
   fullStack: boolean
   mine?: Cs2Availability
   participants: Array<{
@@ -83,6 +84,41 @@ export interface Cs2PlayerStats {
   threeKills: number
   fourKills: number
   aces: number
+}
+
+export interface Cs2Record {
+  matches: number
+  wins: number
+  losses: number
+  winRate: number
+}
+
+export interface Cs2Squad {
+  players: Array<{
+    id: string
+    displayName: string
+    avatarUrl?: string
+    steamId64?: string
+    steamName?: string
+    steamAvatarUrl?: string
+    role: string
+    stats?: {
+      matches: number
+      wins: number
+      losses: number
+      kd: number
+      adr: number
+      kast: number
+      headshotPercent: number
+      hltvRating: number
+      aces: number
+      clutchesWon: number
+    }
+  }>
+  summary: {
+    playerRecord: Cs2Record
+    fullSquadRecord: Cs2Record
+  }
 }
 
 export interface Cs2Leaderboards {
@@ -321,27 +357,7 @@ export const toggleCs2Reaction = (
   )
 
 export const getCs2Squad = (organizationId: string) =>
-  apiRequest<
-    Array<{
-      id: string
-      displayName: string
-      avatarUrl?: string
-      steamId64?: string
-      steamName?: string
-      steamAvatarUrl?: string
-      role: string
-      stats?: {
-        matches: number
-        kd: number
-        adr: number
-        kast: number
-        headshotPercent: number
-        hltvRating: number
-        aces: number
-        clutchesWon: number
-      }
-    }>
-  >(`${base(organizationId)}/squad`)
+  apiRequest<Cs2Squad>(`${base(organizationId)}/squad/overview`)
 
 export const updateCs2Role = (organizationId: string, role: string) =>
   apiRequest<{ role: string }>(`${base(organizationId)}/squad/me/role`, {

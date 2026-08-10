@@ -2423,6 +2423,17 @@ button.subtask-check {
 .cs2-history-row > div { display: grid; border: 1px solid var(--cs-line); background: var(--cs-panel); padding: 14px; }
 .cs2-history-row span, .cs2-history-row small { color: var(--cs-muted); font-size: 8px; text-transform: uppercase; }
 .cs2-history-row b { margin: 5px 0; font-size: 22px; }
+.cs2-squad-records { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.cs2-squad-records > article { border: 1px solid var(--cs-line); background: radial-gradient(circle at 95% 5%, rgb(255 255 255 / 4%), transparent 12rem), #111619; padding: 24px; }
+.cs2-squad-records > article.featured { border-color: rgb(217 255 67 / 24%); background: radial-gradient(circle at 95% 5%, rgb(217 255 67 / 10%), transparent 13rem), #111619; }
+.cs2-squad-records article > span { color: var(--cs-lime); font-size: 8px; font-weight: 900; letter-spacing: .16em; }
+.cs2-squad-records h2 { margin: 5px 0 16px; font-size: 19px; }
+.cs2-squad-records article > div { display: flex; align-items: center; gap: 10px; font-size: 35px; font-weight: 950; }
+.cs2-squad-records article > div i { color: #4d565b; font-style: normal; font-weight: 300; }
+.cs2-squad-records .wins { color: var(--cs-lime); }
+.cs2-squad-records .losses { color: var(--cs-orange); }
+.cs2-squad-records p { margin: 8px 0 4px; color: #c2c9c7; font-size: 10px; font-weight: 800; }
+.cs2-squad-records small { color: var(--cs-muted); font-size: 9px; }
 .cs2-utility-grid, .cs2-squad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .cs2-utility-grid > div, .cs2-squad-grid > article { border: 1px solid var(--cs-line); background: #111619; padding: 18px; }
 .cs2-map-placeholder { display: flex; height: 130px; align-items: center; justify-content: space-between; margin-bottom: 15px; background: linear-gradient(145deg, #222a2f, #0a0e10); padding: 20px; color: #576166; font-size: 25px; font-weight: 950; text-transform: uppercase; }
@@ -2438,9 +2449,11 @@ button.subtask-check {
 .cs2-squad-avatar > span.online { background: var(--cs-lime); }
 .cs2-squad-grid h2 { margin: 5px 0; font-size: 20px; }
 .cs2-squad-grid article > p { color: var(--cs-muted); font-size: 9px; }
-.cs2-player-numbers { display: grid; grid-template-columns: repeat(3, 1fr); margin: 18px 0; border-top: 1px solid var(--cs-line); border-bottom: 1px solid var(--cs-line); }
+.cs2-player-numbers { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 18px 0; border-top: 1px solid var(--cs-line); border-bottom: 1px solid var(--cs-line); }
 .cs2-player-numbers > div { display: grid; padding: 12px 5px; text-align: center; }
 .cs2-player-numbers b { color: var(--cs-lime); }
+.cs2-player-numbers .wins b { color: #f5f7ef; }
+.cs2-player-numbers .losses b { color: var(--cs-orange); }
 .cs2-player-numbers small { color: var(--cs-muted); font-size: 7px; }
 .cs2-no-stats { margin: 18px 0; color: var(--cs-muted); font-size: 10px; }
 .cs2-squad-grid select { width: 100%; }
@@ -2454,6 +2467,7 @@ button.subtask-check {
 .cs2-aim-hud b { color: var(--cs-lime); }
 .cs2-aim-shell canvas { display: block; width: 100%; height: min(62vh, 620px); cursor: crosshair; }
 .cs2-aim-overlay { position: absolute; inset: 42px 0 0; display: grid; place-content: center; background: rgb(7 10 13 / 62%); text-align: center; }
+.cs2-aim-overlay:not(.result) { pointer-events: none; }
 .cs2-aim-overlay > svg { margin: 0 auto; color: var(--cs-lime); }
 .cs2-aim-overlay h2 { margin: 12px 0 5px; font-size: 27px; }
 .cs2-aim-overlay p { color: var(--cs-muted); font-size: 10px; }
@@ -2597,7 +2611,7 @@ button.subtask-check {
   .cs2-ready-stage h2 { font-size: 22px; }
   .cs2-upload-card { grid-template-columns: 1fr; }
   .cs2-upload-icon { display: none; }
-  .cs2-card-grid, .cs2-utility-grid, .cs2-squad-grid, .cs2-leaderboard-grid { grid-template-columns: 1fr; }
+  .cs2-card-grid, .cs2-utility-grid, .cs2-squad-grid, .cs2-squad-records, .cs2-leaderboard-grid { grid-template-columns: 1fr; }
   .cs2-recap-maps, .cs2-awards-grid, .cs2-profile-columns { grid-template-columns: 1fr; }
   .cs2-season-admin { align-items: stretch; flex-direction: column; }
   .cs2-season-admin input { min-width: 0; }

@@ -70,6 +70,7 @@ import {
 } from '../api/counterStrike'
 import { listOrganizations } from '../api/organizations'
 import { ApiError } from '../api/client'
+import { cs2Path } from './counterStrikeRoutes'
 
 const navItems = [
   { to: '', label: 'Home', icon: Home, end: true },
@@ -171,7 +172,7 @@ export function CounterStrikeApp({ user }: { user: CurrentUser }) {
               return (
                 <NavLink
                   key={item.to}
-                  to={item.to}
+                  to={cs2Path(organizationId, item.to)}
                   end={'end' in item ? item.end : false}
                   onClick={() => setMobileOpen(false)}
                 >
@@ -201,7 +202,7 @@ export function CounterStrikeApp({ user }: { user: CurrentUser }) {
             <Route path="squad" element={<Cs2Squad user={user} />} />
             <Route path="squad/:userId" element={<Cs2PlayerProfile />} />
             <Route path="stats" element={<Cs2Stats />} />
-            <Route path="*" element={<Navigate to="." replace />} />
+            <Route path="*" element={<Navigate to={cs2Path(organizationId)} replace />} />
           </Routes>
         </main>
       </div>
@@ -245,13 +246,19 @@ function Cs2Home() {
             </span>
           </div>
         </div>
-        <Link to="play" className={`cs2-stack-card ${data.play.fullStack ? 'is-ready' : ''}`}>
+        <Link to={cs2Path(organizationId, 'play')} className={`cs2-stack-card ${data.play.fullStack ? 'is-ready' : ''}`}>
           <div className="cs2-stack-card__pulse" />
           <span>HEUTE CS?</span>
-          <strong>{data.play.fullStack ? 'FULL STACK READY' : `${data.play.yes}/5 READY`}</strong>
+          <strong>
+            {data.play.fullStack
+              ? data.play.substitutes > 0
+                ? `${data.play.yes} READY · +${data.play.substitutes} BACKUP`
+                : 'FULL STACK READY'
+              : `${data.play.yes}/5 READY`}
+          </strong>
           <p>
             {data.play.fullStack
-              ? 'Lobby auf. Stimmen sammeln. Los.'
+              ? 'Alle weiteren Zusagen bleiben als Backup dabei.'
               : `Noch ${data.play.missing} bis zum vollen Stack.`}
           </p>
           <ChevronRight />
@@ -260,7 +267,7 @@ function Cs2Home() {
 
       <div className="cs2-section-title">
         <div><span>LAST DEPLOYMENT</span><h2>Letztes Match</h2></div>
-        <Link to="matches">Alle Matches <ChevronRight size={16} /></Link>
+        <Link to={cs2Path(organizationId, 'matches')}>Alle Matches <ChevronRight size={16} /></Link>
       </div>
       {data.lastMatch ? <MatchCard match={data.lastMatch} featured /> : <EmptyCard text="Noch keine Demo importiert." />}
 
@@ -275,7 +282,7 @@ function Cs2Home() {
         </div>
         <div>
           <div className="cs2-section-title compact"><div><span>PERSONAL MISSION</span><h2>Nächstes Training</h2></div></div>
-          <Link to={`training/${data.recommendation.route}`} className="cs2-training-callout">
+          <Link to={cs2Path(organizationId, `training/${data.recommendation.route}`)} className="cs2-training-callout">
             <Target size={30} />
             <span>{data.recommendation.kind}</span>
             <h3>{data.recommendation.title}</h3>
@@ -319,12 +326,18 @@ function Cs2Play() {
       <PageHeader eyebrow="QUICK SESSION" title="Heute CS?" text="Ein Klick. Kein Kalender. Kein Meeting-Overhead." />
       <section className={`cs2-ready-stage ${play.data.fullStack ? 'is-full' : ''}`}>
         <div className="cs2-ready-ring">
-          <span>{play.data.yes}</span><small>/ 5</small>
+          <span>{play.data.yes}</span><small>/ 5+</small>
         </div>
         <div>
           <span className="cs2-kicker">SQUAD STATUS</span>
-          <h2>{play.data.fullStack ? 'FULL STACK READY' : `${play.data.missing} SPIELER FEHLEN`}</h2>
-          <p>{play.data.maybe} vielleicht dabei · Start {play.data.plannedStart?.slice(0, 5) ?? 'offen'}</p>
+          <h2>
+            {play.data.fullStack
+              ? play.data.substitutes > 0
+                ? `FULL STACK + ${play.data.substitutes} BACKUP${play.data.substitutes === 1 ? '' : 'S'}`
+                : 'FULL STACK READY'
+              : `${play.data.missing} SPIELER FEHLEN`}
+          </h2>
+          <p>{play.data.yes} feste Zusagen · {play.data.maybe} vielleicht dabei · Start {play.data.plannedStart?.slice(0, 5) ?? 'offen'}</p>
         </div>
       </section>
       <div className="cs2-availability-buttons">
@@ -429,7 +442,7 @@ function Cs2MatchDetail() {
   }
   return (
     <>
-      <Link to="../" className="cs2-back-link">← Matches</Link>
+      <Link to={cs2Path(organizationId, 'matches')} className="cs2-back-link">← Matches</Link>
       <section className={`cs2-match-hero ${data.match.win ? 'is-win' : 'is-loss'}`}>
         <div><span>{data.match.win ? 'VICTORY' : 'DEFEAT'}</span><h1>{data.match.mapName}</h1><p>{formatDate(data.match.playedAt)}</p></div>
         <div className="cs2-match-hero__score"><b>{data.match.teamAScore}</b><i>:</i><b>{data.match.teamBScore}</b></div>
@@ -486,7 +499,7 @@ function Cs2Season({ canManage }: { canManage: boolean }) {
         <StatTile label="Losses" value={season.data.losses} tone="red" />
         <StatTile label="Winrate" value={`${season.data.winRate.toFixed(0)}%`} />
       </div>
-      <Link to="recap" className="cs2-recap-link"><Sparkles /> Season Recap öffnen <ChevronRight /></Link>
+      <Link to={cs2Path(organizationId, 'season/recap')} className="cs2-recap-link"><Sparkles /> Season Recap öffnen <ChevronRight /></Link>
       {canManage && <section className="cs2-season-admin"><div><span>ADMIN</span><b>Season verwalten</b></div><input value={seasonName} onChange={(event) => setSeasonName(event.target.value)} maxLength={120} placeholder="Neue Season" /><button disabled={!seasonName.trim() || create.isPending} onClick={() => create.mutate()}>Neu anlegen</button><button className="danger" disabled={close.isPending} onClick={() => close.mutate(season.data.id)}>Aktuelle abschließen</button></section>}
       <LeaderboardSections data={leaders.data} />
     </>
@@ -501,7 +514,7 @@ function Cs2Recap() {
   const data = recap.data
   return (
     <>
-      <Link to="../" className="cs2-back-link">← Season</Link>
+      <Link to={cs2Path(organizationId, 'season')} className="cs2-back-link">← Season</Link>
       <PageHeader eyebrow="SEASON RECAP" title={data.season.name} text="Die Saison als kompakte Story – bereit für spätere Video-Recaps." />
       <section className="cs2-recap-hero">
         <Sparkles />
@@ -572,17 +585,17 @@ function Cs2Training() {
       <section className="cs2-plan-card">
         <div className="cs2-plan-card__head"><div><span>HEUTE</span><h2>{training.data.plan.plannedMinutes} Minuten</h2><p>{training.data.plan.recommendationReason}</p></div><Crosshair size={42} /></div>
         <div className="cs2-plan-steps">{training.data.exercises.map((exercise, index) => (
-          <Link key={exercise.id} to={exercise.kind === 'Utility' ? 'utility' : `aim?mode=${aimModeFor(exercise.kind)}`}>
+          <Link key={exercise.id} to={cs2Path(organizationId, exercise.kind === 'Utility' ? 'training/utility' : `training/aim?mode=${aimModeFor(exercise.kind)}`)}>
             <span>{String(index + 1).padStart(2, '0')}</span><div><b>{exercise.name}</b><small>{exercise.durationMinutes} MIN · {exercise.kind}</small></div><ChevronRight />
           </Link>
         ))}</div>
       </section>
       <div className="cs2-training-modes">
-        <Link to="aim?mode=flick"><Target /><b>Flick</b><small>Präzision & Tempo</small></Link>
-        <Link to="aim?mode=reaction"><Zap /><b>Reaction</b><small>Erster Kontakt</small></Link>
-        <Link to="aim?mode=switching"><Crosshair /><b>Switching</b><small>Mehrere Targets</small></Link>
-        <Link to="aim?mode=tracking"><Activity /><b>Tracking</b><small>Am Target bleiben</small></Link>
-        <Link to="utility"><Shield /><b>Utility</b><small>Map Line-ups</small></Link>
+        <Link to={cs2Path(organizationId, 'training/aim?mode=flick')}><Target /><b>Flick</b><small>Präzision & Tempo</small></Link>
+        <Link to={cs2Path(organizationId, 'training/aim?mode=reaction')}><Zap /><b>Reaction</b><small>Erster Kontakt</small></Link>
+        <Link to={cs2Path(organizationId, 'training/aim?mode=switching')}><Crosshair /><b>Switching</b><small>Mehrere Targets</small></Link>
+        <Link to={cs2Path(organizationId, 'training/aim?mode=tracking')}><Activity /><b>Tracking</b><small>Am Target bleiben</small></Link>
+        <Link to={cs2Path(organizationId, 'training/utility')}><Shield /><b>Utility</b><small>Map Line-ups</small></Link>
       </div>
       <div className="cs2-section-title"><div><span>SQUAD GOAL</span><h2>Weekly Challenge</h2></div></div>
       {challenges.data?.map((challenge) => {
@@ -609,7 +622,7 @@ function Cs2UtilityTraining() {
   }
   return (
     <>
-      <Link to="../" className="cs2-back-link">← Training</Link>
+      <Link to={cs2Path(organizationId, 'training')} className="cs2-back-link">← Training</Link>
       <PageHeader eyebrow="UTILITY LAB" title="Mirage Set" text="Keine 3D-Spielerei: klare Line-ups, Wiederholungen und Match-Transfer." />
       {drills.isPending && <Cs2Loading label="PREPARING NADES" />}
       <div className="cs2-utility-grid">{drills.data?.map((drill) => (
@@ -633,14 +646,29 @@ function Cs2Squad({ user }: { user: CurrentUser }) {
   })
   return (
     <>
-      <PageHeader eyebrow="YOUR FIVE" title="Squad" text="Community-Profile, Steam-Identität, Rolle und aktuelle Form." />
+      <PageHeader eyebrow="YOUR ROSTER" title="Squad" text="Alle Gruppenmitglieder, persönliche Bilanzen und euer gemeinsamer 5-Stack-Record." />
       {squad.isPending && <Cs2Loading label="ASSEMBLING SQUAD" />}
       {squad.error && <Cs2Error error={squad.error} />}
-      <div className="cs2-squad-grid">{squad.data?.map((player) => (
+      {squad.data && <section className="cs2-squad-records">
+        <SquadRecordCard
+          eyebrow="ALLE SPIELERGEBNISSE"
+          title="Kumulierte Bilanz"
+          record={squad.data.summary.playerRecord}
+          text="Siege und Niederlagen aller persönlichen Match-Teilnahmen."
+        />
+        <SquadRecordCard
+          eyebrow="ECHTER 5-STACK"
+          title="Team-Bilanz"
+          record={squad.data.summary.fullSquadRecord}
+          text="Nur Matches mit fünf erkannten Mitgliedern eurer Gruppe."
+          featured
+        />
+      </section>}
+      <div className="cs2-squad-grid">{squad.data?.players.map((player) => (
         <article key={player.id}>
           <div className="cs2-squad-avatar"><Avatar name={player.displayName} url={player.steamAvatarUrl ?? player.avatarUrl} /><span className={player.steamId64 ? 'online' : ''} /></div>
-          <span>{player.role === 'Unset' ? 'NO ROLE' : player.role.toUpperCase()}</span><h2><Link to={player.id}>{player.steamName ?? player.displayName}</Link></h2><p>{player.steamId64 ? `Steam ${player.steamId64.slice(-6)}` : 'Steam noch nicht verbunden'}</p>
-          {player.stats ? <div className="cs2-player-numbers"><div><b>{player.stats.hltvRating.toFixed(2)}</b><small>RATING</small></div><div><b>{player.stats.kd.toFixed(2)}</b><small>K/D</small></div><div><b>{player.stats.adr.toFixed(0)}</b><small>ADR</small></div></div> : <div className="cs2-no-stats">Noch kein Match zugeordnet</div>}
+          <span>{player.role === 'Unset' ? 'NO ROLE' : player.role.toUpperCase()}</span><h2><Link to={cs2Path(organizationId, `squad/${player.id}`)}>{player.steamName ?? player.displayName}</Link></h2><p>{player.steamId64 ? `Steam ${player.steamId64.slice(-6)}` : 'Steam noch nicht verbunden'}</p>
+          {player.stats ? <div className="cs2-player-numbers"><div className="wins"><b>{player.stats.wins}W</b><small>WINS</small></div><div className="losses"><b>{player.stats.losses}L</b><small>LOSSES</small></div><div><b>{player.stats.hltvRating.toFixed(2)}</b><small>RATING</small></div><div><b>{player.stats.kd.toFixed(2)}</b><small>K/D</small></div><div><b>{player.stats.adr.toFixed(0)}</b><small>ADR</small></div></div> : <div className="cs2-no-stats">Noch kein Match zugeordnet</div>}
           {player.id === user.id && <select value={player.role} onChange={(event) => role.mutate(event.target.value)}>{['Unset', 'Igl', 'Entry', 'Rifler', 'Awper', 'Support', 'Lurker'].map((value) => <option key={value} value={value}>{value}</option>)}</select>}
         </article>
       ))}</div>
@@ -658,7 +686,7 @@ function Cs2PlayerProfile() {
   const stats = data.stats
   return (
     <>
-      <Link to="../" className="cs2-back-link">← Squad</Link>
+      <Link to={cs2Path(organizationId, 'squad')} className="cs2-back-link">← Squad</Link>
       <section className="cs2-profile-hero">
         <Avatar name={data.player.displayName} url={data.steam?.avatarUrl ?? data.player.avatarUrl} />
         <div><span>{data.role.toUpperCase()} · {data.favoriteMap ?? 'NO FAVORITE MAP'}</span><h1>{data.steam?.displayName ?? data.player.displayName}</h1><p>{data.steam ? `Steam ${data.steam.steamId64}` : 'Steam nicht verbunden'}</p></div>
@@ -819,7 +847,7 @@ function Cs2AimTrainer() {
   }
   return (
     <>
-      <Link to="../" className="cs2-back-link">← Training</Link>
+      <Link to={cs2Path(organizationId, 'training')} className="cs2-back-link">← Training</Link>
       <PageHeader eyebrow="BROWSER AIM MVP" title="Aim Range" text="20 Sekunden. Pointer Lock. Messbar und direkt im Profil gespeichert." />
       <div className="cs2-aim-tabs">{(['flick', 'reaction', 'switching', 'tracking'] as AimMode[]).map((value) => <button key={value} className={mode === value ? 'is-active' : ''} onClick={() => setParams({ mode: value })} disabled={running}>{value}</button>)}</div>
       <section className="cs2-aim-shell">
@@ -841,7 +869,7 @@ function MatchCard({ match, featured = false }: { match: Cs2MatchSummary; featur
       {match.status === 'Completed' ? <><div className={`cs2-result-pill ${match.win ? 'win' : 'loss'}`}>{match.win ? 'WIN' : 'LOSS'}</div><div className="cs2-match-score"><b>{match.teamAScore}</b><i>:</i><b>{match.teamBScore}</b></div><ChevronRight /></> : <ImportStatus match={match} />}
     </>
   )
-  return match.status === 'Completed' ? <Link to={`/cs2/${organizationId}/matches/${match.id}`} className={`cs2-match-card ${featured ? 'featured' : ''}`}>{content}</Link> : <div className={`cs2-match-card ${featured ? 'featured' : ''}`}>{content}</div>
+  return match.status === 'Completed' ? <Link to={cs2Path(organizationId, `matches/${match.id}`)} className={`cs2-match-card ${featured ? 'featured' : ''}`}>{content}</Link> : <div className={`cs2-match-card ${featured ? 'featured' : ''}`}>{content}</div>
 }
 
 function ImportStatus({ match }: { match: Cs2MatchSummary }) {
@@ -849,7 +877,8 @@ function ImportStatus({ match }: { match: Cs2MatchSummary }) {
 }
 
 function ProcessingMatch({ match }: { match: Cs2MatchSummary }) {
-  return <div className="cs2-processing-page"><ImportStatus match={match} /><h1>{match.originalFileName}</h1><p>Du kannst die Seite verlassen. Der Import läuft unabhängig vom HTTP-Request weiter.</p><Link to="../" className="cs2-button cs2-button--ghost">Zu allen Matches</Link></div>
+  const organizationId = useOrganizationId()
+  return <div className="cs2-processing-page"><ImportStatus match={match} /><h1>{match.originalFileName}</h1><p>Du kannst die Seite verlassen. Der Import läuft unabhängig vom HTTP-Request weiter.</p><Link to={cs2Path(organizationId, 'matches')} className="cs2-button cs2-button--ghost">Zu allen Matches</Link></div>
 }
 
 function HighlightCard({ highlight, compact = false, onReact }: { highlight: Cs2Highlight; compact?: boolean; onReact?: (value: string) => void }) {
@@ -864,6 +893,7 @@ function PageHeader({ eyebrow, title, text }: { eyebrow: string; title: string; 
   return <header className="cs2-page-header"><span>{eyebrow}</span><h1>{title}</h1><p>{text}</p></header>
 }
 function StatTile({ label, value, tone }: { label: string; value: string | number; tone?: string }) { return <div className={`cs2-stat-tile ${tone ?? ''}`}><span>{label}</span><b>{value}</b></div> }
+function SquadRecordCard({ eyebrow, title, text, record, featured = false }: { eyebrow: string; title: string; text: string; record: { matches: number; wins: number; losses: number; winRate: number }; featured?: boolean }) { return <article className={featured ? 'featured' : ''}><span>{eyebrow}</span><h2>{title}</h2><div><b className="wins">{record.wins}W</b><i>—</i><b className="losses">{record.losses}L</b></div><p>{record.matches} Matches · {record.winRate.toFixed(0)}% Winrate</p><small>{text}</small></article> }
 function StatusPill({ status }: { status: Cs2Availability }) { return <span className={`cs2-status-pill ${status.toLowerCase()}`}>{status === 'Yes' ? 'DABEI' : status === 'Maybe' ? 'VIELLEICHT' : 'RAUS'}</span> }
 function Avatar({ name, url }: { name: string; url?: string }) { return url ? <img className="cs2-avatar" src={url} alt="" /> : <span className="cs2-avatar cs2-avatar--fallback">{name.slice(0, 2).toUpperCase()}</span> }
 function EmptyCard({ text }: { text: string }) { return <div className="cs2-empty-card"><Crosshair /><p>{text}</p></div> }
