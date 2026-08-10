@@ -1,5 +1,6 @@
 using CommunityIntranet.Modules.CounterStrike.Domain;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CommunityIntranet.Modules.CounterStrike.Persistence;
 
