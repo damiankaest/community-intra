@@ -24,6 +24,9 @@ services:
     build:
       context: ..
       dockerfile: backend/CommunityIntranet.Api/Dockerfile
+      args:
+        CSDA_VERSION: ${CSDA_VERSION:-1.10.5}
+        CSDA_SHA256: ${CSDA_SHA256:-5c972e016b90e08ae235e2ca8092423a1900868006a6cf0ceecd0f36f1be9cbe}
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -35,10 +38,28 @@ services:
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      Identity__PublicAppUrl: https://${APP_DOMAIN}
+      ExternalLogin__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      ExternalLogin__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
+      ExternalLogin__Discord__ClientId: ${DISCORD_CLIENT_ID:-}
+      ExternalLogin__Discord__ClientSecret: ${DISCORD_CLIENT_SECRET:-}
+      ExternalLogin__SteamApiKey: ${STEAM_API_KEY:-}
+      Email__Host: ${SMTP_HOST:-}
+      Email__Port: ${SMTP_PORT:-587}
+      Email__UserName: ${SMTP_USERNAME:-}
+      Email__Password: ${SMTP_PASSWORD:-}
+      Email__FromAddress: ${SMTP_FROM_ADDRESS:-}
+      Email__FromName: ${SMTP_FROM_NAME:-CouchClash}
+      Email__UseSsl: "${SMTP_USE_SSL:-true}"
       AiAssistant__ApiKey: ${OPENAI_API_KEY}
       AiAssistant__Model: ${AI_MODEL:-gpt-5.6}
       DataProtection__KeysPath: /app/data-protection-keys
       PartyMedia__RootPath: /app/party-media
+      CounterStrike__StorageRoot: /app/counter-strike
+      CounterStrike__AnalyzerExecutable: /usr/local/bin/csda
+      CounterStrike__MaximumDemoMegabytes: ${CS2_MAXIMUM_DEMO_MEGABYTES:-512}
+      CounterStrike__ParserTimeoutSeconds: ${CS2_PARSER_TIMEOUT_SECONDS:-180}
+      CounterStrike__QueueCapacity: ${CS2_QUEUE_CAPACITY:-32}
       Spotify__ClientId: ${SPOTIFY_CLIENT_ID:-}
       Spotify__ClientSecret: ${SPOTIFY_CLIENT_SECRET:-}
       Spotify__RedirectUri: https://${APP_DOMAIN}/api/parties/spotify/callback
@@ -66,6 +87,7 @@ services:
       - backend-logs:/app/logs
       - backend-data-protection:/app/data-protection-keys
       - party-media:/app/party-media
+      - counter-strike-data:/app/counter-strike
     networks:
       - internal
 
@@ -116,5 +138,6 @@ volumes:
   backend-logs:
   backend-data-protection:
   party-media:
+  counter-strike-data:
   caddy-data:
   caddy-config:

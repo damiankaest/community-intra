@@ -50,6 +50,7 @@ bld/
 [Ll]og/
 [Ll]ogs/
 .runtime/
+.data/
 .deployment/
 
 # Build results on 'Bin' directories
