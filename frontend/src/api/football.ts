@@ -200,6 +200,35 @@ export interface FootballSessionFeedback {
   summary: FootballExerciseFeedbackSummary[]
 }
 
+export interface FootballTrainingPlanPlayerContext {
+  memberId: string
+  position?: FootballPosition
+  availability: FootballAvailabilityStatus
+  maxLoadPercent: number
+  recentLoad: number
+  developmentAreas: string[]
+}
+
+export interface FootballTrainingPlanBlockSuggestion {
+  exerciseId?: string
+  title: string
+  description?: string
+  coachingPoints?: string
+  durationMinutes: number
+  responsibleMemberId?: string
+  reason: string
+  intensity: FootballIntensity
+}
+
+export interface FootballTrainingPlanSuggestion {
+  sessionId: string
+  focus: string
+  playerCount: number
+  players: FootballTrainingPlanPlayerContext[]
+  blocks: FootballTrainingPlanBlockSuggestion[]
+  warnings: string[]
+}
+
 const base = (organizationId: string) =>
   `/api/organizations/${organizationId}/football`
 
@@ -278,6 +307,15 @@ export const createFootballSession = (
 
 export const getFootballSession = (organizationId: string, sessionId: string) =>
   apiRequest<FootballSessionDetail>(`${base(organizationId)}/sessions/${sessionId}`)
+
+export const suggestFootballTrainingPlan = (
+  organizationId: string,
+  sessionId: string,
+) =>
+  apiRequest<FootballTrainingPlanSuggestion>(
+    `${base(organizationId)}/sessions/${sessionId}/plan/suggest`,
+    { method: 'POST' },
+  )
 
 export const updateFootballAttendance = (
   organizationId: string,
