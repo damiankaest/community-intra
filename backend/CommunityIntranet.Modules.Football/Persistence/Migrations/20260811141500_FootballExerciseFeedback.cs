@@ -1,11 +1,18 @@
+using CommunityIntranet.Modules.Football.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace CommunityIntranet.Modules.Football.Persistence.Migrations;
 
-public partial class FootballExerciseFeedback : Migration
+[DbContext(typeof(FootballDbContext))]
+[Migration("20260811141500_FootballExerciseFeedback")]
+public sealed class FootballExerciseFeedback : Migration
 {
+    private static readonly string[] ExerciseHistoryIndexColumns = ["OrganizationId", "ExerciseId", "UpdatedAt"];
+    private static readonly string[] TrainingBlockFeedbackUniqueIndexColumns = ["OrganizationId", "SessionId", "TrainingBlockId", "MemberId"];
+
     protected override void Up(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.CreateTable(
@@ -35,13 +42,13 @@ public partial class FootballExerciseFeedback : Migration
             name: "IX_exercise_feedback_OrganizationId_ExerciseId_UpdatedAt",
             schema: "football",
             table: "exercise_feedback",
-            columns: new[] { "OrganizationId", "ExerciseId", "UpdatedAt" });
+            columns: ExerciseHistoryIndexColumns);
 
         migrationBuilder.CreateIndex(
             name: "IX_exercise_feedback_OrganizationId_SessionId_TrainingBlockId_MemberId",
             schema: "football",
             table: "exercise_feedback",
-            columns: new[] { "OrganizationId", "SessionId", "TrainingBlockId", "MemberId" },
+            columns: TrainingBlockFeedbackUniqueIndexColumns,
             unique: true);
     }
 
