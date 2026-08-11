@@ -1,0 +1,70 @@
+.football-button {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  border-radius: .75rem;
+  background: #34d399;
+  color: #020617;
+  padding: .625rem .875rem;
+  font-size: .875rem;
+  font-weight: 800;
+  transition: filter .15s ease, transform .15s ease;
+}
+
+.football-button:hover {
+  filter: brightness(1.08);
+}
+
+.football-button:active {
+  transform: translateY(1px);
+}
+
+.football-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: .75rem;
+  background: rgba(255,255,255,.05);
+  color: #e2e8f0;
+  padding: .625rem .875rem;
+  font-size: .875rem;
+  font-weight: 700;
+}
+
+.football-button-secondary:hover {
+  background: rgba(255,255,255,.09);
+}
+
+.football-input {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: .75rem;
+  background: rgba(2,6,23,.72);
+  color: #f8fafc;
+  padding: .625rem .75rem;
+  font-size: .875rem;
+  outline: none;
+}
+
+.football-input:focus {
+  border-color: rgba(52,211,153,.7);
+  box-shadow: 0 0 0 3px rgba(52,211,153,.12);
+}
+
+.football-input option {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+.football-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(52,211,153,.12);
+  color: #6ee7b7;
+  padding: .25rem .55rem;
+  font-size: .72rem;
+  font-weight: 800;
+}
