@@ -78,6 +78,17 @@ export const replaceFootballTrainingCoachTasks = (
   body: JSON.stringify({ tasks }),
 })
 
+export const updateFootballTrainingBriefing = (
+  organizationId: string,
+  sessionId: string,
+  blockId: string,
+  setupAndFlow?: string,
+  coachingPoints?: string,
+) => apiRequest<FootballTrainingBlock>(`${blockBase(organizationId, sessionId)}/${blockId}/briefing`, {
+  method: 'PUT',
+  body: JSON.stringify({ setupAndFlow, coachingPoints }),
+})
+
 export const startFootballLiveTraining = (organizationId: string, sessionId: string) =>
   apiRequest<FootballLiveTrainingState>(`${base(organizationId, sessionId)}/start`, { method: 'POST' })
 
