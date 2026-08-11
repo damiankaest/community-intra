@@ -12,8 +12,8 @@ public sealed class FootballDbContext(DbContextOptions<FootballDbContext> option
     public DbSet<FootballAttendance> FootballAttendances => Set<FootballAttendance>();
     public DbSet<FootballTrainingBlock> FootballTrainingBlocks => Set<FootballTrainingBlock>();
 
-    protected override void OnModelCreating(ModelBuilder builder)
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        builder.ApplyConfigurationsFromAssembly(typeof(FootballDbContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(FootballDbContext).Assembly);
     }
 }
