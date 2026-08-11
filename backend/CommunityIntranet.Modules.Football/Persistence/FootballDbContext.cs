@@ -16,6 +16,7 @@ public sealed class FootballDbContext(DbContextOptions<FootballDbContext> option
     public DbSet<FootballExerciseFeedback> FootballExerciseFeedback => Set<FootballExerciseFeedback>();
     public DbSet<FootballLiveTrainingRun> FootballLiveTrainingRuns => Set<FootballLiveTrainingRun>();
     public DbSet<FootballLiveTrainingBlockRun> FootballLiveTrainingBlockRuns => Set<FootballLiveTrainingBlockRun>();
+    public DbSet<FootballTrainingCoachTask> FootballTrainingCoachTasks => Set<FootballTrainingCoachTask>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
