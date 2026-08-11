@@ -9,6 +9,7 @@ public enum FootballExerciseLocation { Pitch = 0, Home = 10, Gym = 20, Anywhere 
 public enum FootballIntensity { Low = 0, Medium = 10, High = 20 }
 public enum FootballAttendanceStatus { Pending = 0, Accepted = 10, Declined = 20, Maybe = 30 }
 public enum FootballSessionKind { Training = 0, Match = 10, Individual = 20, PerformanceTest = 30 }
+public enum FootballAvailabilityStatus { Fit = 0, Limited = 10, ReturnToPlay = 20, Injured = 30 }
 
 public sealed class FootballMemberProfile : IOrganizationScoped
 {
@@ -23,6 +24,18 @@ public sealed class FootballMemberProfile : IOrganizationScoped
     public string[] DevelopmentAreas { get; set; } = [];
     public string[] SecondaryPositions { get; set; } = [];
     public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class FootballPlayerAvailability : IOrganizationScoped
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid MemberId { get; set; }
+    public FootballAvailabilityStatus Status { get; set; } = FootballAvailabilityStatus.Fit;
+    public int MaxLoadPercent { get; set; } = 100;
+    public string? Note { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public Guid UpdatedByMemberId { get; set; }
 }
 
 public sealed class FootballExercise : IOrganizationScoped
@@ -70,6 +83,18 @@ public sealed class FootballAttendance : IOrganizationScoped
     public Guid SessionId { get; set; }
     public Guid MemberId { get; set; }
     public FootballAttendanceStatus Status { get; set; } = FootballAttendanceStatus.Pending;
+    public string? Note { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class FootballSessionLoad : IOrganizationScoped
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid SessionId { get; set; }
+    public Guid MemberId { get; set; }
+    public int Rpe { get; set; }
+    public int? MinutesCompleted { get; set; }
     public string? Note { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
