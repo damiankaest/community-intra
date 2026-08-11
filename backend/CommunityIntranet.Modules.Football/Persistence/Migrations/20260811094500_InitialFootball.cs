@@ -7,6 +7,12 @@ namespace CommunityIntranet.Modules.Football.Persistence.Migrations;
 [Migration("20260811094500_InitialFootball")]
 public sealed class InitialFootball : Migration
 {
+    private static readonly string[] ExerciseIndexColumns = ["OrganizationId", "IsArchived", "Category"];
+    private static readonly string[] MemberProfileIndexColumns = ["OrganizationId", "MemberId"];
+    private static readonly string[] SessionIndexColumns = ["OrganizationId", "StartsAt"];
+    private static readonly string[] AttendanceIndexColumns = ["OrganizationId", "SessionId", "MemberId"];
+    private static readonly string[] TrainingBlockIndexColumns = ["OrganizationId", "SessionId", "SortOrder"];
+
     protected override void Up(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.EnsureSchema(name: "football");
@@ -91,11 +97,11 @@ public sealed class InitialFootball : Migration
                 AiReason = table.Column<string>(type: "character varying(1500)", maxLength: 1500, nullable: true)
             }, constraints: table => table.PrimaryKey("PK_training_blocks", x => x.Id));
 
-        migrationBuilder.CreateIndex("IX_exercises_OrganizationId_IsArchived_Category", "exercises", new[] { "OrganizationId", "IsArchived", "Category" }, schema: "football");
-        migrationBuilder.CreateIndex("IX_member_profiles_OrganizationId_MemberId", "member_profiles", new[] { "OrganizationId", "MemberId" }, schema: "football", unique: true);
-        migrationBuilder.CreateIndex("IX_sessions_OrganizationId_StartsAt", "sessions", new[] { "OrganizationId", "StartsAt" }, schema: "football");
-        migrationBuilder.CreateIndex("IX_attendance_OrganizationId_SessionId_MemberId", "attendance", new[] { "OrganizationId", "SessionId", "MemberId" }, schema: "football", unique: true);
-        migrationBuilder.CreateIndex("IX_training_blocks_OrganizationId_SessionId_SortOrder", "training_blocks", new[] { "OrganizationId", "SessionId", "SortOrder" }, schema: "football");
+        migrationBuilder.CreateIndex("IX_exercises_OrganizationId_IsArchived_Category", "exercises", ExerciseIndexColumns, schema: "football");
+        migrationBuilder.CreateIndex("IX_member_profiles_OrganizationId_MemberId", "member_profiles", MemberProfileIndexColumns, schema: "football", unique: true);
+        migrationBuilder.CreateIndex("IX_sessions_OrganizationId_StartsAt", "sessions", SessionIndexColumns, schema: "football");
+        migrationBuilder.CreateIndex("IX_attendance_OrganizationId_SessionId_MemberId", "attendance", AttendanceIndexColumns, schema: "football", unique: true);
+        migrationBuilder.CreateIndex("IX_training_blocks_OrganizationId_SessionId_SortOrder", "training_blocks", TrainingBlockIndexColumns, schema: "football");
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
