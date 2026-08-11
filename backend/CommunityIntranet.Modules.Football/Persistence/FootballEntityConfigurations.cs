@@ -109,7 +109,7 @@ public sealed class FootballExerciseFeedbackConfiguration : IEntityTypeConfigura
     {
         builder.ToTable("exercise_feedback", "football");
         builder.HasKey(x => x.Id);
-        builder.HasIndex(x => new { x.OrganizationId, x.SessionId, x.ExerciseId, x.MemberId }).IsUnique();
+        builder.HasIndex(x => new { x.OrganizationId, x.SessionId, x.TrainingBlockId, x.MemberId }).IsUnique();
         builder.HasIndex(x => new { x.OrganizationId, x.ExerciseId, x.UpdatedAt });
         builder.Property(x => x.Comment).HasMaxLength(1000);
     }
