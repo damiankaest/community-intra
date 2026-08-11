@@ -36,7 +36,33 @@ public sealed class FootballExerciseFeedback : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_exercise_feedback", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_exercise_feedback_exercises_ExerciseId",
+                    column: x => x.ExerciseId,
+                    principalSchema: "football",
+                    principalTable: "exercises",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.SetNull);
+                table.ForeignKey(
+                    name: "FK_exercise_feedback_training_blocks_TrainingBlockId",
+                    column: x => x.TrainingBlockId,
+                    principalSchema: "football",
+                    principalTable: "training_blocks",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
             });
+
+        migrationBuilder.CreateIndex(
+            name: "IX_exercise_feedback_ExerciseId",
+            schema: "football",
+            table: "exercise_feedback",
+            column: "ExerciseId");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_exercise_feedback_TrainingBlockId",
+            schema: "football",
+            table: "exercise_feedback",
+            column: "TrainingBlockId");
 
         migrationBuilder.CreateIndex(
             name: "IX_exercise_feedback_OrganizationId_ExerciseId_UpdatedAt",
