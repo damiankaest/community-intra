@@ -238,6 +238,7 @@ try
     app.MapFootballEndpoints();
     app.MapFootballPlanningEndpoints();
     app.MapFootballLiveTrainingEndpoints();
+    app.MapFootballTrainingCoachTaskEndpoints();
 
     await app.RunAsync();
 }
