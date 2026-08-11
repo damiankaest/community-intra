@@ -119,7 +119,8 @@ public sealed class FootballExerciseFeedback : IOrganizationScoped
     public Guid Id { get; set; }
     public Guid OrganizationId { get; set; }
     public Guid SessionId { get; set; }
-    public Guid ExerciseId { get; set; }
+    public Guid TrainingBlockId { get; set; }
+    public Guid? ExerciseId { get; set; }
     public Guid MemberId { get; set; }
     public int Fun { get; set; }
     public int Difficulty { get; set; }
