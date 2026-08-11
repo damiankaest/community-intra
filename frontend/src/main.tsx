@@ -5,7 +5,9 @@ import { BrowserRouter } from 'react-router-dom'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 import { FootballApp } from './components/FootballApp'
+import { FootballFeedbackDock } from './components/FootballFeedbackDock'
 import { FootballReadinessDock } from './components/FootballReadinessDock'
+import { FootballTrainerReadinessPanel } from './components/FootballTrainerReadinessPanel'
 import './i18n'
 import './index.css'
 import './football.css'
@@ -33,6 +35,8 @@ createRoot(document.getElementById('root')!).render(
           <>
             <FootballApp />
             <FootballReadinessDock />
+            <FootballFeedbackDock />
+            <FootballTrainerReadinessPanel />
           </>
         ) : <App />}
       </BrowserRouter>
