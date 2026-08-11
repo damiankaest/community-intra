@@ -22,7 +22,6 @@ import {
   Shield,
   Sparkles,
   Target,
-  Timer,
   UserRound,
   UserRoundPlus,
   Users,
@@ -76,17 +75,14 @@ const navItems = [
   { to: 'performance', label: 'Leistung', icon: BarChart3 },
 ]
 
+const defaultSessionStart = localDateTimeValue(
+  new Date(Date.now() + 24 * 60 * 60 * 1000),
+)
+
 const roleLabels: Record<FootballTeamRole, string> = {
   Player: 'Spieler',
   Coach: 'Trainer',
   Staff: 'Betreuer',
-}
-
-const positionLabels: Record<FootballPosition, string> = {
-  Goalkeeper: 'Tor',
-  Defender: 'Abwehr',
-  Midfielder: 'Mittelfeld',
-  Forward: 'Sturm',
 }
 
 const categoryLabels: Record<FootballExerciseCategory, string> = {
@@ -764,7 +760,7 @@ function TrainingPage({
     focus: '',
     location: '',
     opponent: '',
-    startsAt: localDateTimeValue(new Date(Date.now() + 24 * 60 * 60 * 1000)),
+    startsAt: defaultSessionStart,
     durationMinutes: 90,
   })
   const sessions = useQuery({
