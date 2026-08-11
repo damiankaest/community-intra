@@ -4,8 +4,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App'
+import { FootballApp } from './components/FootballApp'
 import './i18n'
 import './index.css'
+import './football.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,11 +21,14 @@ const queryClient = new QueryClient({
 
 registerSW({ immediate: true })
 
+const isFootballRoute = window.location.pathname === '/football'
+  || window.location.pathname.startsWith('/football/')
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App />
+        {isFootballRoute ? <FootballApp /> : <App />}
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,
