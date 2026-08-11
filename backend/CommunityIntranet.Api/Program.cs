@@ -67,8 +67,7 @@ try
         options.CustomizeProblemDetails = context =>
         {
             context.ProblemDetails.Instance = context.HttpContext.Request.Path;
-            context.ProblemDetails.Extensions["traceId"] =
-                context.HttpContext.TraceIdentifier;
+            context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
         };
     });
 
@@ -77,38 +76,31 @@ try
         options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
     builder.Services.AddSwaggerGen(options =>
     {
-        options.SwaggerDoc(
-            "v1",
-            new OpenApiInfo
+        options.SwaggerDoc("v1", new OpenApiInfo
+        {
+            Title = "Community Intranet API",
+            Version = "v1",
+            Description = "API for the generic, multi-tenant Community Intranet platform."
+        });
+        options.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = SecuritySchemeType.Http,
+            Scheme = JwtBearerDefaults.AuthenticationScheme,
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header
+        });
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecurityScheme
             {
-                Title = "Community Intranet API",
-                Version = "v1",
-                Description = "API for the generic, multi-tenant Community Intranet platform."
-            });
-        options.AddSecurityDefinition(
-            JwtBearerDefaults.AuthenticationScheme,
-            new OpenApiSecurityScheme
-            {
-                Name = "Authorization",
-                Type = SecuritySchemeType.Http,
-                Scheme = JwtBearerDefaults.AuthenticationScheme,
-                BearerFormat = "JWT",
-                In = ParameterLocation.Header
-            });
-        options.AddSecurityRequirement(
-            new OpenApiSecurityRequirement
-            {
-                [
-                    new OpenApiSecurityScheme
-                    {
-                        Reference = new OpenApiReference
-                        {
-                            Type = ReferenceType.SecurityScheme,
-                            Id = JwtBearerDefaults.AuthenticationScheme
-                        }
-                    }
-                ] = []
-            });
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = JwtBearerDefaults.AuthenticationScheme
+                }
+            }] = []
+        });
     });
 
     builder.Services.AddValidatorsFromAssemblyContaining<Program>();
@@ -134,71 +126,60 @@ try
     builder.Services.AddRateLimiter(options =>
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-        options.AddPolicy(
-            "authentication",
-            httpContext => RateLimitPartition.GetFixedWindowLimiter(
-                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = 10,
-                    Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0,
-                    AutoReplenishment = true
-                }));
-        options.AddPolicy(
-            "invitations",
-            httpContext => RateLimitPartition.GetFixedWindowLimiter(
-                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = 20,
-                    Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0,
-                    AutoReplenishment = true
-                }));
-        options.AddPolicy(
-            "assistant",
-            httpContext => RateLimitPartition.GetFixedWindowLimiter(
-                httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
-                    ?? httpContext.User.FindFirstValue("sub")
-                    ?? httpContext.Connection.RemoteIpAddress?.ToString()
-                    ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = 10,
-                    Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0,
-                    AutoReplenishment = true
-                }));
-        options.AddPolicy(
-            "party-public",
-            httpContext => RateLimitPartition.GetFixedWindowLimiter(
-                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = 120,
-                    Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0,
-                    AutoReplenishment = true
-                }));
-        options.AddPolicy(
-            "counter-strike-upload",
-            httpContext => RateLimitPartition.GetFixedWindowLimiter(
-                httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
-                    ?? httpContext.User.FindFirstValue("sub")
-                    ?? httpContext.Connection.RemoteIpAddress?.ToString()
-                    ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = 5,
-                    Window = TimeSpan.FromMinutes(10),
-                    QueueLimit = 0,
-                    AutoReplenishment = true
-                }));
+        options.AddPolicy("authentication", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+        options.AddPolicy("invitations", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+        options.AddPolicy("assistant", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? httpContext.User.FindFirstValue("sub")
+                ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+        options.AddPolicy("party-public", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+        options.AddPolicy("counter-strike-upload", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? httpContext.User.FindFirstValue("sub")
+                ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
     });
 
-    builder.Services
-        .AddHealthChecks()
+    builder.Services.AddHealthChecks()
         .AddDbContextCheck<CommunityIntranetDbContext>(
             "postgresql",
             failureStatus: HealthStatus.Unhealthy,
@@ -208,21 +189,12 @@ try
 
     builder.Services.AddCors(options =>
     {
-        options.AddPolicy(
-            CorsPolicies.Frontend,
-            policy =>
-            {
-                if (allowedOrigins.Length > 0)
-                {
-                    policy.WithOrigins(allowedOrigins);
-                }
-                else
-                {
-                    policy.SetIsOriginAllowed(_ => false);
-                }
-
-                policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
-            });
+        options.AddPolicy(CorsPolicies.Frontend, policy =>
+        {
+            if (allowedOrigins.Length > 0) policy.WithOrigins(allowedOrigins);
+            else policy.SetIsOriginAllowed(_ => false);
+            policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+        });
     });
 
     var app = builder.Build();
@@ -265,6 +237,7 @@ try
     app.MapCounterStrikeEndpoints();
     app.MapFootballEndpoints();
     app.MapFootballPlanningEndpoints();
+    app.MapFootballLiveTrainingEndpoints();
 
     await app.RunAsync();
 }

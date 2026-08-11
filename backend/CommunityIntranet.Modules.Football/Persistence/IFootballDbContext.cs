@@ -13,5 +13,7 @@ public interface IFootballDbContext
     DbSet<FootballSessionLoad> FootballSessionLoads { get; }
     DbSet<FootballTrainingBlock> FootballTrainingBlocks { get; }
     DbSet<FootballExerciseFeedback> FootballExerciseFeedback { get; }
+    DbSet<FootballLiveTrainingRun> FootballLiveTrainingRuns { get; }
+    DbSet<FootballLiveTrainingBlockRun> FootballLiveTrainingBlockRuns { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
