@@ -102,3 +102,15 @@ public sealed class FootballTrainingBlockConfiguration : IEntityTypeConfiguratio
         builder.Property(x => x.AiReason).HasMaxLength(1500);
     }
 }
+
+public sealed class FootballExerciseFeedbackConfiguration : IEntityTypeConfiguration<FootballExerciseFeedback>
+{
+    public void Configure(EntityTypeBuilder<FootballExerciseFeedback> builder)
+    {
+        builder.ToTable("exercise_feedback", "football");
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => new { x.OrganizationId, x.SessionId, x.ExerciseId, x.MemberId }).IsUnique();
+        builder.HasIndex(x => new { x.OrganizationId, x.ExerciseId, x.UpdatedAt });
+        builder.Property(x => x.Comment).HasMaxLength(1000);
+    }
+}
