@@ -171,6 +171,33 @@ export interface FootballTrainingHistoryEntry {
   trainingLoad?: number
 }
 
+export interface FootballExerciseFeedback {
+  id: string
+  organizationId: string
+  sessionId: string
+  exerciseId: string
+  memberId: string
+  fun: number
+  difficulty: number
+  benefit: number
+  comment?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FootballExerciseFeedbackSummary {
+  exerciseId: string
+  count: number
+  fun: number
+  difficulty: number
+  benefit: number
+}
+
+export interface FootballSessionFeedback {
+  feedback: FootballExerciseFeedback[]
+  summary: FootballExerciseFeedbackSummary[]
+}
+
 const base = (organizationId: string) =>
   `/api/organizations/${organizationId}/football`
 
@@ -288,6 +315,29 @@ export const getFootballTrainingHistory = (
 ) =>
   apiRequest<FootballTrainingHistoryEntry[]>(
     `${base(organizationId)}/members/${memberId}/history?take=${take}`,
+  )
+
+export const getFootballSessionFeedback = (
+  organizationId: string,
+  sessionId: string,
+) =>
+  apiRequest<FootballSessionFeedback>(
+    `${base(organizationId)}/sessions/${sessionId}/feedback`,
+  )
+
+export const updateFootballExerciseFeedback = (
+  organizationId: string,
+  sessionId: string,
+  exerciseId: string,
+  memberId: string,
+  input: { fun: number; difficulty: number; benefit: number; comment?: string },
+) =>
+  apiRequest<FootballExerciseFeedback>(
+    `${base(organizationId)}/sessions/${sessionId}/exercises/${exerciseId}/feedback/${memberId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    },
   )
 
 export const replaceFootballTrainingBlocks = (
