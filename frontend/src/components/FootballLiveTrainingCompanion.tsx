@@ -10,6 +10,7 @@ import {
   Play,
   Square,
   TimerReset,
+  Users,
   X,
 } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
@@ -20,6 +21,7 @@ import {
   completeFootballLiveTraining,
   completeFootballLiveTrainingBlock,
   getFootballLiveTraining,
+  listFootballTrainingCoachTasks,
   pauseFootballLiveTraining,
   pauseFootballLiveTrainingBlock,
   resetFootballLiveTrainingBlock,
@@ -111,6 +113,12 @@ export function FootballLiveTrainingCompanion() {
     enabled: Boolean(organizationId && isTrainingPage && nextTraining?.id),
     refetchInterval: expanded ? 15_000 : 30_000,
   })
+  const coachTasks = useQuery({
+    queryKey: ['football-coach-tasks', organizationId, nextTraining?.id],
+    queryFn: () => listFootballTrainingCoachTasks(organizationId!, nextTraining!.id),
+    enabled: Boolean(organizationId && isTrainingPage && nextTraining?.id),
+    refetchInterval: expanded ? 15_000 : 30_000,
+  })
 
   const applyState = (state: FootballLiveTrainingState) => {
     queryClient.setQueryData(['football-live-training', organizationId, nextTraining?.id], state)
@@ -128,6 +136,9 @@ export function FootballLiveTrainingCompanion() {
   const responsible = activeBlock?.responsibleMemberId
     ? members.data?.find((member) => member.id === activeBlock.responsibleMemberId)
     : undefined
+  const activeCoachTasks = activeBlock
+    ? (coachTasks.data ?? []).filter((task) => task.trainingBlockId === activeBlock.id)
+    : []
 
   const completedCount = useMemo(
     () => state?.blockRuns.filter((item) => item.isCompleted).length ?? 0,
@@ -149,27 +160,27 @@ export function FootballLiveTrainingCompanion() {
 
   if (!expanded) {
     return (
-      <aside className="fixed bottom-4 right-4 z-50 w-[min(390px,calc(100vw-2rem))] rounded-2xl border border-white/10 bg-slate-950/95 p-4 shadow-2xl backdrop-blur">
+      <aside className="fixed inset-x-0 bottom-0 z-50 mx-2 mb-[max(0.5rem,env(safe-area-inset-bottom))] rounded-3xl border border-white/10 bg-slate-950/98 p-3 shadow-2xl backdrop-blur sm:inset-x-auto sm:bottom-4 sm:right-4 sm:mx-0 sm:mb-0 sm:w-[min(390px,calc(100vw-2rem))] sm:rounded-2xl sm:p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/15 text-emerald-300">
-            <Clock3 size={20} />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300">
+            <Clock3 size={21} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-black text-white">Live Training</p>
             <p className="truncate text-xs text-slate-400">{nextTraining.title}</p>
           </div>
           {started && !completed && (
-            <span className="font-mono text-lg font-black text-white">{formatSeconds(totalElapsed(state, nowMs))}</span>
+            <span className="font-mono text-xl font-black tabular-nums text-white">{formatSeconds(totalElapsed(state, nowMs))}</span>
           )}
         </div>
-        <div className="mt-3 flex gap-2">
+        <div className="mt-2 flex gap-2">
           {!started && isCoach ? (
-            <button type="button" className="football-button flex-1" disabled={action.isPending || state.blocks.length === 0} onClick={() => action.mutate(() => startFootballLiveTraining(organizationId, nextTraining.id))}>
-              <Play size={15} /> Training starten
+            <button type="button" className="football-button min-h-12 flex-1 text-sm" disabled={action.isPending || state.blocks.length === 0} onClick={() => action.mutate(() => startFootballLiveTraining(organizationId, nextTraining.id))}>
+              <Play size={17} /> Training starten
             </button>
           ) : (
-            <button type="button" className="football-button flex-1" onClick={() => setExpanded(true)}>
-              <Maximize2 size={15} /> {completed ? 'Training ansehen' : 'Live öffnen'}
+            <button type="button" className="football-button min-h-12 flex-1 text-sm" onClick={() => setExpanded(true)}>
+              <Maximize2 size={17} /> {completed ? 'Training ansehen' : 'Live öffnen'}
             </button>
           )}
         </div>
@@ -178,37 +189,37 @@ export function FootballLiveTrainingCompanion() {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950 text-white">
-      <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col p-4 sm:p-6">
-        <header className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">Live Training Companion</p>
-            <h1 className="mt-1 text-xl font-black sm:text-2xl">{nextTraining.title}</h1>
-            <p className="mt-1 text-sm text-slate-400">{completedCount} / {state.blocks.length} Blöcke abgeschlossen</p>
+    <div className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain bg-slate-950 text-white">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-5xl flex-col px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6">
+        <header className="sticky top-0 z-10 -mx-3 flex items-start justify-between gap-3 border-b border-white/10 bg-slate-950/95 px-3 pb-3 pt-1 backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">Live Training</p>
+            <h1 className="mt-1 truncate text-xl font-black sm:text-2xl">{nextTraining.title}</h1>
+            <p className="mt-1 text-xs text-slate-400 sm:text-sm">{completedCount} / {state.blocks.length} Blöcke abgeschlossen</p>
           </div>
-          <button type="button" className="rounded-xl border border-white/10 p-2 text-slate-300" onClick={() => setExpanded(false)}>
-            <X size={20} />
+          <button type="button" aria-label="Live Training schließen" className="flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 text-slate-300 active:bg-white/[0.05]" onClick={() => setExpanded(false)}>
+            <X size={21} />
           </button>
         </header>
 
-        <section className="grid gap-3 py-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Training läuft</p>
-            <p className="mt-2 font-mono text-4xl font-black sm:text-5xl">{formatSeconds(totalElapsed(state, nowMs))}</p>
+        <section className="grid grid-cols-2 gap-2 py-3 sm:gap-3 sm:py-4">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">Training</p>
+            <p className="mt-1 font-mono text-3xl font-black tabular-nums sm:mt-2 sm:text-5xl">{formatSeconds(totalElapsed(state, nowMs))}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Aktueller Block</p>
-            <p className="mt-2 font-mono text-4xl font-black sm:text-5xl">{activeBlock ? formatSeconds(blockElapsed(state, activeBlock.id, nowMs)) : '00:00'}</p>
-            {activeBlock && <p className="mt-1 text-xs text-slate-500">geplant {activeBlock.durationMinutes}:00</p>}
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">Block</p>
+            <p className="mt-1 font-mono text-3xl font-black tabular-nums sm:mt-2 sm:text-5xl">{activeBlock ? formatSeconds(blockElapsed(state, activeBlock.id, nowMs)) : '00:00'}</p>
+            {activeBlock && <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Plan {activeBlock.durationMinutes}:00</p>}
           </div>
         </section>
 
         {activeBlock ? (
-          <main className="flex-1 rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
+          <main className="flex-1 rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-7">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-emerald-300">Block {Math.max(1, activeIndex + 1)} von {state.blocks.length}</p>
-                <h2 className="mt-1 text-2xl font-black sm:text-4xl">{activeBlock.title}</h2>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-emerald-300 sm:text-sm">Block {Math.max(1, activeIndex + 1)} von {state.blocks.length}</p>
+                <h2 className="mt-1 text-2xl font-black leading-tight sm:text-4xl">{activeBlock.title}</h2>
                 {responsible && <p className="mt-2 text-sm font-bold text-violet-200">Verantwortlich: {responsible.displayName}</p>}
               </div>
               {activeRun?.isCompleted && (
@@ -218,40 +229,64 @@ export function FootballLiveTrainingCompanion() {
               )}
             </div>
 
-            {activeBlock.description && <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300">{activeBlock.description}</p>}
+            {activeBlock.description && (
+              <div className="mt-4 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.06] p-4">
+                <p className="text-[11px] font-black uppercase tracking-wider text-emerald-300">Aufbau & Ablauf</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200 sm:text-base sm:leading-7">{activeBlock.description}</p>
+              </div>
+            )}
             {activeBlock.coachingPoints && (
-              <div className="mt-5 rounded-2xl border border-violet-400/20 bg-violet-400/10 p-4">
-                <p className="text-xs font-black uppercase tracking-wider text-violet-300">Coaching Points</p>
+              <div className="mt-3 rounded-2xl border border-violet-400/20 bg-violet-400/10 p-4">
+                <p className="text-[11px] font-black uppercase tracking-wider text-violet-300">Coaching Points</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-violet-50">{activeBlock.coachingPoints}</p>
               </div>
             )}
 
-            <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-3 rounded-2xl border border-sky-400/20 bg-sky-400/[0.07] p-4">
+              <div className="flex items-center gap-2 text-sky-300"><Users size={16} /><p className="text-[11px] font-black uppercase tracking-wider">Trainer-Regie</p></div>
+              {activeCoachTasks.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500">Keine zusätzlichen Trainer-Aufgaben für diesen Block verteilt.</p>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  {activeCoachTasks.map((task) => {
+                    const member = members.data?.find((item) => item.id === task.memberId)
+                    return (
+                      <div key={task.id} className="rounded-xl border border-white/10 bg-slate-950/35 p-3">
+                        <p className="text-sm font-black text-white">{member?.displayName ?? 'Trainer'} · {task.role}</p>
+                        <p className="mt-1 text-sm leading-5 text-slate-300">{task.task}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {isCoach && (
                 <>
-                  <button type="button" className="football-button" disabled={action.isPending} onClick={() => action.mutate(() => blockIsRunning ? pauseFootballLiveTrainingBlock(organizationId, nextTraining.id, activeBlock.id) : resumeFootballLiveTrainingBlock(organizationId, nextTraining.id, activeBlock.id))}>
-                    {blockIsRunning ? <Pause size={16} /> : <Play size={16} />} {blockIsRunning ? 'Block pausieren' : 'Block weiter'}
+                  <button type="button" className="football-button min-h-12" disabled={action.isPending} onClick={() => action.mutate(() => blockIsRunning ? pauseFootballLiveTrainingBlock(organizationId, nextTraining.id, activeBlock.id) : resumeFootballLiveTrainingBlock(organizationId, nextTraining.id, activeBlock.id))}>
+                    {blockIsRunning ? <Pause size={17} /> : <Play size={17} />} {blockIsRunning ? 'Pause' : 'Weiter'}
                   </button>
-                  <button type="button" className="football-button" disabled={action.isPending} onClick={() => action.mutate(() => resetFootballLiveTrainingBlock(organizationId, nextTraining.id, activeBlock.id))}>
-                    <TimerReset size={16} /> Block resetten
+                  <button type="button" className="football-button min-h-12" disabled={action.isPending} onClick={() => action.mutate(() => resetFootballLiveTrainingBlock(organizationId, nextTraining.id, activeBlock.id))}>
+                    <TimerReset size={17} /> Reset
                   </button>
-                  <button type="button" className="football-button" disabled={action.isPending} onClick={() => action.mutate(() => completeFootballLiveTrainingBlock(organizationId, nextTraining.id, activeBlock.id))}>
-                    <CheckCircle2 size={16} /> Block erledigt
+                  <button type="button" className="football-button min-h-12" disabled={action.isPending} onClick={() => action.mutate(() => completeFootballLiveTrainingBlock(organizationId, nextTraining.id, activeBlock.id))}>
+                    <CheckCircle2 size={17} /> Erledigt
                   </button>
                 </>
               )}
-              <button type="button" className="football-button" disabled={activeIndex <= 0 || action.isPending} onClick={() => activateIndex(activeIndex - 1)}>
-                <ChevronLeft size={16} /> Zurück
+              <button type="button" className="football-button min-h-12" disabled={activeIndex <= 0 || action.isPending} onClick={() => activateIndex(activeIndex - 1)}>
+                <ChevronLeft size={17} /> Zurück
               </button>
             </div>
 
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <button type="button" className="football-button" disabled={activeIndex >= state.blocks.length - 1 || action.isPending} onClick={() => activateIndex(activeIndex + 1)}>
-                Nächster Block <ChevronRight size={16} />
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button type="button" className="football-button min-h-14 text-base" disabled={activeIndex >= state.blocks.length - 1 || action.isPending} onClick={() => activateIndex(activeIndex + 1)}>
+                Nächster Block <ChevronRight size={19} />
               </button>
               {isCoach && !completed && (
-                <button type="button" className="football-button" disabled={action.isPending} onClick={() => action.mutate(() => running ? pauseFootballLiveTraining(organizationId, nextTraining.id) : resumeFootballLiveTraining(organizationId, nextTraining.id))}>
-                  {running ? <Pause size={16} /> : <Play size={16} />} {running ? 'Training pausieren' : 'Training fortsetzen'}
+                <button type="button" className="football-button min-h-14" disabled={action.isPending} onClick={() => action.mutate(() => running ? pauseFootballLiveTraining(organizationId, nextTraining.id) : resumeFootballLiveTraining(organizationId, nextTraining.id))}>
+                  {running ? <Pause size={17} /> : <Play size={17} />} {running ? 'Training pausieren' : 'Training fortsetzen'}
                 </button>
               )}
             </div>
@@ -261,9 +296,9 @@ export function FootballLiveTrainingCompanion() {
         )}
 
         {isCoach && started && !completed && (
-          <footer className="mt-4 border-t border-white/10 pt-4">
-            <button type="button" disabled={action.isPending} className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm font-black text-rose-200" onClick={() => action.mutate(() => completeFootballLiveTraining(organizationId, nextTraining.id))}>
-              <Square size={16} /> Training beenden
+          <footer className="sticky bottom-0 -mx-3 mt-3 border-t border-white/10 bg-slate-950/95 px-3 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:mt-4 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-4">
+            <button type="button" disabled={action.isPending} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm font-black text-rose-200 active:bg-rose-400/20" onClick={() => action.mutate(() => completeFootballLiveTraining(organizationId, nextTraining.id))}>
+              <Square size={17} /> Training beenden
             </button>
           </footer>
         )}

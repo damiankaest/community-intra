@@ -15,5 +15,6 @@ public interface IFootballDbContext
     DbSet<FootballExerciseFeedback> FootballExerciseFeedback { get; }
     DbSet<FootballLiveTrainingRun> FootballLiveTrainingRuns { get; }
     DbSet<FootballLiveTrainingBlockRun> FootballLiveTrainingBlockRuns { get; }
+    DbSet<FootballTrainingCoachTask> FootballTrainingCoachTasks { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
