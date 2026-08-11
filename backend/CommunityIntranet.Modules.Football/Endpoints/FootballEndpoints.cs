@@ -20,13 +20,17 @@ public static class FootballEndpoints
 
         group.MapGet("/profiles", ListProfilesAsync);
         group.MapPut("/profiles/{memberId:guid}", UpsertProfileAsync);
+        group.MapGet("/availability", ListAvailabilityAsync);
+        group.MapPut("/availability/{memberId:guid}", UpsertAvailabilityAsync);
         group.MapGet("/exercises", ListExercisesAsync);
         group.MapPost("/exercises", CreateExerciseAsync);
         group.MapGet("/sessions", ListSessionsAsync);
         group.MapPost("/sessions", CreateSessionAsync);
         group.MapGet("/sessions/{sessionId:guid}", GetSessionAsync);
         group.MapPut("/sessions/{sessionId:guid}/attendance/{memberId:guid}", UpdateAttendanceAsync);
+        group.MapPut("/sessions/{sessionId:guid}/load/{memberId:guid}", UpsertSessionLoadAsync);
         group.MapPut("/sessions/{sessionId:guid}/blocks", ReplaceTrainingBlocksAsync);
+        group.MapGet("/members/{memberId:guid}/history", GetMemberTrainingHistoryAsync);
         return endpoints;
     }
 
@@ -64,6 +68,45 @@ public static class FootballEndpoints
         entity.DevelopmentAreas = CleanArray(request.DevelopmentAreas, 12, 80);
         entity.SecondaryPositions = CleanArray(request.SecondaryPositions, 4, 40);
         entity.UpdatedAt = clock.GetUtcNow();
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(entity);
+    }
+
+    private static async Task<IResult> ListAvailabilityAsync(Guid organizationId, ClaimsPrincipal principal, IFootballDbContext db, IOrganizationAccessService access, CancellationToken ct)
+    {
+        var membership = await RequireMembershipAsync(organizationId, principal, access, ct);
+        if (membership.Result is not null) return membership.Result;
+
+        return Results.Ok(await db.FootballPlayerAvailability.AsNoTracking()
+            .Where(x => x.OrganizationId == organizationId)
+            .OrderBy(x => x.Status)
+            .ThenBy(x => x.MemberId)
+            .ToArrayAsync(ct));
+    }
+
+    private static async Task<IResult> UpsertAvailabilityAsync(Guid organizationId, Guid memberId, UpdateFootballAvailabilityRequest request, ClaimsPrincipal principal, IFootballDbContext db, IOrganizationAccessService access, TimeProvider clock, CancellationToken ct)
+    {
+        var membership = await RequireMembershipAsync(organizationId, principal, access, ct);
+        if (membership.Result is not null) return membership.Result;
+        if (!await access.IsActiveMemberAsync(organizationId, memberId, ct)) return Results.NotFound();
+        if (!Enum.IsDefined(request.Status) || request.MaxLoadPercent is < 0 or > 100)
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["availability"] = ["Status oder maximale Belastung ist ungültig."] });
+
+        var isCoach = await CanCoachAsync(organizationId, membership.Membership!, db, ct);
+        if (membership.Membership!.MemberId != memberId && !isCoach) return Results.Forbid();
+
+        var entity = await db.FootballPlayerAvailability.SingleOrDefaultAsync(x => x.OrganizationId == organizationId && x.MemberId == memberId, ct);
+        if (entity is null)
+        {
+            entity = new FootballPlayerAvailability { Id = Guid.NewGuid(), OrganizationId = organizationId, MemberId = memberId };
+            db.FootballPlayerAvailability.Add(entity);
+        }
+
+        entity.Status = request.Status;
+        entity.MaxLoadPercent = request.Status == FootballAvailabilityStatus.Injured ? 0 : request.MaxLoadPercent;
+        entity.Note = Clean(request.Note, 500);
+        entity.UpdatedAt = clock.GetUtcNow();
+        entity.UpdatedByMemberId = membership.Membership.MemberId;
         await db.SaveChangesAsync(ct);
         return Results.Ok(entity);
     }
@@ -129,7 +172,9 @@ public static class FootballEndpoints
         if (session is null) return Results.NotFound();
         var attendance = await db.FootballAttendances.AsNoTracking().Where(x => x.OrganizationId == organizationId && x.SessionId == sessionId).ToArrayAsync(ct);
         var blocks = await db.FootballTrainingBlocks.AsNoTracking().Where(x => x.OrganizationId == organizationId && x.SessionId == sessionId).OrderBy(x => x.SortOrder).ToArrayAsync(ct);
-        return Results.Ok(new { session, attendance, blocks });
+        var load = await db.FootballSessionLoads.AsNoTracking().Where(x => x.OrganizationId == organizationId && x.SessionId == sessionId).ToArrayAsync(ct);
+        var availability = await db.FootballPlayerAvailability.AsNoTracking().Where(x => x.OrganizationId == organizationId).ToArrayAsync(ct);
+        return Results.Ok(new { session, attendance, blocks, load, availability });
     }
 
     private static async Task<IResult> UpdateAttendanceAsync(Guid organizationId, Guid sessionId, Guid memberId, UpdateFootballAttendanceRequest request, ClaimsPrincipal principal, IFootballDbContext db, IOrganizationAccessService access, TimeProvider clock, CancellationToken ct)
@@ -148,6 +193,35 @@ public static class FootballEndpoints
         return Results.Ok(entity);
     }
 
+    private static async Task<IResult> UpsertSessionLoadAsync(Guid organizationId, Guid sessionId, Guid memberId, UpdateFootballSessionLoadRequest request, ClaimsPrincipal principal, IFootballDbContext db, IOrganizationAccessService access, TimeProvider clock, CancellationToken ct)
+    {
+        var membership = await RequireMembershipAsync(organizationId, principal, access, ct);
+        if (membership.Result is not null) return membership.Result;
+        var isCoach = await CanCoachAsync(organizationId, membership.Membership!, db, ct);
+        if (membership.Membership!.MemberId != memberId && !isCoach) return Results.Forbid();
+        if (!await access.IsActiveMemberAsync(organizationId, memberId, ct)) return Results.NotFound();
+        if (request.Rpe is < 1 or > 10) return Results.ValidationProblem(new Dictionary<string, string[]> { ["rpe"] = ["RPE muss zwischen 1 und 10 liegen."] });
+
+        var session = await db.FootballSessions.AsNoTracking().SingleOrDefaultAsync(x => x.OrganizationId == organizationId && x.Id == sessionId, ct);
+        if (session is null) return Results.NotFound();
+        if (request.MinutesCompleted is < 0 || request.MinutesCompleted > session.DurationMinutes)
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["minutesCompleted"] = ["Absolvierte Minuten müssen innerhalb der Termindauer liegen."] });
+
+        var entity = await db.FootballSessionLoads.SingleOrDefaultAsync(x => x.OrganizationId == organizationId && x.SessionId == sessionId && x.MemberId == memberId, ct);
+        if (entity is null)
+        {
+            entity = new FootballSessionLoad { Id = Guid.NewGuid(), OrganizationId = organizationId, SessionId = sessionId, MemberId = memberId };
+            db.FootballSessionLoads.Add(entity);
+        }
+
+        entity.Rpe = request.Rpe;
+        entity.MinutesCompleted = request.MinutesCompleted;
+        entity.Note = Clean(request.Note, 500);
+        entity.UpdatedAt = clock.GetUtcNow();
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(entity);
+    }
+
     private static async Task<IResult> ReplaceTrainingBlocksAsync(Guid organizationId, Guid sessionId, ReplaceFootballTrainingBlocksRequest request, ClaimsPrincipal principal, IFootballDbContext db, IOrganizationAccessService access, CancellationToken ct)
     {
         var membership = await RequireCoachAsync(organizationId, principal, db, access, ct);
@@ -162,6 +236,50 @@ public static class FootballEndpoints
         db.FootballTrainingBlocks.AddRange(blocks);
         await db.SaveChangesAsync(ct);
         return Results.Ok(blocks);
+    }
+
+    private static async Task<IResult> GetMemberTrainingHistoryAsync(Guid organizationId, Guid memberId, ClaimsPrincipal principal, IFootballDbContext db, IOrganizationAccessService access, TimeProvider clock, int? take, CancellationToken ct)
+    {
+        var membership = await RequireMembershipAsync(organizationId, principal, access, ct);
+        if (membership.Result is not null) return membership.Result;
+        if (!await access.IsActiveMemberAsync(organizationId, memberId, ct)) return Results.NotFound();
+
+        var count = Math.Clamp(take ?? 20, 1, 50);
+        var sessionIds = await db.FootballAttendances.AsNoTracking()
+            .Where(x => x.OrganizationId == organizationId && x.MemberId == memberId && x.Status == FootballAttendanceStatus.Accepted)
+            .Select(x => x.SessionId)
+            .ToArrayAsync(ct);
+
+        var sessions = await db.FootballSessions.AsNoTracking()
+            .Where(x => x.OrganizationId == organizationId && sessionIds.Contains(x.Id) && x.StartsAt < clock.GetUtcNow() && !x.IsCancelled)
+            .OrderByDescending(x => x.StartsAt)
+            .Take(count)
+            .ToArrayAsync(ct);
+
+        var selectedIds = sessions.Select(x => x.Id).ToArray();
+        var loads = await db.FootballSessionLoads.AsNoTracking()
+            .Where(x => x.OrganizationId == organizationId && x.MemberId == memberId && selectedIds.Contains(x.SessionId))
+            .ToDictionaryAsync(x => x.SessionId, ct);
+        var plannedMinutes = await db.FootballTrainingBlocks.AsNoTracking()
+            .Where(x => x.OrganizationId == organizationId && selectedIds.Contains(x.SessionId))
+            .GroupBy(x => x.SessionId)
+            .Select(x => new { SessionId = x.Key, Minutes = x.Sum(block => block.DurationMinutes) })
+            .ToDictionaryAsync(x => x.SessionId, x => x.Minutes, ct);
+
+        var history = sessions.Select(session =>
+        {
+            loads.TryGetValue(session.Id, out var load);
+            var minutes = load?.MinutesCompleted ?? session.DurationMinutes;
+            return new
+            {
+                session,
+                load,
+                plannedMinutes = plannedMinutes.GetValueOrDefault(session.Id, session.DurationMinutes),
+                trainingLoad = load is null ? (int?)null : load.Rpe * minutes
+            };
+        });
+
+        return Results.Ok(history);
     }
 
     private static async Task<(OrganizationMembership? Membership, IResult? Result)> RequireMembershipAsync(Guid organizationId, ClaimsPrincipal principal, IOrganizationAccessService access, CancellationToken ct)
@@ -190,8 +308,10 @@ public static class FootballEndpoints
 }
 
 public sealed record UpsertFootballProfileRequest(FootballTeamRole TeamRole, FootballPosition? Position, int? ShirtNumber, string? Description, string[]? Strengths, string[]? DevelopmentAreas, string[]? SecondaryPositions);
+public sealed record UpdateFootballAvailabilityRequest(FootballAvailabilityStatus Status, int MaxLoadPercent, string? Note);
 public sealed record CreateFootballExerciseRequest(string Title, string? Description, FootballExerciseCategory Category, FootballExerciseLocation Location, FootballIntensity Intensity, int MinPlayers, int? MaxPlayers, int DefaultDurationMinutes, string? Focus, string[]? Equipment, string[]? Tags);
 public sealed record CreateFootballSessionRequest(FootballSessionKind Kind, string Title, string? Focus, string? Location, string? Opponent, DateTimeOffset StartsAt, int DurationMinutes);
 public sealed record UpdateFootballAttendanceRequest(FootballAttendanceStatus Status, string? Note);
+public sealed record UpdateFootballSessionLoadRequest(int Rpe, int? MinutesCompleted, string? Note);
 public sealed record ReplaceFootballTrainingBlocksRequest(IReadOnlyList<FootballTrainingBlockRequest> Blocks);
 public sealed record FootballTrainingBlockRequest(Guid? ExerciseId, string Title, string? Description, string? CoachingPoints, int DurationMinutes, Guid? ResponsibleMemberId, string? AiReason);
