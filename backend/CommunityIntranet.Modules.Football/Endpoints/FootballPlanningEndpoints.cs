@@ -26,6 +26,7 @@ public static class FootballPlanningEndpoints
     private static async Task<IResult> SuggestPlanAsync(
         Guid organizationId,
         Guid sessionId,
+        SuggestFootballTrainingPlanRequest request,
         ClaimsPrincipal principal,
         IFootballDbContext db,
         IOrganizationAccessService access,
@@ -38,7 +39,19 @@ public static class FootballPlanningEndpoints
         if (!await CanCoachAsync(organizationId, membership, db, ct))
             return Results.Forbid();
 
-        var suggestion = await planner.SuggestAsync(organizationId, sessionId, ct);
+        if (request.ExpectedPlayerCount is < 1 or > 60)
+        {
+            return Results.BadRequest(new
+            {
+                message = "ExpectedPlayerCount muss zwischen 1 und 60 liegen."
+            });
+        }
+
+        var suggestion = await planner.SuggestAsync(
+            organizationId,
+            sessionId,
+            ct,
+            request.ExpectedPlayerCount);
         return suggestion is null ? Results.NotFound() : Results.Ok(suggestion);
     }
 
@@ -67,3 +80,5 @@ public static class FootballPlanningEndpoints
             ct);
     }
 }
+
+public sealed record SuggestFootballTrainingPlanRequest(int? ExpectedPlayerCount);
