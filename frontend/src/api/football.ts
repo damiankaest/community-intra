@@ -14,6 +14,7 @@ export type FootballExerciseLocation = 'Pitch' | 'Home' | 'Gym' | 'Anywhere'
 export type FootballIntensity = 'Low' | 'Medium' | 'High'
 export type FootballAttendanceStatus = 'Pending' | 'Accepted' | 'Declined' | 'Maybe'
 export type FootballSessionKind = 'Training' | 'Match' | 'Individual' | 'PerformanceTest'
+export type FootballAvailabilityStatus = 'Fit' | 'Limited' | 'ReturnToPlay' | 'Injured'
 
 export interface FootballMemberProfile {
   id: string
@@ -37,6 +38,17 @@ export interface UpsertFootballProfileInput {
   strengths: string[]
   developmentAreas: string[]
   secondaryPositions: string[]
+}
+
+export interface FootballPlayerAvailability {
+  id: string
+  organizationId: string
+  memberId: string
+  status: FootballAvailabilityStatus
+  maxLoadPercent: number
+  note?: string
+  updatedAt: string
+  updatedByMemberId: string
 }
 
 export interface FootballExercise {
@@ -109,6 +121,17 @@ export interface FootballAttendance {
   updatedAt: string
 }
 
+export interface FootballSessionLoad {
+  id: string
+  organizationId: string
+  sessionId: string
+  memberId: string
+  rpe: number
+  minutesCompleted?: number
+  note?: string
+  updatedAt: string
+}
+
 export interface FootballTrainingBlock {
   id: string
   organizationId: string
@@ -127,6 +150,8 @@ export interface FootballSessionDetail {
   session: FootballSession
   attendance: FootballAttendance[]
   blocks: FootballTrainingBlock[]
+  load: FootballSessionLoad[]
+  availability: FootballPlayerAvailability[]
 }
 
 export interface FootballTrainingBlockInput {
@@ -137,6 +162,13 @@ export interface FootballTrainingBlockInput {
   durationMinutes: number
   responsibleMemberId?: string
   aiReason?: string
+}
+
+export interface FootballTrainingHistoryEntry {
+  session: FootballSession
+  load?: FootballSessionLoad
+  plannedMinutes: number
+  trainingLoad?: number
 }
 
 const base = (organizationId: string) =>
@@ -154,6 +186,24 @@ export const upsertFootballProfile = (
     method: 'PUT',
     body: JSON.stringify(input),
   })
+
+export const listFootballAvailability = (organizationId: string) =>
+  apiRequest<FootballPlayerAvailability[]>(`${base(organizationId)}/availability`)
+
+export const updateFootballAvailability = (
+  organizationId: string,
+  memberId: string,
+  status: FootballAvailabilityStatus,
+  maxLoadPercent: number,
+  note?: string,
+) =>
+  apiRequest<FootballPlayerAvailability>(
+    `${base(organizationId)}/availability/${memberId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ status, maxLoadPercent, note }),
+    },
+  )
 
 export const listFootballExercises = (
   organizationId: string,
@@ -213,6 +263,31 @@ export const updateFootballAttendance = (
       method: 'PUT',
       body: JSON.stringify({ status, note }),
     },
+  )
+
+export const updateFootballSessionLoad = (
+  organizationId: string,
+  sessionId: string,
+  memberId: string,
+  rpe: number,
+  minutesCompleted?: number,
+  note?: string,
+) =>
+  apiRequest<FootballSessionLoad>(
+    `${base(organizationId)}/sessions/${sessionId}/load/${memberId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ rpe, minutesCompleted, note }),
+    },
+  )
+
+export const getFootballTrainingHistory = (
+  organizationId: string,
+  memberId: string,
+  take = 20,
+) =>
+  apiRequest<FootballTrainingHistoryEntry[]>(
+    `${base(organizationId)}/members/${memberId}/history?take=${take}`,
   )
 
 export const replaceFootballTrainingBlocks = (
