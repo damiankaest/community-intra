@@ -10,6 +10,7 @@ import {
   Play,
   Square,
   TimerReset,
+  Users,
   X,
 } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
@@ -20,6 +21,7 @@ import {
   completeFootballLiveTraining,
   completeFootballLiveTrainingBlock,
   getFootballLiveTraining,
+  listFootballTrainingCoachTasks,
   pauseFootballLiveTraining,
   pauseFootballLiveTrainingBlock,
   resetFootballLiveTrainingBlock,
@@ -111,6 +113,12 @@ export function FootballLiveTrainingCompanion() {
     enabled: Boolean(organizationId && isTrainingPage && nextTraining?.id),
     refetchInterval: expanded ? 15_000 : 30_000,
   })
+  const coachTasks = useQuery({
+    queryKey: ['football-coach-tasks', organizationId, nextTraining?.id],
+    queryFn: () => listFootballTrainingCoachTasks(organizationId!, nextTraining!.id),
+    enabled: Boolean(organizationId && isTrainingPage && nextTraining?.id),
+    refetchInterval: expanded ? 15_000 : 30_000,
+  })
 
   const applyState = (state: FootballLiveTrainingState) => {
     queryClient.setQueryData(['football-live-training', organizationId, nextTraining?.id], state)
@@ -128,6 +136,9 @@ export function FootballLiveTrainingCompanion() {
   const responsible = activeBlock?.responsibleMemberId
     ? members.data?.find((member) => member.id === activeBlock.responsibleMemberId)
     : undefined
+  const activeCoachTasks = activeBlock
+    ? (coachTasks.data ?? []).filter((task) => task.trainingBlockId === activeBlock.id)
+    : []
 
   const completedCount = useMemo(
     () => state?.blockRuns.filter((item) => item.isCompleted).length ?? 0,
@@ -230,6 +241,25 @@ export function FootballLiveTrainingCompanion() {
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-violet-50">{activeBlock.coachingPoints}</p>
               </div>
             )}
+
+            <div className="mt-3 rounded-2xl border border-sky-400/20 bg-sky-400/[0.07] p-4">
+              <div className="flex items-center gap-2 text-sky-300"><Users size={16} /><p className="text-[11px] font-black uppercase tracking-wider">Trainer-Regie</p></div>
+              {activeCoachTasks.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500">Keine zusätzlichen Trainer-Aufgaben für diesen Block verteilt.</p>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  {activeCoachTasks.map((task) => {
+                    const member = members.data?.find((item) => item.id === task.memberId)
+                    return (
+                      <div key={task.id} className="rounded-xl border border-white/10 bg-slate-950/35 p-3">
+                        <p className="text-sm font-black text-white">{member?.displayName ?? 'Trainer'} · {task.role}</p>
+                        <p className="mt-1 text-sm leading-5 text-slate-300">{task.task}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {isCoach && (
