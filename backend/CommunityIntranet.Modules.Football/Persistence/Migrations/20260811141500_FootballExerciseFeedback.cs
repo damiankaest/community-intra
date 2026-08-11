@@ -16,7 +16,8 @@ public partial class FootballExerciseFeedback : Migration
                 Id = table.Column<Guid>(type: "uuid", nullable: false),
                 OrganizationId = table.Column<Guid>(type: "uuid", nullable: false),
                 SessionId = table.Column<Guid>(type: "uuid", nullable: false),
-                ExerciseId = table.Column<Guid>(type: "uuid", nullable: false),
+                TrainingBlockId = table.Column<Guid>(type: "uuid", nullable: false),
+                ExerciseId = table.Column<Guid>(type: "uuid", nullable: true),
                 MemberId = table.Column<Guid>(type: "uuid", nullable: false),
                 Fun = table.Column<int>(type: "integer", nullable: false),
                 Difficulty = table.Column<int>(type: "integer", nullable: false),
@@ -37,10 +38,10 @@ public partial class FootballExerciseFeedback : Migration
             columns: new[] { "OrganizationId", "ExerciseId", "UpdatedAt" });
 
         migrationBuilder.CreateIndex(
-            name: "IX_exercise_feedback_OrganizationId_SessionId_ExerciseId_MemberId",
+            name: "IX_exercise_feedback_OrganizationId_SessionId_TrainingBlockId_MemberId",
             schema: "football",
             table: "exercise_feedback",
-            columns: new[] { "OrganizationId", "SessionId", "ExerciseId", "MemberId" },
+            columns: new[] { "OrganizationId", "SessionId", "TrainingBlockId", "MemberId" },
             unique: true);
     }
 
