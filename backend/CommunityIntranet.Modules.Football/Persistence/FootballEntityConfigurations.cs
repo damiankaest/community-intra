@@ -112,5 +112,13 @@ public sealed class FootballExerciseFeedbackConfiguration : IEntityTypeConfigura
         builder.HasIndex(x => new { x.OrganizationId, x.SessionId, x.TrainingBlockId, x.MemberId }).IsUnique();
         builder.HasIndex(x => new { x.OrganizationId, x.ExerciseId, x.UpdatedAt });
         builder.Property(x => x.Comment).HasMaxLength(1000);
+        builder.HasOne<FootballTrainingBlock>()
+            .WithMany()
+            .HasForeignKey(x => x.TrainingBlockId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<FootballExercise>()
+            .WithMany()
+            .HasForeignKey(x => x.ExerciseId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
