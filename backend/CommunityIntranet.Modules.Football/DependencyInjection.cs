@@ -1,4 +1,5 @@
 using CommunityIntranet.Modules.Football.Persistence;
+using CommunityIntranet.Modules.Football.Planning;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString, npgsql =>
                 npgsql.MigrationsAssembly(typeof(FootballDbContext).Assembly.FullName)));
         services.AddScoped<IFootballDbContext>(provider => provider.GetRequiredService<FootballDbContext>());
+        services.AddScoped<IFootballTrainingPlanner, FootballTrainingPlanner>();
 
         if (configuration.GetValue("Database:ApplyMigrations", false))
         {
