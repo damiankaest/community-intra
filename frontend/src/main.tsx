@@ -10,6 +10,7 @@ import { FootballLiveTrainingCompanion } from './components/FootballLiveTraining
 import { FootballPlanSuggestionDock } from './components/FootballPlanSuggestionDock'
 import { FootballReadinessDock } from './components/FootballReadinessDock'
 import { FootballTrainerReadinessPanel } from './components/FootballTrainerReadinessPanel'
+import { FootballTrainingOperationsDock } from './components/FootballTrainingOperationsDock'
 import './i18n'
 import './index.css'
 import './football.css'
@@ -40,6 +41,7 @@ createRoot(document.getElementById('root')!).render(
             <FootballFeedbackDock />
             <FootballTrainerReadinessPanel />
             <FootballPlanSuggestionDock />
+            <FootballTrainingOperationsDock />
             <FootballLiveTrainingCompanion />
           </>
         ) : <App />}
