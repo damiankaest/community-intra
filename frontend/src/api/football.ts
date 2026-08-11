@@ -175,7 +175,8 @@ export interface FootballExerciseFeedback {
   id: string
   organizationId: string
   sessionId: string
-  exerciseId: string
+  trainingBlockId: string
+  exerciseId?: string
   memberId: string
   fun: number
   difficulty: number
@@ -186,7 +187,8 @@ export interface FootballExerciseFeedback {
 }
 
 export interface FootballExerciseFeedbackSummary {
-  exerciseId: string
+  trainingBlockId: string
+  exerciseId?: string
   count: number
   fun: number
   difficulty: number
@@ -328,12 +330,12 @@ export const getFootballSessionFeedback = (
 export const updateFootballExerciseFeedback = (
   organizationId: string,
   sessionId: string,
-  exerciseId: string,
+  trainingBlockId: string,
   memberId: string,
   input: { fun: number; difficulty: number; benefit: number; comment?: string },
 ) =>
   apiRequest<FootballExerciseFeedback>(
-    `${base(organizationId)}/sessions/${sessionId}/exercises/${exerciseId}/feedback/${memberId}`,
+    `${base(organizationId)}/sessions/${sessionId}/blocks/${trainingBlockId}/feedback/${memberId}`,
     {
       method: 'PUT',
       body: JSON.stringify(input),
