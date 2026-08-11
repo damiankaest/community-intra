@@ -30,6 +30,8 @@ public static class FootballEndpoints
         group.MapPut("/sessions/{sessionId:guid}/attendance/{memberId:guid}", UpdateAttendanceAsync);
         group.MapPut("/sessions/{sessionId:guid}/load/{memberId:guid}", UpsertSessionLoadAsync);
         group.MapPut("/sessions/{sessionId:guid}/blocks", ReplaceTrainingBlocksAsync);
+        group.MapGet("/sessions/{sessionId:guid}/feedback", GetSessionFeedbackAsync);
+        group.MapPut("/sessions/{sessionId:guid}/exercises/{exerciseId:guid}/feedback/{memberId:guid}", UpsertExerciseFeedbackAsync);
         group.MapGet("/members/{memberId:guid}/history", GetMemberTrainingHistoryAsync);
         return endpoints;
     }
@@ -51,7 +53,8 @@ public static class FootballEndpoints
         var membership = await RequireCoachAsync(organizationId, principal, db, access, ct);
         if (membership.Result is not null) return membership.Result;
         if (!await access.IsActiveMemberAsync(organizationId, memberId, ct)) return Results.NotFound();
-        if (!Enum.IsDefined(request.TeamRole) || (request.Position is not null && !Enum.IsDefined(request.Position.Value))) return Results.ValidationProblem(new Dictionary<string, string[]> { ["profile"] = ["Ungültige Fußballrolle oder Position."] });
+        if (!Enum.IsDefined(request.TeamRole) || (request.Position is not null && !Enum.IsDefined(request.Position.Value)))
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["profile"] = ["Ungültige Fußballrolle oder Position."] });
 
         var entity = await db.FootballMemberProfiles.SingleOrDefaultAsync(x => x.OrganizationId == organizationId && x.MemberId == memberId, ct);
         if (entity is null)
@@ -131,11 +134,22 @@ public static class FootballEndpoints
         var now = clock.GetUtcNow();
         var exercise = new FootballExercise
         {
-            Id = Guid.NewGuid(), OrganizationId = organizationId, Title = request.Title.Trim(), Description = Clean(request.Description, 3000) ?? string.Empty,
-            Category = request.Category, Location = request.Location, Intensity = request.Intensity, MinPlayers = request.MinPlayers, MaxPlayers = request.MaxPlayers,
-            DefaultDurationMinutes = request.DefaultDurationMinutes, Focus = Clean(request.Focus, 1000) ?? string.Empty,
-            Equipment = CleanArray(request.Equipment, 20, 80), Tags = CleanArray(request.Tags, 20, 80), CreatedByMemberId = membership.Membership!.MemberId,
-            CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            Title = request.Title.Trim(),
+            Description = Clean(request.Description, 3000) ?? string.Empty,
+            Category = request.Category,
+            Location = request.Location,
+            Intensity = request.Intensity,
+            MinPlayers = request.MinPlayers,
+            MaxPlayers = request.MaxPlayers,
+            DefaultDurationMinutes = request.DefaultDurationMinutes,
+            Focus = Clean(request.Focus, 1000) ?? string.Empty,
+            Equipment = CleanArray(request.Equipment, 20, 80),
+            Tags = CleanArray(request.Tags, 20, 80),
+            CreatedByMemberId = membership.Membership!.MemberId,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         db.FootballExercises.Add(exercise);
         await db.SaveChangesAsync(ct);
@@ -156,9 +170,16 @@ public static class FootballEndpoints
     {
         var membership = await RequireCoachAsync(organizationId, principal, db, access, ct);
         if (membership.Result is not null) return membership.Result;
-        if (string.IsNullOrWhiteSpace(request.Title) || request.DurationMinutes is < 5 or > 480) return Results.ValidationProblem(new Dictionary<string, string[]> { ["session"] = ["Titel oder Dauer ist ungültig."] });
+        if (string.IsNullOrWhiteSpace(request.Title) || request.DurationMinutes is < 5 or > 480)
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["session"] = ["Titel oder Dauer ist ungültig."] });
+
         var now = clock.GetUtcNow();
-        var session = new FootballSession { Id = Guid.NewGuid(), OrganizationId = organizationId, Kind = request.Kind, Title = request.Title.Trim(), Focus = Clean(request.Focus, 1000), Location = Clean(request.Location, 300), Opponent = Clean(request.Opponent, 180), StartsAt = request.StartsAt, DurationMinutes = request.DurationMinutes, CreatedByMemberId = membership.Membership!.MemberId, CreatedAt = now, UpdatedAt = now };
+        var session = new FootballSession
+        {
+            Id = Guid.NewGuid(), OrganizationId = organizationId, Kind = request.Kind, Title = request.Title.Trim(), Focus = Clean(request.Focus, 1000),
+            Location = Clean(request.Location, 300), Opponent = Clean(request.Opponent, 180), StartsAt = request.StartsAt, DurationMinutes = request.DurationMinutes,
+            CreatedByMemberId = membership.Membership!.MemberId, CreatedAt = now, UpdatedAt = now
+        };
         db.FootballSessions.Add(session);
         await db.SaveChangesAsync(ct);
         return Results.Created($"/api/organizations/{organizationId}/football/sessions/{session.Id}", session);
@@ -187,8 +208,14 @@ public static class FootballEndpoints
         if (!await db.FootballSessions.AnyAsync(x => x.OrganizationId == organizationId && x.Id == sessionId, ct)) return Results.NotFound();
 
         var entity = await db.FootballAttendances.SingleOrDefaultAsync(x => x.OrganizationId == organizationId && x.SessionId == sessionId && x.MemberId == memberId, ct);
-        if (entity is null) { entity = new FootballAttendance { Id = Guid.NewGuid(), OrganizationId = organizationId, SessionId = sessionId, MemberId = memberId }; db.FootballAttendances.Add(entity); }
-        entity.Status = request.Status; entity.Note = Clean(request.Note, 500); entity.UpdatedAt = clock.GetUtcNow();
+        if (entity is null)
+        {
+            entity = new FootballAttendance { Id = Guid.NewGuid(), OrganizationId = organizationId, SessionId = sessionId, MemberId = memberId };
+            db.FootballAttendances.Add(entity);
+        }
+        entity.Status = request.Status;
+        entity.Note = Clean(request.Note, 500);
+        entity.UpdatedAt = clock.GetUtcNow();
         await db.SaveChangesAsync(ct);
         return Results.Ok(entity);
     }
@@ -200,7 +227,8 @@ public static class FootballEndpoints
         var isCoach = await CanCoachAsync(organizationId, membership.Membership!, db, ct);
         if (membership.Membership!.MemberId != memberId && !isCoach) return Results.Forbid();
         if (!await access.IsActiveMemberAsync(organizationId, memberId, ct)) return Results.NotFound();
-        if (request.Rpe is < 1 or > 10) return Results.ValidationProblem(new Dictionary<string, string[]> { ["rpe"] = ["RPE muss zwischen 1 und 10 liegen."] });
+        if (request.Rpe is < 1 or > 10)
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["rpe"] = ["RPE muss zwischen 1 und 10 liegen."] });
 
         var session = await db.FootballSessions.AsNoTracking().SingleOrDefaultAsync(x => x.OrganizationId == organizationId && x.Id == sessionId, ct);
         if (session is null) return Results.NotFound();
@@ -213,7 +241,6 @@ public static class FootballEndpoints
             entity = new FootballSessionLoad { Id = Guid.NewGuid(), OrganizationId = organizationId, SessionId = sessionId, MemberId = memberId };
             db.FootballSessionLoads.Add(entity);
         }
-
         entity.Rpe = request.Rpe;
         entity.MinutesCompleted = request.MinutesCompleted;
         entity.Note = Clean(request.Note, 500);
@@ -228,14 +255,80 @@ public static class FootballEndpoints
         if (membership.Result is not null) return membership.Result;
         var session = await db.FootballSessions.SingleOrDefaultAsync(x => x.OrganizationId == organizationId && x.Id == sessionId, ct);
         if (session is null) return Results.NotFound();
-        if (request.Blocks.Count > 30 || request.Blocks.Any(x => string.IsNullOrWhiteSpace(x.Title) || x.DurationMinutes is < 1 or > 180)) return Results.ValidationProblem(new Dictionary<string, string[]> { ["blocks"] = ["Trainingsblöcke sind ungültig."] });
+        if (request.Blocks.Count > 30 || request.Blocks.Any(x => string.IsNullOrWhiteSpace(x.Title) || x.DurationMinutes is < 1 or > 180))
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["blocks"] = ["Trainingsblöcke sind ungültig."] });
 
         var existing = await db.FootballTrainingBlocks.Where(x => x.OrganizationId == organizationId && x.SessionId == sessionId).ToArrayAsync(ct);
         db.FootballTrainingBlocks.RemoveRange(existing);
-        var blocks = request.Blocks.Select((x, index) => new FootballTrainingBlock { Id = Guid.NewGuid(), OrganizationId = organizationId, SessionId = sessionId, ExerciseId = x.ExerciseId, Title = x.Title.Trim(), Description = Clean(x.Description, 2000), CoachingPoints = Clean(x.CoachingPoints, 2000), SortOrder = index, DurationMinutes = x.DurationMinutes, ResponsibleMemberId = x.ResponsibleMemberId, AiReason = Clean(x.AiReason, 1500) }).ToArray();
+        var blocks = request.Blocks.Select((x, index) => new FootballTrainingBlock
+        {
+            Id = Guid.NewGuid(), OrganizationId = organizationId, SessionId = sessionId, ExerciseId = x.ExerciseId, Title = x.Title.Trim(),
+            Description = Clean(x.Description, 2000), CoachingPoints = Clean(x.CoachingPoints, 2000), SortOrder = index, DurationMinutes = x.DurationMinutes,
+            ResponsibleMemberId = x.ResponsibleMemberId, AiReason = Clean(x.AiReason, 1500)
+        }).ToArray();
         db.FootballTrainingBlocks.AddRange(blocks);
         await db.SaveChangesAsync(ct);
         return Results.Ok(blocks);
+    }
+
+    private static async Task<IResult> GetSessionFeedbackAsync(Guid organizationId, Guid sessionId, ClaimsPrincipal principal, IFootballDbContext db, IOrganizationAccessService access, CancellationToken ct)
+    {
+        var membership = await RequireMembershipAsync(organizationId, principal, access, ct);
+        if (membership.Result is not null) return membership.Result;
+        if (!await db.FootballSessions.AsNoTracking().AnyAsync(x => x.OrganizationId == organizationId && x.Id == sessionId, ct)) return Results.NotFound();
+
+        var feedback = await db.FootballExerciseFeedback.AsNoTracking()
+            .Where(x => x.OrganizationId == organizationId && x.SessionId == sessionId)
+            .OrderBy(x => x.ExerciseId).ThenBy(x => x.MemberId)
+            .ToArrayAsync(ct);
+
+        var summary = feedback
+            .GroupBy(x => x.ExerciseId)
+            .Select(group => new
+            {
+                exerciseId = group.Key,
+                count = group.Count(),
+                fun = Math.Round(group.Average(x => x.Fun), 2),
+                difficulty = Math.Round(group.Average(x => x.Difficulty), 2),
+                benefit = Math.Round(group.Average(x => x.Benefit), 2)
+            })
+            .ToArray();
+
+        return Results.Ok(new { feedback, summary });
+    }
+
+    private static async Task<IResult> UpsertExerciseFeedbackAsync(Guid organizationId, Guid sessionId, Guid exerciseId, Guid memberId, UpdateFootballExerciseFeedbackRequest request, ClaimsPrincipal principal, IFootballDbContext db, IOrganizationAccessService access, TimeProvider clock, CancellationToken ct)
+    {
+        var membership = await RequireMembershipAsync(organizationId, principal, access, ct);
+        if (membership.Result is not null) return membership.Result;
+        if (membership.Membership!.MemberId != memberId) return Results.Forbid();
+        if (request.Fun is < 1 or > 5 || request.Difficulty is < 1 or > 5 || request.Benefit is < 1 or > 5)
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["feedback"] = ["Spaß, Schwierigkeit und Nutzen müssen zwischen 1 und 5 liegen."] });
+
+        var sessionExists = await db.FootballSessions.AsNoTracking().AnyAsync(x => x.OrganizationId == organizationId && x.Id == sessionId, ct);
+        if (!sessionExists) return Results.NotFound();
+        var exerciseInSession = await db.FootballTrainingBlocks.AsNoTracking()
+            .AnyAsync(x => x.OrganizationId == organizationId && x.SessionId == sessionId && x.ExerciseId == exerciseId, ct);
+        if (!exerciseInSession) return Results.ValidationProblem(new Dictionary<string, string[]> { ["exercise"] = ["Die Übung ist nicht Teil dieses Trainingsplans."] });
+
+        var entity = await db.FootballExerciseFeedback.SingleOrDefaultAsync(x =>
+            x.OrganizationId == organizationId && x.SessionId == sessionId && x.ExerciseId == exerciseId && x.MemberId == memberId, ct);
+        var now = clock.GetUtcNow();
+        if (entity is null)
+        {
+            entity = new FootballExerciseFeedback
+            {
+                Id = Guid.NewGuid(), OrganizationId = organizationId, SessionId = sessionId, ExerciseId = exerciseId, MemberId = memberId, CreatedAt = now
+            };
+            db.FootballExerciseFeedback.Add(entity);
+        }
+        entity.Fun = request.Fun;
+        entity.Difficulty = request.Difficulty;
+        entity.Benefit = request.Benefit;
+        entity.Comment = Clean(request.Comment, 1000);
+        entity.UpdatedAt = now;
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(entity);
     }
 
     private static async Task<IResult> GetMemberTrainingHistoryAsync(Guid organizationId, Guid memberId, ClaimsPrincipal principal, IFootballDbContext db, IOrganizationAccessService access, TimeProvider clock, int? take, CancellationToken ct)
@@ -300,11 +393,17 @@ public static class FootballEndpoints
     private static async Task<bool> CanCoachAsync(Guid organizationId, OrganizationMembership membership, IFootballDbContext db, CancellationToken ct)
     {
         if (membership.PermissionRole >= PermissionRole.Moderator) return true;
-        return await db.FootballMemberProfiles.AsNoTracking().AnyAsync(x => x.OrganizationId == organizationId && x.MemberId == membership.MemberId && x.TeamRole == FootballTeamRole.Coach, ct);
+        return await db.FootballMemberProfiles.AsNoTracking()
+            .AnyAsync(x => x.OrganizationId == organizationId && x.MemberId == membership.MemberId && x.TeamRole == FootballTeamRole.Coach, ct);
     }
 
     private static string? Clean(string? value, int max) => string.IsNullOrWhiteSpace(value) ? null : value.Trim()[..Math.Min(value.Trim().Length, max)];
-    private static string[] CleanArray(IEnumerable<string>? values, int maxItems, int maxLength) => values?.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()[..Math.Min(x.Trim().Length, maxLength)]).Distinct(StringComparer.OrdinalIgnoreCase).Take(maxItems).ToArray() ?? [];
+    private static string[] CleanArray(IEnumerable<string>? values, int maxItems, int maxLength) => values?
+        .Where(x => !string.IsNullOrWhiteSpace(x))
+        .Select(x => x.Trim()[..Math.Min(x.Trim().Length, maxLength)])
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Take(maxItems)
+        .ToArray() ?? [];
 }
 
 public sealed record UpsertFootballProfileRequest(FootballTeamRole TeamRole, FootballPosition? Position, int? ShirtNumber, string? Description, string[]? Strengths, string[]? DevelopmentAreas, string[]? SecondaryPositions);
@@ -315,3 +414,4 @@ public sealed record UpdateFootballAttendanceRequest(FootballAttendanceStatus St
 public sealed record UpdateFootballSessionLoadRequest(int Rpe, int? MinutesCompleted, string? Note);
 public sealed record ReplaceFootballTrainingBlocksRequest(IReadOnlyList<FootballTrainingBlockRequest> Blocks);
 public sealed record FootballTrainingBlockRequest(Guid? ExerciseId, string Title, string? Description, string? CoachingPoints, int DurationMinutes, Guid? ResponsibleMemberId, string? AiReason);
+public sealed record UpdateFootballExerciseFeedbackRequest(int Fun, int Difficulty, int Benefit, string? Comment);
