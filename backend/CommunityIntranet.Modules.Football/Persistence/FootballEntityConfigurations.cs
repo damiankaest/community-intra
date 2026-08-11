@@ -20,6 +20,18 @@ public sealed class FootballMemberProfileConfiguration : IEntityTypeConfiguratio
     }
 }
 
+public sealed class FootballPlayerAvailabilityConfiguration : IEntityTypeConfiguration<FootballPlayerAvailability>
+{
+    public void Configure(EntityTypeBuilder<FootballPlayerAvailability> builder)
+    {
+        builder.ToTable("player_availability", "football");
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => new { x.OrganizationId, x.MemberId }).IsUnique();
+        builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
+        builder.Property(x => x.Note).HasMaxLength(500);
+    }
+}
+
 public sealed class FootballExerciseConfiguration : IEntityTypeConfiguration<FootballExercise>
 {
     public void Configure(EntityTypeBuilder<FootballExercise> builder)
@@ -61,6 +73,18 @@ public sealed class FootballAttendanceConfiguration : IEntityTypeConfiguration<F
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => new { x.OrganizationId, x.SessionId, x.MemberId }).IsUnique();
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
+        builder.Property(x => x.Note).HasMaxLength(500);
+    }
+}
+
+public sealed class FootballSessionLoadConfiguration : IEntityTypeConfiguration<FootballSessionLoad>
+{
+    public void Configure(EntityTypeBuilder<FootballSessionLoad> builder)
+    {
+        builder.ToTable("session_load", "football");
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => new { x.OrganizationId, x.SessionId, x.MemberId }).IsUnique();
+        builder.HasIndex(x => new { x.OrganizationId, x.MemberId, x.UpdatedAt });
         builder.Property(x => x.Note).HasMaxLength(500);
     }
 }
