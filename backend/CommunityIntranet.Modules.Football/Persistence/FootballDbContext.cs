@@ -7,9 +7,11 @@ public sealed class FootballDbContext(DbContextOptions<FootballDbContext> option
     : DbContext(options), IFootballDbContext
 {
     public DbSet<FootballMemberProfile> FootballMemberProfiles => Set<FootballMemberProfile>();
+    public DbSet<FootballPlayerAvailability> FootballPlayerAvailability => Set<FootballPlayerAvailability>();
     public DbSet<FootballExercise> FootballExercises => Set<FootballExercise>();
     public DbSet<FootballSession> FootballSessions => Set<FootballSession>();
     public DbSet<FootballAttendance> FootballAttendances => Set<FootballAttendance>();
+    public DbSet<FootballSessionLoad> FootballSessionLoads => Set<FootballSessionLoad>();
     public DbSet<FootballTrainingBlock> FootballTrainingBlocks => Set<FootballTrainingBlock>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
