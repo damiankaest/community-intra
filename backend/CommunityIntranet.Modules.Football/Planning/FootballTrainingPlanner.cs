@@ -126,7 +126,7 @@ public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider 
         return new FootballTrainingPlanSuggestion(session.Id, focus, availablePlayers.Length, playerContexts, blocks, warnings);
     }
 
-    private static IReadOnlyList<FootballTrainingPlanBlockSuggestion> BuildBlocks(
+    private static List<FootballTrainingPlanBlockSuggestion> BuildBlocks(
         int targetDuration,
         string focus,
         IReadOnlyList<FootballTrainingPlanPlayerContext> players,
@@ -206,7 +206,7 @@ public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider 
         return string.Join(" ", parts);
     }
 
-    private static IReadOnlyList<string> BuildWarnings(
+    private static List<string> BuildWarnings(
         IReadOnlyList<FootballTrainingPlanPlayerContext> all,
         IReadOnlyList<FootballTrainingPlanPlayerContext> available,
         IReadOnlyList<FootballTrainingPlanPlayerContext> restricted)
