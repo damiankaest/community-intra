@@ -10,6 +10,8 @@ import {
 } from '../api/football'
 import { listMembers } from '../api/members'
 
+const trainerSessionsFrom = new Date().toISOString()
+
 const statusLabels: Record<FootballAvailabilityStatus, string> = {
   Fit: 'Fit',
   Limited: 'Angeschlagen',
@@ -52,7 +54,7 @@ export function FootballTrainerReadinessPanel() {
   })
   const sessions = useQuery({
     queryKey: ['football-sessions', organizationId, 'trainer-readiness'],
-    queryFn: () => listFootballSessions(organizationId!, new Date().toISOString()),
+    queryFn: () => listFootballSessions(organizationId!, trainerSessionsFrom),
     enabled: Boolean(organizationId && isTrainingPage && me.data),
   })
 
