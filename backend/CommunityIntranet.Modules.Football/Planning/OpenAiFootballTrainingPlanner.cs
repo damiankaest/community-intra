@@ -73,9 +73,14 @@ public sealed partial class OpenAiFootballTrainingPlanner(
     public async Task<FootballTrainingPlanSuggestion?> SuggestAsync(
         Guid organizationId,
         Guid sessionId,
-        CancellationToken ct)
+        CancellationToken ct,
+        int? expectedPlayerCount = null)
     {
-        var fallback = await fallbackPlanner.SuggestAsync(organizationId, sessionId, ct);
+        var fallback = await fallbackPlanner.SuggestAsync(
+            organizationId,
+            sessionId,
+            ct,
+            expectedPlayerCount);
         if (fallback is null) return null;
 
         if (string.IsNullOrWhiteSpace(options.ApiKey))
@@ -113,7 +118,13 @@ public sealed partial class OpenAiFootballTrainingPlanner(
                 session.Location,
                 session.Kind
             },
-            players = fallback.Players,
+            roster = new
+            {
+                expectedTotal = fallback.PlayerCount,
+                knownAccepted = fallback.KnownPlayerCount,
+                unknownExpected = fallback.UnknownPlayerCount,
+                knownPlayers = fallback.Players
+            },
             safetyWarnings = fallback.Warnings,
             heuristicDraft = fallback.Blocks,
             playbook = exercises.Select(x => new
@@ -266,8 +277,11 @@ public sealed partial class OpenAiFootballTrainingPlanner(
 
         NormalizeDuration(blocks, fallback.Blocks.Sum(x => x.DurationMinutes));
 
+        var generatedWarnings = generated.Warnings
+            .Select(x => Trim(x, 500))
+            .OfType<string>();
         var warnings = fallback.Warnings
-            .Concat(generated.Warnings.Select(x => Trim(x, 500)).Where(x => x is not null)!)
+            .Concat(generatedWarnings)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(10)
             .ToList();
@@ -276,6 +290,8 @@ public sealed partial class OpenAiFootballTrainingPlanner(
             fallback.SessionId,
             fallback.Focus,
             fallback.PlayerCount,
+            fallback.KnownPlayerCount,
+            fallback.UnknownPlayerCount,
             fallback.Players,
             blocks,
             warnings);
@@ -322,9 +338,14 @@ public sealed partial class OpenAiFootballTrainingPlanner(
         Teamdaten einen konkreten Trainingsplan auf Deutsch.
 
         Sicherheits- und Planungsregeln:
-        - Verletzt oder 0 % MaxLoad bedeutet: keine aktive Belastung einplanen.
+        - roster.expectedTotal ist die Gesamtzahl der erwarteten Spieler.
+        - roster.knownAccepted enthält die Zahl der bereits konkret bekannten Zusagen.
+        - roster.unknownExpected sind zusätzliche erwartete Spieler, zu denen noch keine Profil-, Positions-, Readiness- oder Belastungsdaten vorliegen.
+        - Erfinde für unbekannte Spieler niemals Positionen, Fitnesswerte, Verletzungen, Stärken oder Entwicklungsfelder.
+        - Plane Spielformen und Gruppengrößen für expectedTotal, berücksichtige individuelle Einschränkungen aber nur für bekannte Spieler.
+        - Verletzt oder 0 % MaxLoad bedeutet: keine aktive Belastung für diesen bekannten Spieler einplanen.
         - Limited und ReturnToPlay müssen sichtbar reduziert oder individuell gesteuert werden.
-        - Hohe dokumentierte RPE-Last der letzten 14 Tage muss die Intensität reduzieren.
+        - Hohe dokumentierte RPE-Last der letzten 14 Tage muss die Intensität für betroffene bekannte Spieler reduzieren.
         - Verwende Playbook-exerciseIds ausschließlich, wenn sie im gelieferten Playbook stehen.
         - Erfinde keine Spieler-, Trainer- oder Exercise-IDs.
         - Die Summe der Blockdauer soll der geplanten Sessiondauer entsprechen.
