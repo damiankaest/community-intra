@@ -6,13 +6,19 @@ namespace CommunityIntranet.Modules.Football.Planning;
 
 public interface IFootballTrainingPlanner
 {
-    Task<FootballTrainingPlanSuggestion?> SuggestAsync(Guid organizationId, Guid sessionId, CancellationToken ct);
+    Task<FootballTrainingPlanSuggestion?> SuggestAsync(
+        Guid organizationId,
+        Guid sessionId,
+        CancellationToken ct,
+        int? expectedPlayerCount = null);
 }
 
 public sealed record FootballTrainingPlanSuggestion(
     Guid SessionId,
     string Focus,
     int PlayerCount,
+    int KnownPlayerCount,
+    int UnknownPlayerCount,
     IReadOnlyList<FootballTrainingPlanPlayerContext> Players,
     IReadOnlyList<FootballTrainingPlanBlockSuggestion> Blocks,
     IReadOnlyList<string> Warnings);
@@ -44,7 +50,11 @@ internal sealed record FootballExerciseFeedbackAggregate(
 
 public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider clock) : IFootballTrainingPlanner
 {
-    public async Task<FootballTrainingPlanSuggestion?> SuggestAsync(Guid organizationId, Guid sessionId, CancellationToken ct)
+    public async Task<FootballTrainingPlanSuggestion?> SuggestAsync(
+        Guid organizationId,
+        Guid sessionId,
+        CancellationToken ct,
+        int? expectedPlayerCount = null)
     {
         var session = await db.FootballSessions.AsNoTracking()
             .SingleOrDefaultAsync(x => x.OrganizationId == organizationId && x.Id == sessionId && !x.IsCancelled, ct);
@@ -96,6 +106,12 @@ public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider 
             .Where(x => x.Availability is FootballAvailabilityStatus.Limited or FootballAvailabilityStatus.ReturnToPlay || x.MaxLoadPercent < 100)
             .ToArray();
 
+        var knownPlayerCount = acceptedIds.Length;
+        var planningPlayerCount = expectedPlayerCount is > 0
+            ? Math.Max(expectedPlayerCount.Value, knownPlayerCount)
+            : availablePlayers.Length;
+        var unknownPlayerCount = Math.Max(0, planningPlayerCount - knownPlayerCount);
+
         var feedbackCutoff = clock.GetUtcNow().AddDays(-120);
         var feedbackRows = await db.FootballExerciseFeedback.AsNoTracking()
             .Where(x => x.OrganizationId == organizationId && x.ExerciseId != null && x.UpdatedAt >= feedbackCutoff)
@@ -110,7 +126,10 @@ public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider 
         var exerciseFeedback = feedbackRows.ToDictionary(x => x.ExerciseId);
 
         var exercises = await db.FootballExercises.AsNoTracking()
-            .Where(x => x.OrganizationId == organizationId && !x.IsArchived && x.MinPlayers <= availablePlayers.Length && (x.MaxPlayers == null || x.MaxPlayers >= availablePlayers.Length))
+            .Where(x => x.OrganizationId == organizationId
+                && !x.IsArchived
+                && x.MinPlayers <= planningPlayerCount
+                && (x.MaxPlayers == null || x.MaxPlayers >= planningPlayerCount))
             .ToArrayAsync(ct);
 
         var coachId = await db.FootballMemberProfiles.AsNoTracking()
@@ -120,10 +139,27 @@ public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider 
 
         var targetDuration = Math.Clamp(session.DurationMinutes, 30, 150);
         var focus = string.IsNullOrWhiteSpace(session.Focus) ? "Spielfähigkeit" : session.Focus.Trim();
-        var blocks = BuildBlocks(targetDuration, focus, availablePlayers, restrictedPlayers, exercises, exerciseFeedback, coachId);
-        var warnings = BuildWarnings(playerContexts, availablePlayers, restrictedPlayers);
+        var blocks = BuildBlocks(
+            targetDuration,
+            focus,
+            availablePlayers,
+            restrictedPlayers,
+            exercises,
+            exerciseFeedback,
+            coachId,
+            planningPlayerCount,
+            unknownPlayerCount);
+        var warnings = BuildWarnings(playerContexts, availablePlayers, restrictedPlayers, planningPlayerCount, unknownPlayerCount);
 
-        return new FootballTrainingPlanSuggestion(session.Id, focus, availablePlayers.Length, playerContexts, blocks, warnings);
+        return new FootballTrainingPlanSuggestion(
+            session.Id,
+            focus,
+            planningPlayerCount,
+            knownPlayerCount,
+            unknownPlayerCount,
+            playerContexts,
+            blocks,
+            warnings);
     }
 
     private static List<FootballTrainingPlanBlockSuggestion> BuildBlocks(
@@ -133,13 +169,25 @@ public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider 
         IReadOnlyList<FootballTrainingPlanPlayerContext> restricted,
         IReadOnlyList<FootballExercise> exercises,
         IReadOnlyDictionary<Guid, FootballExerciseFeedbackAggregate> feedback,
-        Guid? coachId)
+        Guid? coachId,
+        int planningPlayerCount,
+        int unknownPlayerCount)
     {
         var remaining = targetDuration;
         var result = new List<FootballTrainingPlanBlockSuggestion>();
 
         var activationMinutes = Math.Min(15, Math.Max(10, targetDuration / 8));
-        result.Add(new(null, "Aktivierung & Mobilität", "Dynamische Aktivierung mit Ball und kontrollierte Bewegungsqualität.", "Bewegungsradius sauber aufbauen; eingeschränkte Spieler individuell steuern.", activationMinutes, coachId, restricted.Count > 0 ? $"{restricted.Count} Spieler mit Belastungseinschränkung berücksichtigt." : "Gemeinsame körperliche Vorbereitung.", FootballIntensity.Low));
+        result.Add(new(
+            null,
+            "Aktivierung & Mobilität",
+            "Dynamische Aktivierung mit Ball und kontrollierte Bewegungsqualität.",
+            "Bewegungsradius sauber aufbauen; eingeschränkte Spieler individuell steuern.",
+            activationMinutes,
+            coachId,
+            restricted.Count > 0
+                ? $"{restricted.Count} bekannte Spieler mit Belastungseinschränkung berücksichtigt."
+                : "Gemeinsame körperliche Vorbereitung.",
+            FootballIntensity.Low));
         remaining -= activationMinutes;
 
         var desiredCategory = InferCategory(focus);
@@ -154,24 +202,63 @@ public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider 
         var mainMinutes = Math.Min(30, Math.Max(18, remaining / 2));
         if (mainExercise is not null)
         {
-            result.Add(new(mainExercise.Id, mainExercise.Title, mainExercise.Description, mainExercise.Focus, mainMinutes, coachId, BuildExerciseReason(mainExercise, feedback, restricted.Count), mainExercise.Intensity));
+            result.Add(new(
+                mainExercise.Id,
+                mainExercise.Title,
+                mainExercise.Description,
+                mainExercise.Focus,
+                mainMinutes,
+                coachId,
+                BuildExerciseReason(mainExercise, feedback, restricted.Count, planningPlayerCount),
+                mainExercise.Intensity));
         }
         else
         {
-            result.Add(new(null, focus, "Hauptteil passend zum Schwerpunkt und zur verfügbaren Kadergröße.", "Tempo und Raumgröße an die aktuelle Belastbarkeit anpassen.", mainMinutes, coachId, "Keine passende Playbook-Übung für Teilnehmerzahl und Schwerpunkt gefunden.", preferredIntensity));
+            result.Add(new(
+                null,
+                focus,
+                "Hauptteil passend zum Schwerpunkt und zur erwarteten Kadergröße.",
+                "Tempo und Raumgröße an die aktuelle Belastbarkeit und die tatsächliche Spielerzahl anpassen.",
+                mainMinutes,
+                coachId,
+                $"Keine passende Playbook-Übung für {planningPlayerCount} erwartete Spieler und den Schwerpunkt gefunden.",
+                preferredIntensity));
         }
         remaining -= mainMinutes;
 
         var forwards = players.Count(x => x.Position == FootballPosition.Forward);
         var defenders = players.Count(x => x.Position == FootballPosition.Defender);
-        var transferTitle = forwards > defenders ? "Abschluss & Gegenpressing" : defenders > forwards ? "Spielaufbau & Restverteidigung" : "Spielform mit Schwerpunkt";
+        var transferTitle = forwards > defenders
+            ? "Abschluss & Gegenpressing"
+            : defenders > forwards
+                ? "Spielaufbau & Restverteidigung"
+                : "Spielform mit Schwerpunkt";
         var transferMinutes = Math.Max(12, remaining - 8);
-        result.Add(new(null, transferTitle, "Spielform mit Gegnerdruck und klaren Coaching-Triggern.", "Belastete Spieler über Jokerrolle, kleinere Laufwege oder Pausen steuern.", transferMinutes, coachId, $"Positionsverteilung berücksichtigt: {forwards} Offensive / {defenders} Defensive.", preferredIntensity));
+        var unknownReason = unknownPlayerCount > 0
+            ? $" Zusätzlich werden {unknownPlayerCount} Spieler ohne bekannte Positionsdaten erwartet."
+            : string.Empty;
+        result.Add(new(
+            null,
+            transferTitle,
+            "Spielform mit Gegnerdruck und klaren Coaching-Triggern.",
+            "Belastete Spieler über Jokerrolle, kleinere Laufwege oder Pausen steuern; Teams vor Ort anhand der tatsächlichen Positionen ausbalancieren.",
+            transferMinutes,
+            coachId,
+            $"Bekannte Positionsverteilung: {forwards} Offensive / {defenders} Defensive.{unknownReason}",
+            preferredIntensity));
         remaining -= transferMinutes;
 
         if (remaining > 0)
         {
-            result.Add(new(null, "Cooldown & Kurzfeedback", "Runterfahren, Beweglichkeit und kurze Rückmeldung zur Einheit.", "RPE und Blockfeedback direkt nach der Einheit erfassen.", remaining, coachId, "Schließt die Belastungsschleife für die nächste Planung.", FootballIntensity.Low));
+            result.Add(new(
+                null,
+                "Cooldown & Kurzfeedback",
+                "Runterfahren, Beweglichkeit und kurze Rückmeldung zur Einheit.",
+                "RPE und Blockfeedback direkt nach der Einheit erfassen.",
+                remaining,
+                coachId,
+                "Schließt die Belastungsschleife für die nächste Planung.",
+                FootballIntensity.Low));
         }
 
         return result;
@@ -196,28 +283,43 @@ public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider 
         return item.Benefit * 0.55 + item.Fun * 0.25 + (6.0 - item.Difficulty) * 0.20;
     }
 
-    private static string BuildExerciseReason(FootballExercise exercise, IReadOnlyDictionary<Guid, FootballExerciseFeedbackAggregate> feedback, int restrictedCount)
+    private static string BuildExerciseReason(
+        FootballExercise exercise,
+        IReadOnlyDictionary<Guid, FootballExerciseFeedbackAggregate> feedback,
+        int restrictedCount,
+        int planningPlayerCount)
     {
-        var parts = new List<string> { $"Passt zur Kategorie {exercise.Category} und zur aktuellen Teilnehmerzahl." };
+        var parts = new List<string>
+        {
+            $"Passt zur Kategorie {exercise.Category} und zu {planningPlayerCount} erwarteten Spielern."
+        };
         if (feedback.TryGetValue(exercise.Id, out var item) && item.Count >= 2)
             parts.Add($"Bisheriges Feedback: Nutzen {item.Benefit:0.0}/5 bei {item.Count} Bewertungen.");
         if (restrictedCount > 0 && exercise.Intensity < FootballIntensity.High)
-            parts.Add("Intensität ist mit den aktuellen Einschränkungen vereinbar.");
+            parts.Add("Intensität ist mit den aktuell bekannten Einschränkungen vereinbar.");
         return string.Join(" ", parts);
     }
 
     private static List<string> BuildWarnings(
         IReadOnlyList<FootballTrainingPlanPlayerContext> all,
         IReadOnlyList<FootballTrainingPlanPlayerContext> available,
-        IReadOnlyList<FootballTrainingPlanPlayerContext> restricted)
+        IReadOnlyList<FootballTrainingPlanPlayerContext> restricted,
+        int planningPlayerCount,
+        int unknownPlayerCount)
     {
         var warnings = new List<string>();
         var injured = all.Count(x => x.Availability == FootballAvailabilityStatus.Injured || x.MaxLoadPercent == 0);
-        if (injured > 0) warnings.Add($"{injured} zugesagte Spieler werden wegen Verletzung/0 % Belastbarkeit nicht für aktive Blöcke eingeplant.");
-        if (restricted.Count > 0) warnings.Add($"{restricted.Count} Spieler benötigen reduzierte Belastung oder Return-to-Play-Steuerung.");
-        if (available.Count < 6) warnings.Add("Kleine Trainingsgruppe: Spielformen und Feldgrößen entsprechend reduzieren.");
+        if (injured > 0)
+            warnings.Add($"{injured} bekannte zugesagte Spieler werden wegen Verletzung/0 % Belastbarkeit nicht für aktive Belastung eingeplant.");
+        if (restricted.Count > 0)
+            warnings.Add($"{restricted.Count} bekannte Spieler benötigen reduzierte Belastung oder Return-to-Play-Steuerung.");
+        if (unknownPlayerCount > 0)
+            warnings.Add($"Planung mit {planningPlayerCount} Spielern: {all.Count} bekannte Zusagen und {unknownPlayerCount} zusätzliche unbekannte Spieler. Für die unbekannten Spieler werden keine Positionen, Fitnesswerte oder Entwicklungsfelder angenommen.");
+        if (planningPlayerCount < 6)
+            warnings.Add("Kleine Trainingsgruppe: Spielformen und Feldgrößen entsprechend reduzieren.");
         var highRecentLoad = available.Count(x => x.RecentLoad >= 1200);
-        if (highRecentLoad > 0) warnings.Add($"{highRecentLoad} Spieler haben in den letzten 14 Tagen eine hohe dokumentierte RPE-Last.");
+        if (highRecentLoad > 0)
+            warnings.Add($"{highRecentLoad} bekannte Spieler haben in den letzten 14 Tagen eine hohe dokumentierte RPE-Last.");
         return warnings;
     }
 }

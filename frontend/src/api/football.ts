@@ -224,6 +224,8 @@ export interface FootballTrainingPlanSuggestion {
   sessionId: string
   focus: string
   playerCount: number
+  knownPlayerCount: number
+  unknownPlayerCount: number
   players: FootballTrainingPlanPlayerContext[]
   blocks: FootballTrainingPlanBlockSuggestion[]
   warnings: string[]
@@ -311,10 +313,14 @@ export const getFootballSession = (organizationId: string, sessionId: string) =>
 export const suggestFootballTrainingPlan = (
   organizationId: string,
   sessionId: string,
+  expectedPlayerCount?: number,
 ) =>
   apiRequest<FootballTrainingPlanSuggestion>(
     `${base(organizationId)}/sessions/${sessionId}/plan/suggest`,
-    { method: 'POST' },
+    {
+      method: 'POST',
+      body: JSON.stringify({ expectedPlayerCount }),
+    },
   )
 
 export const updateFootballAttendance = (

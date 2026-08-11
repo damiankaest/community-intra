@@ -24,6 +24,8 @@ export function FootballPlanSuggestionDock() {
   const isTrainingPage = /\/football\/[0-9a-f-]{36}\/training(?:\/|$)/i.test(location.pathname)
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  const [planningMode, setPlanningMode] = useState<'attendance' | 'expected'>('attendance')
+  const [expectedPlayerCount, setExpectedPlayerCount] = useState(14)
   const [suggestion, setSuggestion] = useState<FootballTrainingPlanSuggestion>()
 
   const me = useQuery({
@@ -53,7 +55,12 @@ export function FootballPlanSuggestionDock() {
   const nextTraining = sessions.data?.find((session) => session.kind === 'Training')
 
   const suggest = useMutation({
-    mutationFn: () => suggestFootballTrainingPlan(organizationId!, nextTraining!.id),
+    mutationFn: () =>
+      suggestFootballTrainingPlan(
+        organizationId!,
+        nextTraining!.id,
+        planningMode === 'expected' ? expectedPlayerCount : undefined,
+      ),
     onSuccess: (result) => {
       setSuggestion(result)
       setOpen(true)
@@ -92,7 +99,7 @@ export function FootballPlanSuggestionDock() {
             <BrainCircuit size={20} />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-white">Server-Trainingsplan</p>
+            <p className="truncate text-sm font-black text-white">KI-Trainingsplan</p>
             <p className="truncate text-xs text-slate-400">{nextTraining.title} · Readiness, Load & Feedback</p>
           </div>
           {open ? <ChevronDown size={18} className="ml-auto text-slate-400" /> : <ChevronUp size={18} className="ml-auto text-slate-400" />}
@@ -103,18 +110,61 @@ export function FootballPlanSuggestionDock() {
       </div>
 
       {open && (
-        <div className="max-h-[65vh] overflow-y-auto border-t border-white/10 p-4">
+        <div className="max-h-[70vh] overflow-y-auto border-t border-white/10 p-4">
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Spielerbasis</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPlanningMode('attendance')}
+                className={`rounded-xl border px-3 py-2 text-left text-sm font-bold ${planningMode === 'attendance' ? 'border-violet-400/50 bg-violet-400/15 text-violet-100' : 'border-white/10 bg-white/[0.03] text-slate-400'}`}
+              >
+                Nach Zusagen
+                <span className="mt-1 block text-xs font-normal opacity-75">Nur bekannte Zusagen verwenden</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlanningMode('expected')}
+                className={`rounded-xl border px-3 py-2 text-left text-sm font-bold ${planningMode === 'expected' ? 'border-violet-400/50 bg-violet-400/15 text-violet-100' : 'border-white/10 bg-white/[0.03] text-slate-400'}`}
+              >
+                Gesamtzahl
+                <span className="mt-1 block text-xs font-normal opacity-75">Zusagen + unbekannte Spieler</span>
+              </button>
+            </div>
+
+            {planningMode === 'expected' && (
+              <label className="mt-3 block text-xs text-slate-400">
+                Erwartete Spieler insgesamt
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={expectedPlayerCount}
+                  onChange={(event) => setExpectedPlayerCount(Math.max(1, Math.min(60, Number(event.target.value) || 1)))}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm font-bold text-white outline-none focus:border-violet-400/50"
+                />
+                <span className="mt-1 block text-[11px] text-slate-500">
+                  Beispiel: 14 insgesamt, davon 6 zugesagt → KI plant mit 6 bekannten + 8 unbekannten Spielern.
+                </span>
+              </label>
+            )}
+          </div>
+
           {!suggestion && !suggest.isPending && (
-            <p className="text-sm text-slate-500">
-              Der Vorschlag wird serverseitig aus Zusagen, Positionen, Bereitschaft, letzter RPE-Belastung, Playbook und bisherigen Übungsbewertungen erstellt. Er verändert den gespeicherten Plan erst nach „Übernehmen“.
+            <p className="mt-3 text-sm text-slate-500">
+              Der Vorschlag wird serverseitig aus Zusagen, Positionen, Bereitschaft, letzter RPE-Belastung, Playbook und bisherigen Übungsbewertungen erstellt. Unbekannte Spieler erhalten keine erfundenen Profil- oder Fitnessdaten. Der gespeicherte Plan ändert sich erst nach „Übernehmen“.
             </p>
           )}
-          {suggest.isError && <p className="text-sm text-rose-300">{suggest.error.message}</p>}
+          {suggest.isError && <p className="mt-3 text-sm text-rose-300">{suggest.error.message}</p>}
 
           {suggestion && (
             <>
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className="football-chip">{suggestion.playerCount} aktive Spieler</span>
+              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                <span className="football-chip">{suggestion.playerCount} geplant</span>
+                <span className="football-chip">{suggestion.knownPlayerCount} bekannte Zusagen</span>
+                {suggestion.unknownPlayerCount > 0 && (
+                  <span className="football-chip">{suggestion.unknownPlayerCount} unbekannt</span>
+                )}
                 <span className="football-chip">Fokus: {suggestion.focus}</span>
               </div>
 
