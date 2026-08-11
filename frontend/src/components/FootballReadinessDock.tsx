@@ -6,6 +6,7 @@ import {
   getFootballTrainingHistory,
   listFootballAvailability,
   updateFootballAvailability,
+  updateFootballSessionLoad,
   type FootballAvailabilityStatus,
 } from '../api/football'
 import { listMembers } from '../api/members'
@@ -29,6 +30,8 @@ export function FootballReadinessDock() {
   const [draftStatus, setDraftStatus] = useState<FootballAvailabilityStatus>()
   const [draftLoad, setDraftLoad] = useState<number>()
   const [draftNote, setDraftNote] = useState<string>()
+  const [rpe, setRpe] = useState(5)
+  const [minutes, setMinutes] = useState<number>()
 
   const me = useQuery({
     queryKey: ['football-current-user'],
@@ -59,6 +62,7 @@ export function FootballReadinessDock() {
     enabled: Boolean(organizationId && memberId && open),
   })
 
+  const latestSession = history.data?.[0]
   const weeklyLoad = useMemo(
     () => history.data?.reduce((sum, entry) => sum + (entry.trainingLoad ?? 0), 0) ?? 0,
     [history.data],
@@ -79,6 +83,22 @@ export function FootballReadinessDock() {
       setDraftNote(undefined)
       await queryClient.invalidateQueries({ queryKey: ['football-availability', organizationId] })
       await queryClient.invalidateQueries({ queryKey: ['football-session', organizationId] })
+    },
+  })
+
+  const saveRpe = useMutation({
+    mutationFn: () =>
+      updateFootballSessionLoad(
+        organizationId!,
+        latestSession!.session.id,
+        memberId!,
+        rpe,
+        minutes ?? latestSession!.plannedMinutes,
+      ),
+    onSuccess: async () => {
+      setMinutes(undefined)
+      await queryClient.invalidateQueries({ queryKey: ['football-history', organizationId, memberId] })
+      await queryClient.invalidateQueries({ queryKey: ['football-session', organizationId, latestSession?.session.id] })
     },
   })
 
@@ -104,7 +124,7 @@ export function FootballReadinessDock() {
       </button>
 
       {open && (
-        <div className="border-t border-white/10 p-4">
+        <div className="max-h-[75vh] overflow-y-auto border-t border-white/10 p-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Status</span>
@@ -160,6 +180,45 @@ export function FootballReadinessDock() {
           >
             <Save size={15} /> {save.isPending ? 'Speichert …' : 'Status speichern'}
           </button>
+
+          {latestSession && (
+            <div className="mt-5 border-t border-white/10 pt-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Letzte Einheit bewerten</p>
+              <p className="mt-1 text-sm font-semibold text-slate-200">{latestSession.session.title}</p>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <label>
+                  <span className="mb-1 block text-xs text-slate-500">RPE 1–10</span>
+                  <input
+                    className="football-input"
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={rpe}
+                    onChange={(event) => setRpe(Number(event.target.value))}
+                  />
+                </label>
+                <label>
+                  <span className="mb-1 block text-xs text-slate-500">Minuten</span>
+                  <input
+                    className="football-input"
+                    type="number"
+                    min="0"
+                    max={latestSession.session.durationMinutes}
+                    value={minutes ?? latestSession.load?.minutesCompleted ?? latestSession.plannedMinutes}
+                    onChange={(event) => setMinutes(Number(event.target.value))}
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                onClick={() => saveRpe.mutate()}
+                disabled={saveRpe.isPending || rpe < 1 || rpe > 10}
+                className="football-button-secondary mt-3"
+              >
+                <Activity size={15} /> {saveRpe.isPending ? 'Speichert …' : 'Belastung speichern'}
+              </button>
+            </div>
+          )}
 
           <div className="mt-5 border-t border-white/10 pt-4">
             <div className="flex items-center justify-between gap-3">
