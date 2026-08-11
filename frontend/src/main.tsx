@@ -6,6 +6,7 @@ import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 import { FootballApp } from './components/FootballApp'
 import { FootballFeedbackDock } from './components/FootballFeedbackDock'
+import { FootballLiveTrainingCompanion } from './components/FootballLiveTrainingCompanion'
 import { FootballPlanSuggestionDock } from './components/FootballPlanSuggestionDock'
 import { FootballReadinessDock } from './components/FootballReadinessDock'
 import { FootballTrainerReadinessPanel } from './components/FootballTrainerReadinessPanel'
@@ -39,6 +40,7 @@ createRoot(document.getElementById('root')!).render(
             <FootballFeedbackDock />
             <FootballTrainerReadinessPanel />
             <FootballPlanSuggestionDock />
+            <FootballLiveTrainingCompanion />
           </>
         ) : <App />}
       </BrowserRouter>
