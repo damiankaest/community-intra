@@ -6,6 +6,7 @@ import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 import { FootballApp } from './components/FootballApp'
 import { FootballLiveTrainingCompanion } from './components/FootballLiveTrainingCompanion'
+import { FootballTrainingOperationsDock } from './components/FootballTrainingOperationsDock'
 import './i18n'
 import './index.css'
 import './football.css'
@@ -32,6 +33,7 @@ createRoot(document.getElementById('root')!).render(
         {isFootballRoute ? (
           <>
             <FootballApp />
+            <FootballTrainingOperationsDock />
             <FootballLiveTrainingCompanion />
           </>
         ) : <App />}
