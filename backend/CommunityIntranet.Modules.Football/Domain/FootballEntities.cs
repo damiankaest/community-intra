@@ -113,3 +113,18 @@ public sealed class FootballTrainingBlock : IOrganizationScoped
     public Guid? ResponsibleMemberId { get; set; }
     public string? AiReason { get; set; }
 }
+
+public sealed class FootballExerciseFeedback : IOrganizationScoped
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid SessionId { get; set; }
+    public Guid ExerciseId { get; set; }
+    public Guid MemberId { get; set; }
+    public int Fun { get; set; }
+    public int Difficulty { get; set; }
+    public int Benefit { get; set; }
+    public string? Comment { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
