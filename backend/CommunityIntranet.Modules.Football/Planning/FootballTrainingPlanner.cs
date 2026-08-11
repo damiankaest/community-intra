@@ -35,6 +35,13 @@ public sealed record FootballTrainingPlanBlockSuggestion(
     string Reason,
     FootballIntensity Intensity);
 
+internal sealed record FootballExerciseFeedbackAggregate(
+    Guid ExerciseId,
+    int Count,
+    double Benefit,
+    double Difficulty,
+    double Fun);
+
 public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider clock) : IFootballTrainingPlanner
 {
     public async Task<FootballTrainingPlanSuggestion?> SuggestAsync(Guid organizationId, Guid sessionId, CancellationToken ct)
@@ -90,18 +97,17 @@ public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider 
             .ToArray();
 
         var feedbackCutoff = clock.GetUtcNow().AddDays(-120);
-        var exerciseFeedback = await db.FootballExerciseFeedback.AsNoTracking()
+        var feedbackRows = await db.FootballExerciseFeedback.AsNoTracking()
             .Where(x => x.OrganizationId == organizationId && x.ExerciseId != null && x.UpdatedAt >= feedbackCutoff)
             .GroupBy(x => x.ExerciseId!.Value)
-            .Select(group => new
-            {
-                ExerciseId = group.Key,
-                Count = group.Count(),
-                Benefit = group.Average(x => x.Benefit),
-                Difficulty = group.Average(x => x.Difficulty),
-                Fun = group.Average(x => x.Fun)
-            })
-            .ToDictionaryAsync(x => x.ExerciseId, ct);
+            .Select(group => new FootballExerciseFeedbackAggregate(
+                group.Key,
+                group.Count(),
+                group.Average(x => x.Benefit),
+                group.Average(x => x.Difficulty),
+                group.Average(x => x.Fun)))
+            .ToArrayAsync(ct);
+        var exerciseFeedback = feedbackRows.ToDictionary(x => x.ExerciseId);
 
         var exercises = await db.FootballExercises.AsNoTracking()
             .Where(x => x.OrganizationId == organizationId && !x.IsArchived && x.MinPlayers <= availablePlayers.Length && (x.MaxPlayers == null || x.MaxPlayers >= availablePlayers.Length))
@@ -126,7 +132,7 @@ public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider 
         IReadOnlyList<FootballTrainingPlanPlayerContext> players,
         IReadOnlyList<FootballTrainingPlanPlayerContext> restricted,
         IReadOnlyList<FootballExercise> exercises,
-        IReadOnlyDictionary<Guid, dynamic> feedback,
+        IReadOnlyDictionary<Guid, FootballExerciseFeedbackAggregate> feedback,
         Guid? coachId)
     {
         var remaining = targetDuration;
@@ -184,17 +190,17 @@ public sealed class FootballTrainingPlanner(IFootballDbContext db, TimeProvider 
         return null;
     }
 
-    private static double FeedbackScore(Guid exerciseId, IReadOnlyDictionary<Guid, dynamic> feedback)
+    private static double FeedbackScore(Guid exerciseId, IReadOnlyDictionary<Guid, FootballExerciseFeedbackAggregate> feedback)
     {
         if (!feedback.TryGetValue(exerciseId, out var item) || item.Count < 2) return 3.0;
-        return (double)item.Benefit * 0.55 + (double)item.Fun * 0.25 + (6.0 - (double)item.Difficulty) * 0.20;
+        return item.Benefit * 0.55 + item.Fun * 0.25 + (6.0 - item.Difficulty) * 0.20;
     }
 
-    private static string BuildExerciseReason(FootballExercise exercise, IReadOnlyDictionary<Guid, dynamic> feedback, int restrictedCount)
+    private static string BuildExerciseReason(FootballExercise exercise, IReadOnlyDictionary<Guid, FootballExerciseFeedbackAggregate> feedback, int restrictedCount)
     {
         var parts = new List<string> { $"Passt zur Kategorie {exercise.Category} und zur aktuellen Teilnehmerzahl." };
         if (feedback.TryGetValue(exercise.Id, out var item) && item.Count >= 2)
-            parts.Add($"Bisheriges Feedback: Nutzen {(double)item.Benefit:0.0}/5 bei {item.Count} Bewertungen.");
+            parts.Add($"Bisheriges Feedback: Nutzen {item.Benefit:0.0}/5 bei {item.Count} Bewertungen.");
         if (restrictedCount > 0 && exercise.Intensity < FootballIntensity.High)
             parts.Add("Intensität ist mit den aktuellen Einschränkungen vereinbar.");
         return string.Join(" ", parts);
