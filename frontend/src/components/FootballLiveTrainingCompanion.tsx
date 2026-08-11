@@ -8,7 +8,6 @@ import {
   Maximize2,
   Pause,
   Play,
-  RotateCcw,
   Square,
   TimerReset,
   X,
