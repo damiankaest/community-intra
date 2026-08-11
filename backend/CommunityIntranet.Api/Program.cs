@@ -36,6 +36,8 @@ using CommunityIntranet.Modules.Parties;
 using CommunityIntranet.Modules.Parties.Endpoints;
 using CommunityIntranet.Modules.CounterStrike;
 using CommunityIntranet.Modules.CounterStrike.Endpoints;
+using CommunityIntranet.Modules.Football;
+using CommunityIntranet.Modules.Football.Endpoints;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
@@ -112,8 +114,7 @@ try
     builder.Services.AddValidatorsFromAssemblyContaining<Program>();
     builder.Services.AddSingleton(TimeProvider.System);
     builder.Services.AddCommunityIntranetInfrastructure(builder.Configuration);
-    builder.Services.AddIdentityModule<CommunityIntranetDbContext>(
-        builder.Configuration);
+    builder.Services.AddIdentityModule<CommunityIntranetDbContext>(builder.Configuration);
     builder.Services.AddOrganizationsModule();
     builder.Services.AddMembersModule();
     builder.Services.AddThemePacksModule();
@@ -128,6 +129,7 @@ try
     builder.Services.AddTimeTrackingModule();
     builder.Services.AddPartiesModule(builder.Configuration);
     builder.Services.AddCounterStrikeModule(builder.Configuration);
+    builder.Services.AddFootballModule(builder.Configuration);
     builder.Services.AddScoped<DatabaseInitializer>();
     builder.Services.AddRateLimiter(options =>
     {
@@ -202,8 +204,7 @@ try
             failureStatus: HealthStatus.Unhealthy,
             tags: ["ready"]);
 
-    var allowedOrigins =
-        builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 
     builder.Services.AddCors(options =>
     {
@@ -262,6 +263,7 @@ try
     app.MapTimeTrackingEndpoints();
     app.MapPartyEndpoints();
     app.MapCounterStrikeEndpoints();
+    app.MapFootballEndpoints();
 
     await app.RunAsync();
 }
