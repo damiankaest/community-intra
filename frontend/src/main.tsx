@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 import { FootballApp } from './components/FootballApp'
+import { FootballReadinessDock } from './components/FootballReadinessDock'
 import './i18n'
 import './index.css'
 import './football.css'
@@ -28,7 +29,12 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        {isFootballRoute ? <FootballApp /> : <App />}
+        {isFootballRoute ? (
+          <>
+            <FootballApp />
+            <FootballReadinessDock />
+          </>
+        ) : <App />}
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,
