@@ -31,7 +31,7 @@ public static class FootballEndpoints
         group.MapPut("/sessions/{sessionId:guid}/load/{memberId:guid}", UpsertSessionLoadAsync);
         group.MapPut("/sessions/{sessionId:guid}/blocks", ReplaceTrainingBlocksAsync);
         group.MapGet("/sessions/{sessionId:guid}/feedback", GetSessionFeedbackAsync);
-        group.MapPut("/sessions/{sessionId:guid}/exercises/{exerciseId:guid}/feedback/{memberId:guid}", UpsertExerciseFeedbackAsync);
+        group.MapPut("/sessions/{sessionId:guid}/blocks/{trainingBlockId:guid}/feedback/{memberId:guid}", UpsertExerciseFeedbackAsync);
         group.MapGet("/members/{memberId:guid}/history", GetMemberTrainingHistoryAsync);
         return endpoints;
     }
@@ -279,14 +279,15 @@ public static class FootballEndpoints
 
         var feedback = await db.FootballExerciseFeedback.AsNoTracking()
             .Where(x => x.OrganizationId == organizationId && x.SessionId == sessionId)
-            .OrderBy(x => x.ExerciseId).ThenBy(x => x.MemberId)
+            .OrderBy(x => x.TrainingBlockId).ThenBy(x => x.MemberId)
             .ToArrayAsync(ct);
 
         var summary = feedback
-            .GroupBy(x => x.ExerciseId)
+            .GroupBy(x => new { x.TrainingBlockId, x.ExerciseId })
             .Select(group => new
             {
-                exerciseId = group.Key,
+                trainingBlockId = group.Key.TrainingBlockId,
+                exerciseId = group.Key.ExerciseId,
                 count = group.Count(),
                 fun = Math.Round(group.Average(x => x.Fun), 2),
                 difficulty = Math.Round(group.Average(x => x.Difficulty), 2),
@@ -297,7 +298,7 @@ public static class FootballEndpoints
         return Results.Ok(new { feedback, summary });
     }
 
-    private static async Task<IResult> UpsertExerciseFeedbackAsync(Guid organizationId, Guid sessionId, Guid exerciseId, Guid memberId, UpdateFootballExerciseFeedbackRequest request, ClaimsPrincipal principal, IFootballDbContext db, IOrganizationAccessService access, TimeProvider clock, CancellationToken ct)
+    private static async Task<IResult> UpsertExerciseFeedbackAsync(Guid organizationId, Guid sessionId, Guid trainingBlockId, Guid memberId, UpdateFootballExerciseFeedbackRequest request, ClaimsPrincipal principal, IFootballDbContext db, IOrganizationAccessService access, TimeProvider clock, CancellationToken ct)
     {
         var membership = await RequireMembershipAsync(organizationId, principal, access, ct);
         if (membership.Result is not null) return membership.Result;
@@ -305,23 +306,23 @@ public static class FootballEndpoints
         if (request.Fun is < 1 or > 5 || request.Difficulty is < 1 or > 5 || request.Benefit is < 1 or > 5)
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["feedback"] = ["Spaß, Schwierigkeit und Nutzen müssen zwischen 1 und 5 liegen."] });
 
-        var sessionExists = await db.FootballSessions.AsNoTracking().AnyAsync(x => x.OrganizationId == organizationId && x.Id == sessionId, ct);
-        if (!sessionExists) return Results.NotFound();
-        var exerciseInSession = await db.FootballTrainingBlocks.AsNoTracking()
-            .AnyAsync(x => x.OrganizationId == organizationId && x.SessionId == sessionId && x.ExerciseId == exerciseId, ct);
-        if (!exerciseInSession) return Results.ValidationProblem(new Dictionary<string, string[]> { ["exercise"] = ["Die Übung ist nicht Teil dieses Trainingsplans."] });
+        var block = await db.FootballTrainingBlocks.AsNoTracking().SingleOrDefaultAsync(x =>
+            x.OrganizationId == organizationId && x.SessionId == sessionId && x.Id == trainingBlockId, ct);
+        if (block is null) return Results.NotFound();
 
         var entity = await db.FootballExerciseFeedback.SingleOrDefaultAsync(x =>
-            x.OrganizationId == organizationId && x.SessionId == sessionId && x.ExerciseId == exerciseId && x.MemberId == memberId, ct);
+            x.OrganizationId == organizationId && x.SessionId == sessionId && x.TrainingBlockId == trainingBlockId && x.MemberId == memberId, ct);
         var now = clock.GetUtcNow();
         if (entity is null)
         {
             entity = new FootballExerciseFeedback
             {
-                Id = Guid.NewGuid(), OrganizationId = organizationId, SessionId = sessionId, ExerciseId = exerciseId, MemberId = memberId, CreatedAt = now
+                Id = Guid.NewGuid(), OrganizationId = organizationId, SessionId = sessionId, TrainingBlockId = trainingBlockId,
+                ExerciseId = block.ExerciseId, MemberId = memberId, CreatedAt = now
             };
             db.FootballExerciseFeedback.Add(entity);
         }
+        entity.ExerciseId = block.ExerciseId;
         entity.Fun = request.Fun;
         entity.Difficulty = request.Difficulty;
         entity.Benefit = request.Benefit;
