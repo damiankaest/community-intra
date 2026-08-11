@@ -264,6 +264,7 @@ try
     app.MapPartyEndpoints();
     app.MapCounterStrikeEndpoints();
     app.MapFootballEndpoints();
+    app.MapFootballPlanningEndpoints();
 
     await app.RunAsync();
 }
