@@ -93,6 +93,10 @@ jobs:
             --env-file deploy/.env.production.example \
             -f deploy/docker-compose.production.yml \
             config --quiet
+          docker compose \
+            --env-file deploy/raspberry-pi/.env.example \
+            -f deploy/raspberry-pi/docker-compose.yml \
+            config --quiet
 
       - name: Validate PowerShell scripts
         shell: pwsh

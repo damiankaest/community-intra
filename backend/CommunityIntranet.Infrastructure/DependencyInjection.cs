@@ -10,6 +10,7 @@ using CommunityIntranet.Modules.Notifications.Persistence;
 using CommunityIntranet.Modules.Organizations.Persistence;
 using CommunityIntranet.Modules.Parties.Persistence;
 using CommunityIntranet.Modules.CounterStrike.Persistence;
+using CommunityIntranet.Modules.Mystery.Persistence;
 using CommunityIntranet.Modules.Projects.Persistence;
 using CommunityIntranet.Modules.Tasks.Persistence;
 using CommunityIntranet.Modules.ThemePacks.Persistence;
@@ -67,6 +68,8 @@ public static class DependencyInjection
         services.AddScoped<IPartyDbContext>(
             provider => provider.GetRequiredService<CommunityIntranetDbContext>());
         services.AddScoped<ICounterStrikeDbContext>(
+            provider => provider.GetRequiredService<CommunityIntranetDbContext>());
+        services.AddScoped<IMysteryDbContext>(
             provider => provider.GetRequiredService<CommunityIntranetDbContext>());
 
         return services;

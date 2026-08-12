@@ -99,6 +99,7 @@ import {
 import { applyTheme, getThemeCssVariables, resetTheme } from './theme'
 import { invitationReturnPath } from './invitationRoutes'
 import { cs2Path } from './components/counterStrikeRoutes'
+import { MysteryPage } from './components/MysteryPage'
 
 const currentUserKey = ['current-user'] as const
 const organizationsKey = ['organizations'] as const
@@ -171,6 +172,8 @@ function App() {
         }
       />
       <Route path="/party/:slug" element={<PartyGuestPage />} />
+      <Route path="/mistery" element={<MysteryPage />} />
+      <Route path="/mistery/:sessionId" element={<MysteryPage />} />
       <Route
         path="/parties"
         element={
@@ -325,6 +328,10 @@ function LandingPage({ user }: { user?: CurrentUser }) {
                 Anmelden
               </SecondaryLink>
             )}
+            <SecondaryLink to="/mistery">
+              <Sparkles size={17} />
+              Mystery spielen
+            </SecondaryLink>
           </div>
         </section>
 

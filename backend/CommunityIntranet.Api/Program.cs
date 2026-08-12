@@ -38,6 +38,8 @@ using CommunityIntranet.Modules.CounterStrike;
 using CommunityIntranet.Modules.CounterStrike.Endpoints;
 using CommunityIntranet.Modules.Football;
 using CommunityIntranet.Modules.Football.Endpoints;
+using CommunityIntranet.Modules.Mystery;
+using CommunityIntranet.Modules.Mystery.Endpoints;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
@@ -122,6 +124,7 @@ try
     builder.Services.AddPartiesModule(builder.Configuration);
     builder.Services.AddCounterStrikeModule(builder.Configuration);
     builder.Services.AddFootballModule(builder.Configuration);
+    builder.Services.AddMysteryModule(builder.Configuration);
     builder.Services.AddScoped<DatabaseInitializer>();
     builder.Services.AddRateLimiter(options =>
     {
@@ -174,6 +177,33 @@ try
             {
                 PermitLimit = 5,
                 Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+        options.AddPolicy("mystery-public", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 180,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+        options.AddPolicy("mystery-generation", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 4,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+        options.AddPolicy("mystery-questions", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
@@ -240,6 +270,7 @@ try
     app.MapFootballLiveTrainingEndpoints();
     app.MapFootballTrainingCoachTaskEndpoints();
     app.MapFootballTrainingBriefingEndpoints();
+    app.MapMysteryEndpoints();
 
     await app.RunAsync();
 }

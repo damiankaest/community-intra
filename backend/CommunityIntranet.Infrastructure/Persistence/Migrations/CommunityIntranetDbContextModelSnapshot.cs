@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using CommunityIntranet.Infrastructure.Persistence;
 using CommunityIntranet.Modules.CounterStrike.Domain;
 using CommunityIntranet.Modules.Identity.Domain;
+using CommunityIntranet.Modules.Mystery.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -2071,6 +2072,7 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                 });
 
             BuildCounterStrikeSnapshot(modelBuilder);
+            BuildMysterySnapshot(modelBuilder);
 #pragma warning restore 612, 618
         }
 
@@ -2280,6 +2282,24 @@ namespace CommunityIntranet.Infrastructure.Persistence.Migrations
                 .IsUnique().HasDatabaseName("IX_cs_challenge_progress_user");
             challengeProgress.HasOne<CounterStrikeWeeklyChallenge>().WithMany()
                 .HasForeignKey(item => item.ChallengeId).OnDelete(DeleteBehavior.Cascade);
+        }
+
+        private static void BuildMysterySnapshot(ModelBuilder modelBuilder)
+        {
+            var sessions = modelBuilder.Entity<MysterySession>();
+            sessions.ToTable("sessions", "mystery");
+            sessions.HasKey(item => item.Id);
+            sessions.Property(item => item.JoinCode).HasMaxLength(8).IsRequired();
+            sessions.Property(item => item.Title).HasMaxLength(180).IsRequired();
+            sessions.Property(item => item.Status).HasConversion<string>().HasMaxLength(24).IsRequired();
+            sessions.Property(item => item.GameMaster).HasMaxLength(80).IsRequired();
+            sessions.Property(item => item.Notice).HasMaxLength(500);
+            sessions.Property(item => item.ConfigurationJson).HasColumnType("jsonb").IsRequired();
+            sessions.Property(item => item.SecretCaseJson).HasColumnType("jsonb").IsRequired();
+            sessions.Property(item => item.GameStateJson).HasColumnType("jsonb").IsRequired();
+            sessions.Property(item => item.Version).IsConcurrencyToken();
+            sessions.HasIndex(item => item.JoinCode).IsUnique();
+            sessions.HasIndex(item => new { item.Status, item.UpdatedAt });
         }
     }
 }

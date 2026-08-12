@@ -10,6 +10,7 @@ import { FootballTrainingOperationsDock } from './components/FootballTrainingOpe
 import './i18n'
 import './index.css'
 import './football.css'
+import './mystery.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {
