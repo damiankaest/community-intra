@@ -36,6 +36,7 @@ public static class MysterySessionMapper
             currentScene is null ? null : new MysterySceneResponse(
                 currentScene.Id,
                 currentScene.Chapter,
+                state.CurrentSceneIndex == 0,
                 currentScene.Kind,
                 currentScene.Title,
                 state.CurrentSceneIndex == 0
@@ -53,6 +54,20 @@ public static class MysterySessionMapper
             mysteryCase.Evidence
                 .Where(x => state.FoundEvidenceIds.Contains(x.Id))
                 .Select(x => new MysteryEvidenceResponse(x.Id, x.Title, x.Description))
+                .ToArray(),
+            mysteryCase.Scenes
+                .Take(state.CurrentSceneIndex + 1)
+                .Where(x => x.PuzzleId is not null)
+                .Select(scene =>
+                {
+                    var discoveredPuzzle = mysteryCase.Puzzles.Single(x => x.Id == scene.PuzzleId);
+                    return new MysteryPuzzleArchiveResponse(
+                        discoveredPuzzle.Id,
+                        scene.Title,
+                        scene.Chapter,
+                        discoveredPuzzle.Prompt,
+                        state.SolvedPuzzleIds.Contains(discoveredPuzzle.Id));
+                })
                 .ToArray(),
             mysteryCase.Suspects
                 .Where(x => state.KnownCharacterIds.Contains(x.Id))

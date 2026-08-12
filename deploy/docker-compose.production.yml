@@ -53,6 +53,9 @@ services:
       Email__UseSsl: "${SMTP_USE_SSL:-true}"
       AiAssistant__ApiKey: ${OPENAI_API_KEY}
       AiAssistant__Model: ${AI_MODEL:-gpt-5.6}
+      Mystery__ApiKey: ${OPENAI_API_KEY}
+      Mystery__Model: ${AI_MODEL:-gpt-5.6}
+      Mystery__FallbackOnGenerationError: "false"
       DataProtection__KeysPath: /app/data-protection-keys
       PartyMedia__RootPath: /app/party-media
       CounterStrike__StorageRoot: /app/counter-strike

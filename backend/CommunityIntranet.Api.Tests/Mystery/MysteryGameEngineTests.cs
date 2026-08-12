@@ -1,7 +1,11 @@
+using System.Net;
+using System.Text;
 using System.Text.Json;
 using CommunityIntranet.Modules.Mystery.Domain;
 using CommunityIntranet.Modules.Mystery.Game;
 using CommunityIntranet.Modules.Mystery.Providers;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace CommunityIntranet.Api.Tests.Mystery;
@@ -42,6 +46,7 @@ public sealed class MysteryGameEngineTests
     public async Task GameStateSurvivesSerializationAndReload()
     {
         var fixture = await CreateFixtureAsync();
+        Assert.True(MysteryGameEngine.Advance(fixture.Case, fixture.State).IsSuccess);
         fixture.State.Notes.Add("Die Uhr geht sieben Minuten vor.");
         fixture.State.StoryFlags.Add("custom-observation");
 
@@ -75,7 +80,7 @@ public sealed class MysteryGameEngineTests
     public async Task InvalidPuzzleAnswerDoesNotUnlockProgression()
     {
         var fixture = await CreateFixtureAsync();
-        Assert.True(MysteryGameEngine.Advance(fixture.Case, fixture.State).IsSuccess);
+        AdvanceUntilPuzzle(fixture);
 
         var result = MysteryGameEngine.SubmitPuzzle(
             fixture.Case,
@@ -89,23 +94,104 @@ public sealed class MysteryGameEngineTests
     }
 
     [Fact]
+    public async Task DiscoveredPuzzlesRemainAvailableInArchiveWithoutSolutions()
+    {
+        var fixture = await CreateFixtureAsync();
+        Assert.Empty(MysterySessionMapper.Map(fixture.Session).Puzzles);
+
+        AdvanceUntilPuzzle(fixture);
+        SyncSession(fixture);
+        var activePuzzle = fixture.Case.Puzzles.Single(
+            puzzle => puzzle.Id == fixture.Case.Scenes[fixture.State.CurrentSceneIndex].PuzzleId);
+        var response = MysterySessionMapper.Map(fixture.Session);
+        var archiveEntry = Assert.Single(response.Puzzles);
+        var json = JsonSerializer.Serialize(response, MysteryJson.Options);
+
+        Assert.Equal(activePuzzle.Prompt, archiveEntry.Prompt);
+        Assert.False(archiveEntry.IsSolved);
+        Assert.DoesNotContain(activePuzzle.Solution, json, StringComparison.Ordinal);
+
+        Assert.True(MysteryGameEngine.SubmitPuzzle(
+            fixture.Case,
+            fixture.State,
+            activePuzzle.Solution).IsCorrect);
+        SyncSession(fixture);
+
+        Assert.True(Assert.Single(MysterySessionMapper.Map(fixture.Session).Puzzles).IsSolved);
+    }
+
+    [Fact]
+    public async Task MediumCaseIntroducesCharactersGraduallyAndContainsMultiplePuzzles()
+    {
+        var fixture = await CreateFixtureAsync();
+
+        Assert.True(fixture.Case.Puzzles.Length >= 2);
+        Assert.True(fixture.Case.Scenes.Length >= 8);
+        Assert.Single(fixture.Case.Scenes[0].CharacterIds);
+        Assert.Single(fixture.State.KnownCharacterIds);
+    }
+
+    [Fact]
+    public async Task ConfiguredAiFailureDoesNotSilentlyCreateTheLocalFallbackCase()
+    {
+        using var client = new HttpClient(new IncompleteResponseHandler());
+        var provider = new OpenAiMysteryProvider(
+            client,
+            Options.Create(new MysteryProviderOptions
+            {
+                ApiKey = "test-key",
+                Model = "test-model",
+                FallbackOnGenerationError = false
+            }),
+            new LocalMysteryProvider(),
+            NullLogger<OpenAiMysteryProvider>.Instance);
+        var configuration = new MysteryGameConfiguration
+        {
+            Players = ["Damian", "Mitspieler"],
+            DurationMinutes = 75,
+            Difficulty = MysteryDifficulty.Medium,
+            Genre = "Whodunit",
+            Atmosphere = "Düster",
+            Locations = [],
+            AvailableItems = []
+        };
+
+        var exception = await Assert.ThrowsAsync<MysteryGenerationException>(() =>
+            provider.GenerateCaseAsync(configuration, CancellationToken.None));
+
+        var innerException = Assert.IsType<InvalidOperationException>(exception.InnerException);
+        Assert.Contains("incomplete", innerException.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SessionCanReachFinaleAndRevealSolutionOnlyAfterTheory()
     {
         var fixture = await CreateFixtureAsync();
 
-        Assert.True(MysteryGameEngine.Advance(fixture.Case, fixture.State).IsSuccess);
-        Assert.True(MysteryGameEngine.SubmitPuzzle(
-            fixture.Case,
-            fixture.State,
-            fixture.Case.Puzzles[0].Solution).IsCorrect);
-        Assert.True(MysteryGameEngine.Advance(fixture.Case, fixture.State).IsSuccess);
-        Assert.True(MysteryGameEngine.Choose(
-            fixture.Case,
-            fixture.State,
-            fixture.Case.Scenes[2].Choices[0].Id).IsSuccess);
-        Assert.True(MysteryGameEngine.Advance(fixture.Case, fixture.State).IsSuccess);
-        Assert.True(MysteryGameEngine.Advance(fixture.Case, fixture.State).IsSuccess);
-        Assert.True(MysteryGameEngine.Advance(fixture.Case, fixture.State).IsSuccess);
+        var safety = 0;
+        while (fixture.State.Status == MysteryGameStatus.Active && safety++ < 20)
+        {
+            var scene = fixture.Case.Scenes[fixture.State.CurrentSceneIndex];
+            if (scene.PuzzleId is not null)
+            {
+                var puzzle = fixture.Case.Puzzles.Single(x => x.Id == scene.PuzzleId);
+                Assert.True(MysteryGameEngine.SubmitPuzzle(
+                    fixture.Case,
+                    fixture.State,
+                    puzzle.Solution).IsCorrect);
+            }
+
+            if (scene.Choices.Length > 0)
+            {
+                Assert.True(MysteryGameEngine.Choose(
+                    fixture.Case,
+                    fixture.State,
+                    scene.Choices[0].Id).IsSuccess);
+            }
+
+            Assert.True(MysteryGameEngine.Advance(fixture.Case, fixture.State).IsSuccess);
+        }
+
         Assert.Equal(MysteryGameStatus.ReadyForFinale, fixture.State.Status);
 
         var completion = MysteryGameEngine.Complete(
@@ -116,8 +202,7 @@ public sealed class MysteryGameEngineTests
                 CulpritId = fixture.Case.CulpritId,
                 Motive = fixture.Case.Motive
             });
-        fixture.Session.Status = fixture.State.Status;
-        fixture.Session.GameStateJson = JsonSerializer.Serialize(fixture.State, MysteryJson.Options);
+        SyncSession(fixture);
         var response = MysterySessionMapper.Map(fixture.Session);
 
         Assert.True(completion.IsSuccess);
@@ -125,6 +210,20 @@ public sealed class MysteryGameEngineTests
         Assert.NotNull(response.Finale);
         Assert.True(response.Finale.CorrectCulprit);
         Assert.Equal(fixture.Case.Motive, response.Finale.Motive);
+    }
+
+    private static void AdvanceUntilPuzzle(MysteryFixture fixture)
+    {
+        while (fixture.Case.Scenes[fixture.State.CurrentSceneIndex].PuzzleId is null)
+        {
+            Assert.True(MysteryGameEngine.Advance(fixture.Case, fixture.State).IsSuccess);
+        }
+    }
+
+    private static void SyncSession(MysteryFixture fixture)
+    {
+        fixture.Session.Status = fixture.State.Status;
+        fixture.Session.GameStateJson = JsonSerializer.Serialize(fixture.State, MysteryJson.Options);
     }
 
     private static async Task<MysteryFixture> CreateFixtureAsync()
@@ -166,4 +265,25 @@ public sealed class MysteryGameEngineTests
         MysteryCaseDefinition Case,
         MysteryGameState State,
         MysterySession Session);
+
+    private sealed class IncompleteResponseHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) => Task.FromResult(new HttpResponseMessage(
+                HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "id": "resp_incomplete",
+                      "status": "incomplete",
+                      "incomplete_details": { "reason": "max_output_tokens" },
+                      "output": []
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            });
+    }
 }

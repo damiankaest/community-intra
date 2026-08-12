@@ -28,10 +28,37 @@ public static class MysteryCaseGuard
         EnsureUnique(mysteryCase.Puzzles.Select(x => x.Id), "Rätsel");
         EnsureUnique(mysteryCase.Scenes.Select(x => x.Id), "Szenen");
 
+        var minimumPuzzleCount = configuration.Difficulty switch
+        {
+            MysteryDifficulty.Easy => 1,
+            MysteryDifficulty.Medium => 2,
+            MysteryDifficulty.Hard => 3,
+            _ => 1
+        };
+        var minimumSceneCount = configuration.Difficulty switch
+        {
+            MysteryDifficulty.Easy => 6,
+            MysteryDifficulty.Medium => 8,
+            MysteryDifficulty.Hard => 9,
+            _ => 6
+        };
+        if (mysteryCase.Scenes.Length < minimumSceneCount)
+        {
+            throw new InvalidOperationException(
+                $"Für {configuration.Difficulty} werden mindestens {minimumSceneCount} Szenen benötigt.");
+        }
+
+        if (mysteryCase.Puzzles.Length < minimumPuzzleCount)
+        {
+            throw new InvalidOperationException(
+                $"Für {configuration.Difficulty} werden mindestens {minimumPuzzleCount} Rätsel benötigt.");
+        }
+
         var characterIds = mysteryCase.Suspects.Select(x => x.Id).ToHashSet(StringComparer.Ordinal);
         var evidenceIds = mysteryCase.Evidence.Select(x => x.Id).ToHashSet(StringComparer.Ordinal);
         var puzzleIds = mysteryCase.Puzzles.Select(x => x.Id).ToHashSet(StringComparer.Ordinal);
         var locations = configuration.Locations.ToDictionary(x => x.Id, StringComparer.Ordinal);
+        var introducedCharacterIds = new HashSet<string>(StringComparer.Ordinal);
 
         if (!characterIds.Contains(mysteryCase.CulpritId))
         {
@@ -55,6 +82,18 @@ public static class MysteryCaseGuard
                 throw new InvalidOperationException("Eine Szene verweist auf unbekannte Falldaten.");
             }
 
+            var newlyIntroducedCharacterIds = scene.CharacterIds
+                .Where(id => !introducedCharacterIds.Contains(id))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (newlyIntroducedCharacterIds.Length > 1)
+            {
+                throw new InvalidOperationException(
+                    "Eine Szene führt mehr als eine neue verdächtige Person gleichzeitig ein.");
+            }
+
+            introducedCharacterIds.UnionWith(newlyIntroducedCharacterIds);
+
             if (scene.LocationId is not null)
             {
                 if (!locations.TryGetValue(scene.LocationId, out var location))
@@ -70,6 +109,12 @@ public static class MysteryCaseGuard
             }
 
             scene.Hints = NormalizeHints(scene.Hints, scene.Prompt ?? scene.Narrative);
+        }
+
+        if (!introducedCharacterIds.SetEquals(characterIds))
+        {
+            throw new InvalidOperationException(
+                "Nicht alle Verdächtigen werden im Verlauf des Falls vorgestellt.");
         }
 
         foreach (var puzzle in mysteryCase.Puzzles)
@@ -89,6 +134,32 @@ public static class MysteryCaseGuard
                 .Take(8)
                 .ToArray();
             puzzle.Hints = NormalizeHints(puzzle.Hints, puzzle.Prompt);
+
+            var puzzleSceneIndex = Array.FindIndex(
+                mysteryCase.Scenes,
+                scene => scene.PuzzleId == puzzle.Id);
+            if (puzzleSceneIndex < 0)
+            {
+                throw new InvalidOperationException("Ein erzeugtes Rätsel wird in keiner Szene verwendet.");
+            }
+
+            var normalizedSolution = MysteryGameEngine.NormalizeAnswer(puzzle.Solution);
+            if (normalizedSolution.Length >= 3)
+            {
+                var visibleEvidenceIds = mysteryCase.Scenes
+                    .Take(puzzleSceneIndex + 1)
+                    .SelectMany(scene => scene.EvidenceIds)
+                    .ToHashSet(StringComparer.Ordinal);
+                var solutionIsCopiedFromEvidence = mysteryCase.Evidence
+                    .Where(evidence => visibleEvidenceIds.Contains(evidence.Id))
+                    .Any(evidence => MysteryGameEngine.NormalizeAnswer(evidence.Description)
+                        .Contains(normalizedSolution, StringComparison.Ordinal));
+                if (solutionIsCopiedFromEvidence)
+                {
+                    throw new InvalidOperationException(
+                        "Eine Rätsellösung wird bereits direkt in einer sichtbaren Spur verraten.");
+                }
+            }
         }
 
         mysteryCase.Title = mysteryCase.Title.Trim()[..Math.Min(180, mysteryCase.Title.Trim().Length)];

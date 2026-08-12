@@ -52,6 +52,7 @@ public sealed record MysterySessionResponse(
     string Atmosphere,
     MysterySceneResponse? CurrentScene,
     MysteryEvidenceResponse[] Evidence,
+    MysteryPuzzleArchiveResponse[] Puzzles,
     MysteryCharacterResponse[] Characters,
     MysteryDecisionResponse[] Decisions,
     int SolvedPuzzleCount,
@@ -64,6 +65,7 @@ public sealed record MysterySessionResponse(
 public sealed record MysterySceneResponse(
     string Id,
     int Chapter,
+    bool IsOpening,
     MysterySceneKind Kind,
     string Title,
     string Narrative,
@@ -77,6 +79,13 @@ public sealed record MysteryPuzzleResponse(
     string Id,
     string Prompt,
     string InputType,
+    bool IsSolved);
+
+public sealed record MysteryPuzzleArchiveResponse(
+    string Id,
+    string SceneTitle,
+    int Chapter,
+    string Prompt,
     bool IsSolved);
 
 public sealed record MysteryChoiceResponse(string Id, string Label);
