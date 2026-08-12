@@ -1,0 +1,77 @@
+name: community-intranet-pi
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: backend/CommunityIntranet.Api/Dockerfile.pi
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      AllowedHosts: "*"
+      ConnectionStrings__PostgreSql: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Database__ApplyMigrations: "true"
+      Jwt__Issuer: community-intranet-pi
+      Jwt__Audience: community-intranet
+      Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      Identity__PublicAppUrl: http://${LAN_HOST:-localhost}:${APP_PORT:-8080}
+      AiAssistant__ApiKey: ${OPENAI_API_KEY:-}
+      AiAssistant__Model: ${AI_MODEL:-gpt-5.6}
+      Mystery__ApiKey: ${OPENAI_API_KEY:-}
+      Mystery__Model: ${AI_MODEL:-gpt-5.6}
+      DataProtection__KeysPath: /app/data-protection-keys
+      PartyMedia__RootPath: /app/party-media
+      CounterStrike__StorageRoot: /app/counter-strike
+      CounterStrike__AnalyzerExecutable: ""
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    volumes:
+      - backend-data-protection:/app/data-protection-keys
+      - party-media:/app/party-media
+      - counter-strike-data:/app/counter-strike
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres-data:
+  backend-data-protection:
+  party-media:
+  counter-strike-data:

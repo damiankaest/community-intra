@@ -41,6 +41,7 @@ export default defineConfig(({ mode }) => {
             /^\/api\//,
             /^\/party\//,
             /^\/parties(?:\/|$)/,
+            /^\/mistery(?:\/|$)/,
           ],
           runtimeCaching: [
             {

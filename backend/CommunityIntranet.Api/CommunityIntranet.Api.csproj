@@ -34,5 +34,6 @@
     <ProjectReference Include="../CommunityIntranet.Modules.Parties/CommunityIntranet.Modules.Parties.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.CounterStrike/CommunityIntranet.Modules.CounterStrike.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.Football/CommunityIntranet.Modules.Football.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Mystery/CommunityIntranet.Modules.Mystery.csproj" />
   </ItemGroup>
 </Project>

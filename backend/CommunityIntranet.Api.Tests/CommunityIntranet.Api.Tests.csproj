@@ -18,5 +18,6 @@
     <ProjectReference Include="../CommunityIntranet.Modules.LiveOperations/CommunityIntranet.Modules.LiveOperations.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.Parties/CommunityIntranet.Modules.Parties.csproj" />
     <ProjectReference Include="../CommunityIntranet.Modules.CounterStrike/CommunityIntranet.Modules.CounterStrike.csproj" />
+    <ProjectReference Include="../CommunityIntranet.Modules.Mystery/CommunityIntranet.Modules.Mystery.csproj" />
   </ItemGroup>
 </Project>

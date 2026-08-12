@@ -28,6 +28,8 @@ using CommunityIntranet.Modules.Parties.Domain;
 using CommunityIntranet.Modules.Parties.Persistence;
 using CommunityIntranet.Modules.CounterStrike.Domain;
 using CommunityIntranet.Modules.CounterStrike.Persistence;
+using CommunityIntranet.Modules.Mystery.Domain;
+using CommunityIntranet.Modules.Mystery.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -51,7 +53,8 @@ public sealed class CommunityIntranetDbContext(
         ILiveOperationsDbContext,
         ITimeTrackingDbContext,
         IPartyDbContext,
-        ICounterStrikeDbContext
+        ICounterStrikeDbContext,
+        IMysteryDbContext
 {
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<SteamIdentity> SteamIdentities => Set<SteamIdentity>();
@@ -132,6 +135,7 @@ public sealed class CommunityIntranetDbContext(
     public DbSet<CounterStrikeTrainingResult> CounterStrikeTrainingResults => Set<CounterStrikeTrainingResult>();
     public DbSet<CounterStrikeWeeklyChallenge> CounterStrikeWeeklyChallenges => Set<CounterStrikeWeeklyChallenge>();
     public DbSet<CounterStrikeWeeklyChallengeProgress> CounterStrikeWeeklyChallengeProgress => Set<CounterStrikeWeeklyChallengeProgress>();
+    public DbSet<MysterySession> MysterySessions => Set<MysterySession>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -152,6 +156,7 @@ public sealed class CommunityIntranetDbContext(
         builder.ApplyConfigurationsFromAssembly(typeof(WorkShift).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(Party).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(CounterStrikeMatch).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(MysterySession).Assembly);
 
         builder.Entity<IdentityRole<Guid>>().ToTable("roles", "identity");
         builder.Entity<IdentityUserClaim<Guid>>()
