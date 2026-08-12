@@ -12,5 +12,7 @@ docker compose up -d --build
 
 Danach ist das Mystery-Spiel unter
 `http://raspberrypi.local:8080/mistery` erreichbar. Ohne `OPENAI_API_KEY` wird
-der lokale Demo-Fall verwendet; der Schlüssel liegt ausschließlich in der
-Backend-Container-Umgebung.
+ein prozeduraler lokaler Fall verwendet; der Schlüssel liegt ausschließlich in
+der Backend-Container-Umgebung. Ist ein Key gesetzt und die KI-Generierung
+schlägt fehl, wird keine gleichartige Ersatz-Session angelegt, sondern ein
+sichtbarer Fehler zurückgegeben.

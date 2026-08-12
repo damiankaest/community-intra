@@ -45,6 +45,7 @@ export interface MysterySession {
   atmosphere: string
   currentScene?: MysteryScene
   evidence: MysteryEvidence[]
+  puzzles: MysteryPuzzleArchive[]
   characters: MysteryCharacter[]
   decisions: MysteryDecision[]
   solvedPuzzleCount: number
@@ -58,6 +59,7 @@ export interface MysterySession {
 export interface MysteryScene {
   id: string
   chapter: number
+  isOpening: boolean
   kind: MysterySceneKind
   title: string
   narrative: string
@@ -72,6 +74,14 @@ export interface MysteryPuzzle {
   id: string
   prompt: string
   inputType: 'text' | 'code'
+  isSolved: boolean
+}
+
+export interface MysteryPuzzleArchive {
+  id: string
+  sceneTitle: string
+  chapter: number
+  prompt: string
   isSolved: boolean
 }
 

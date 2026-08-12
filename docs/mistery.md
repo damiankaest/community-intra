@@ -85,16 +85,28 @@ und eine erforderliche Entscheidung getroffen wurde. Beim Szenenwechsel deckt
 die Engine ausschließlich die für diese Szene vorgesehenen Beweise,
 Charaktere, Locations und Flags auf.
 
+Alle bereits entdeckten Spuren, Personen und vollständigen Rätselaufgaben
+bleiben im Fallarchiv erreichbar. Das Archiv wird aus dem serverseitigen
+Fortschritt projiziert und enthält weder Lösungen noch zukünftige Aufgaben.
+
 ## LLM-Integration
 
 `IMysteryLlmProvider` kapselt den Anbieter. Die erste Implementierung verwendet
 die OpenAI Responses API mit einem strikten JSON-Schema. API-Key, Modell und
 Endpoint werden serverseitig konfiguriert und niemals an den Browser gesendet.
 
-Ohne API-Key steht für lokale Entwicklung ein kleiner, regelbasierter
-Fallback-Fall zur Verfügung. Ein echtes Spiel sollte mit konfiguriertem
-LLM-Provider erstellt werden, damit auch der Entwickler den generierten Fall
-nicht vorab kennt.
+Ohne API-Key steht für lokale Entwicklung ein prozeduraler, regelbasierter
+Fallback-Fall zur Verfügung. Ist ein API-Key konfiguriert, führen Timeout,
+unvollständige Modellantwort oder eine nicht bestandene Fallvalidierung zu
+`503 Service Unavailable`; es wird dann keine Session mit einer wiederholten
+Fallback-Story angelegt. Der technische Grund wird ausschließlich serverseitig
+protokolliert. Das alte Verhalten kann für rein lokale Installationen bewusst
+mit `Mystery__FallbackOnGenerationError=true` aktiviert werden.
+
+Die Generierung prüft Schwierigkeit und Erzähltempo zusätzlich: Auf „mittel“
+sind mindestens zwei mehrstufige Rätsel erforderlich, auf „schwer“ mindestens
+drei. Neue verdächtige Personen werden nacheinander statt gesammelt in der
+Eröffnung eingeführt.
 
 Die KI erzeugt den vollständigen Fall, kontrolliert aber nicht die Progression.
 Kapitelwechsel, Antwortprüfung, Freigaben und Finale werden deterministisch von

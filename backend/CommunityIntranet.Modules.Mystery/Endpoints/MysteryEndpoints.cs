@@ -71,7 +71,18 @@ public static class MysteryEndpoints
                 .ToArray() ?? []
         };
 
-        var generated = await provider.GenerateCaseAsync(configuration, cancellationToken);
+        MysteryCaseGenerationResult generated;
+        try
+        {
+            generated = await provider.GenerateCaseAsync(configuration, cancellationToken);
+        }
+        catch (MysteryGenerationException)
+        {
+            return Results.Problem(
+                title: "Fallgenerierung fehlgeschlagen",
+                detail: "Der KI-Game-Master konnte den Fall nicht sicher fertigstellen. Es wurde keine Session angelegt. Versucht es bitte erneut; der technische Grund wurde im Backend protokolliert.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
         var mysteryCase = MysteryCaseGuard.ValidateAndNormalize(generated.Case, configuration);
         var state = MysteryGameEngine.CreateInitialState(mysteryCase);
         var now = timeProvider.GetUtcNow();

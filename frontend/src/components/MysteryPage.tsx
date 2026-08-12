@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  Archive,
   ArrowLeft,
   ArrowRight,
   BookOpen,
@@ -17,6 +18,7 @@ import {
   Copy,
   DoorOpen,
   Fingerprint,
+  FileQuestion,
   KeyRound,
   Lightbulb,
   LoaderCircle,
@@ -30,7 +32,6 @@ import {
   Sparkles,
   Trash2,
   TriangleAlert,
-  Users,
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
@@ -680,7 +681,7 @@ function MysteryGame({ sessionId }: { sessionId: string }) {
         </div>
 
         <aside className="grid content-start gap-5">
-          <EvidenceBoard game={game} />
+          <CaseArchive game={game} />
           <section className="mystery-panel rounded-2xl p-5">
             <div className="flex items-center justify-between">
               <h2 className="flex items-center gap-2 font-bold text-[#f4ead7]">
@@ -756,6 +757,24 @@ function SceneCard({
         </div>
       </div>
       <div className="px-5 py-7 sm:px-8 sm:py-9">
+        {scene.isOpening && (
+          <div className="mb-7 rounded-2xl border border-[#765f3c]/20 bg-[#fffaf0]/55 p-4 sm:p-5">
+            <p className="text-[10px] font-black tracking-[0.2em] text-[#8f2d2d] uppercase">
+              Bevor ihr beginnt
+            </p>
+            <ol className="mt-3 grid gap-2 text-sm leading-6 text-[#59483a] sm:grid-cols-3">
+              <li>
+                <strong>1.</strong> Eine Person liest die Szene laut vor.
+              </li>
+              <li>
+                <strong>2.</strong> Besprecht erst eure Beobachtungen.
+              </li>
+              <li>
+                <strong>3.</strong> Alles Entdeckte bleibt im Fallarchiv.
+              </li>
+            </ol>
+          </div>
+        )}
         <h2 className="font-serif text-4xl text-[#241c16] sm:text-5xl">
           {scene.title}
         </h2>
@@ -873,59 +892,140 @@ function SceneCard({
   )
 }
 
-function EvidenceBoard({ game }: { game: MysterySession }) {
+type ArchiveTab = 'evidence' | 'puzzles' | 'characters'
+
+function CaseArchive({ game }: { game: MysterySession }) {
+  const [selection, setSelection] = useState<{
+    tab: ArchiveTab
+    sceneId?: string
+  }>({ tab: 'evidence', sceneId: game.currentScene?.id })
+  const currentPuzzleId = game.currentScene?.puzzle?.id
+  const tab =
+    currentPuzzleId && selection.sceneId !== game.currentScene?.id
+      ? 'puzzles'
+      : selection.tab
+
+  const tabs: { id: ArchiveTab; label: string; count: number }[] = [
+    { id: 'evidence', label: 'Spuren', count: game.evidence.length },
+    { id: 'puzzles', label: 'Rätsel', count: game.puzzles.length },
+    { id: 'characters', label: 'Personen', count: game.characters.length },
+  ]
+
   return (
     <section className="mystery-panel rounded-2xl p-5">
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-2 font-bold text-[#f4ead7]">
-          <Search size={17} className="text-[#e7bd71]" /> Ermittlungswand
+          <Archive size={17} className="text-[#e7bd71]" /> Fallarchiv
         </h2>
-        <span className="text-xs text-white/35">
-          {game.evidence.length} Spuren
-        </span>
+        <span className="text-xs text-white/35">wird automatisch ergänzt</span>
       </div>
-      <div className="mt-4 grid gap-3">
-        {game.evidence.length === 0 && (
-          <p className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-white/35">
-            Noch keine gesicherten Beweise.
-          </p>
-        )}
-        {game.evidence.map((evidence, index) => (
-          <article
-            className={`mystery-evidence-note rounded-sm p-4 ${index % 2 ? '-rotate-[0.4deg]' : 'rotate-[0.35deg]'}`}
-            key={evidence.id}
+
+      <div className="mt-4 grid grid-cols-3 gap-1 rounded-xl bg-black/15 p-1">
+        {tabs.map((item) => (
+          <button
+            type="button"
+            key={item.id}
+            className={`rounded-lg px-2 py-2 text-xs font-bold transition ${
+              tab === item.id
+                ? 'bg-[#b4935d]/20 text-[#f4ead7]'
+                : 'text-white/40 hover:text-white/65'
+            }`}
+            onClick={() =>
+              setSelection({ tab: item.id, sceneId: game.currentScene?.id })
+            }
           >
-            <p className="text-xs font-black tracking-wide text-[#493729] uppercase">
-              {evidence.title}
-            </p>
-            <p className="mt-2 text-xs leading-5 text-[#675443]">
-              {evidence.description}
-            </p>
-          </article>
+            {item.label} <span className="ml-1 opacity-55">{item.count}</span>
+          </button>
         ))}
       </div>
 
-      <h3 className="mt-6 flex items-center gap-2 text-xs font-black tracking-[0.15em] text-white/45 uppercase">
-        <Users size={14} /> Bekannte Personen
-      </h3>
-      <div className="mt-3 grid gap-2">
-        {game.characters.map((character) => (
-          <details
-            key={character.id}
-            className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2.5 text-sm"
-          >
-            <summary className="cursor-pointer font-bold text-white/75">
-              {character.name}{' '}
-              <span className="font-normal text-white/35">
-                · {character.role}
-              </span>
-            </summary>
-            <p className="mt-2 text-xs leading-5 text-white/45">
-              {character.description}
+      {tab === 'evidence' && (
+        <div className="mt-4 grid gap-3">
+          {game.evidence.length === 0 && (
+            <p className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-white/35">
+              Noch keine gesicherten Beweise.
             </p>
-          </details>
-        ))}
-      </div>
+          )}
+          {game.evidence.map((evidence, index) => (
+            <article
+              className={`mystery-evidence-note rounded-sm p-4 ${index % 2 ? '-rotate-[0.4deg]' : 'rotate-[0.35deg]'}`}
+              key={evidence.id}
+            >
+              <p className="text-xs font-black tracking-wide text-[#493729] uppercase">
+                {evidence.title}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-[#675443]">
+                {evidence.description}
+              </p>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {tab === 'puzzles' && (
+        <div className="mt-4 grid gap-3">
+          {game.puzzles.length === 0 && (
+            <p className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-white/35">
+              Noch kein Rätsel entdeckt. Sobald eines auftaucht, bleibt seine
+              vollständige Aufgabenstellung hier erhalten.
+            </p>
+          )}
+          {game.puzzles.map((puzzle) => (
+            <article
+              key={puzzle.id}
+              className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p className="flex items-center gap-2 text-xs font-bold text-white/75">
+                  <FileQuestion size={15} className="shrink-0 text-[#e7bd71]" />
+                  {puzzle.sceneTitle}
+                </p>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black uppercase ${
+                    puzzle.isSolved
+                      ? 'bg-emerald-400/10 text-emerald-200'
+                      : 'bg-[#8f2d2d]/20 text-[#efb1a5]'
+                  }`}
+                >
+                  {puzzle.isSolved ? 'gelöst' : 'offen'}
+                </span>
+              </div>
+              <p className="mt-3 text-xs leading-5 whitespace-pre-line text-white/50">
+                {puzzle.prompt}
+              </p>
+              <p className="mt-3 text-[10px] font-bold tracking-wide text-white/25 uppercase">
+                Kapitel {puzzle.chapter}
+              </p>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {tab === 'characters' && (
+        <div className="mt-4 grid gap-2">
+          {game.characters.length === 0 && (
+            <p className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-white/35">
+              Noch wurde euch niemand persönlich vorgestellt.
+            </p>
+          )}
+          {game.characters.map((character) => (
+            <details
+              key={character.id}
+              className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2.5 text-sm"
+            >
+              <summary className="cursor-pointer font-bold text-white/75">
+                {character.name}{' '}
+                <span className="font-normal text-white/35">
+                  · {character.role}
+                </span>
+              </summary>
+              <p className="mt-2 text-xs leading-5 text-white/45">
+                {character.description}
+              </p>
+            </details>
+          ))}
+        </div>
+      )}
     </section>
   )
 }
